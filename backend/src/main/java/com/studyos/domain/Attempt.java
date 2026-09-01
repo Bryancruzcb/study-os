@@ -1,0 +1,29 @@
+package com.studyos.domain;
+
+import jakarta.persistence.*;
+import java.time.Instant;
+import java.time.LocalDate;
+
+@Entity
+public class Attempt {
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    public Long id;
+    @ManyToOne(optional = false)
+    public Question question;
+    @Column(length = 8000)
+    public String givenAnswer;
+    @Enumerated(EnumType.STRING)
+    public Verdict verdict;
+    public Double score;         // 0/1 MC, 0.0-1.0 short answer
+    @Column(length = 4000)
+    public String feedback;
+    @Column(length = 8000)
+    public String graderRaw;     // raw grader JSON, null for MC / PENDING
+    public boolean overridden = false;
+    public Instant createdAt;
+    // ReviewState snapshot taken when the schedule update was applied (null while PENDING)
+    public Integer prevInterval;
+    public Double prevEase;
+    public Integer prevStreak;
+    public LocalDate prevDueDate;
+}
