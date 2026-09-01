@@ -37,8 +37,10 @@ docker-compose.yml   Postgres
 - Single-user, no auth, no User table.
 - Postgres via docker-compose (`docker compose up` is the only prerequisite besides JDK + Node).
 - AI calls through the official Anthropic Java SDK (`com.anthropic:anthropic-java`).
-- Lecture PDFs go to Claude as native document blocks with citations enabled. Returned
-  concepts and questions carry page-level citations. No PDF-parsing library in v1.
+- Lecture PDFs go to Claude as native document blocks. The structured-output schema carries
+  `sourcePages` on every concept and question (the API's citations feature is incompatible
+  with structured outputs, so pages are schema fields, not citation blocks). No PDF-parsing
+  library in v1.
 - Models are config-driven, not hardcoded: `app.model.generation` and `app.model.grading`,
   both defaulting to `claude-opus-5`. Dropping grading to `claude-haiku-4-5` is a known cost
   lever, exercised by config change only.
@@ -63,8 +65,8 @@ JPA entities. Names are final; fields listed are the v1 minimum.
 
 1. Upload a PDF against a course. Material row created `PENDING`; file hash recorded.
 2. Re-upload of an identical hash is a no-op (idempotent ingest).
-3. Backend sends the PDF to the generation model with citations enabled; a structured-output
-   schema returns concepts, each with MC and short-answer questions cited to pages.
+3. Backend sends the PDF to the generation model; a structured-output schema returns
+   concepts, each with MC and short-answer questions carrying `sourcePages`.
 4. On success: Concept/Question rows written, Material `INGESTED`, ReviewState created per
    concept with due date = today.
 5. On failure: Material `FAILED` with the error; no partial rows kept; retry is a fresh ingest.
