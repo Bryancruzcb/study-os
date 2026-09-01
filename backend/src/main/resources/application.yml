@@ -4,6 +4,7 @@ spring:
     username: studyos
     password: studyos
   jpa:
+    open-in-view: false
     hibernate:
       ddl-auto: update
   servlet:
