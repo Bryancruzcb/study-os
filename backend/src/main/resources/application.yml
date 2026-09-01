@@ -1,0 +1,16 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/studyos
+    username: studyos
+    password: studyos
+  jpa:
+    hibernate:
+      ddl-auto: update
+  servlet:
+    multipart:
+      max-file-size: 32MB
+      max-request-size: 33MB
+app:
+  model:
+    generation: claude-opus-5
+    grading: claude-opus-5
