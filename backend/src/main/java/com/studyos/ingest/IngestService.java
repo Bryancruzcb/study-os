@@ -12,6 +12,7 @@ import com.studyos.repo.*;
 import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
@@ -91,10 +92,34 @@ public class IngestService {
 
     private IngestPayload extractWithOneRetry(byte[] pdfBytes, String courseName) {
         try {
-            return ai.extract(pdfBytes, courseName);
+            return validate(ai.extract(pdfBytes, courseName));
         } catch (AiException first) {
-            return ai.extract(pdfBytes, courseName);
+            return validate(ai.extract(pdfBytes, courseName));
         }
+    }
+
+    // A payload that passes the provider's schema can still be unmappable (the schema does not
+    // constrain question type). Reject it here so it takes the same retry-then-FAILED path as a
+    // provider failure instead of escaping the mapping loop and rolling the Material back.
+    private static IngestPayload validate(IngestPayload payload) {
+        if (payload == null || payload.concepts() == null) {
+            throw new AiException("extraction returned no concepts");
+        }
+        for (ConceptPayload cp : payload.concepts()) {
+            if (cp.questions() == null) {
+                throw new AiException("concept has no questions: " + cp.name());
+            }
+            for (QuestionPayload qp : cp.questions()) {
+                if (!isQuestionType(qp.type())) {
+                    throw new AiException("invalid question type: " + qp.type());
+                }
+            }
+        }
+        return payload;
+    }
+
+    private static boolean isQuestionType(String type) {
+        return type != null && Arrays.stream(QuestionType.values()).anyMatch(t -> t.name().equals(type));
     }
 
     private String joinPages(ConceptPayload cp) {

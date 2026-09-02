@@ -5,12 +5,16 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import com.studyos.ai.AiException;
+import com.studyos.ai.ConceptPayload;
 import com.studyos.ai.FakeAiClient;
+import com.studyos.ai.IngestPayload;
+import com.studyos.ai.QuestionPayload;
 import com.studyos.domain.*;
 import com.studyos.repo.*;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -67,6 +71,20 @@ class IngestServiceTest {
         Material m = service.ingest(1L, "week1.pdf", new byte[] {1, 2, 3});
         assertEquals(MaterialStatus.FAILED, m.status);
         assertTrue(m.errorMessage.contains("boom"));
+        assertEquals(2, ai.extractCalls);
+        verify(conceptRepo, never()).save(any());
+    }
+
+    @Test
+    void invalidQuestionTypeRetriesOnceThenFails() {
+        ConceptPayload good = FakeAiClient.samplePayload().concepts().get(0);
+        QuestionPayload bad = new QuestionPayload("multiple_choice", "How many steps in the TCP handshake?",
+            List.of("1", "2", "3", "4"), 2, null, null, List.of(3));
+        ai.nextExtract = new IngestPayload(List.of(new ConceptPayload(
+            good.name(), good.summary(), good.sourcePages(), List.of(bad, good.questions().get(1)))));
+        Material m = service.ingest(1L, "week1.pdf", new byte[] {1, 2, 3});
+        assertEquals(MaterialStatus.FAILED, m.status);
+        assertTrue(m.errorMessage.contains("multiple_choice"));
         assertEquals(2, ai.extractCalls);
         verify(conceptRepo, never()).save(any());
     }
