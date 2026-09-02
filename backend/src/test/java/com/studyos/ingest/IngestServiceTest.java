@@ -91,7 +91,11 @@ class IngestServiceTest {
 
     @Test
     void failedMaterialWithSameHashIsRetried() {
+        Course otherCourse = new Course();
+        otherCourse.id = 2L;
         Material failed = new Material();
+        failed.course = otherCourse;
+        failed.filename = "old-name.pdf";
         failed.status = MaterialStatus.FAILED;
         failed.errorMessage = "boom";
         when(materialRepo.findByFileHash(any())).thenReturn(Optional.of(failed));
@@ -100,6 +104,8 @@ class IngestServiceTest {
         assertSame(failed, m);
         assertEquals(MaterialStatus.INGESTED, m.status);
         assertNull(m.errorMessage);
+        assertSame(course, m.course);
+        assertEquals("week1.pdf", m.filename);
         assertEquals(1, ai.extractCalls);
         verify(conceptRepo, times(1)).save(any());
     }

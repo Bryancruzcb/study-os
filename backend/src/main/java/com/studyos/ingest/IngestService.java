@@ -50,8 +50,12 @@ public class IngestService {
         Material material;
         if (existing.isPresent()) {
             // fileHash is unique and there is no retry endpoint, so a FAILED row would block this
-            // PDF forever. Reuse it (it has no concepts) and run the pipeline again.
+            // PDF forever. Reuse it (it has no concepts) and run the pipeline again. The row must
+            // describe the upload that succeeds, so it takes this call's course and filename, the
+            // same course every new Concept is attached to below.
             material = existing.get();
+            material.course = course;
+            material.filename = filename;
             material.status = MaterialStatus.PENDING;
             material.errorMessage = null;
         } else {
