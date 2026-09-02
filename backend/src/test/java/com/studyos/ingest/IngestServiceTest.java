@@ -132,4 +132,49 @@ class IngestServiceTest {
         assertEquals(2, ai.extractCalls);
         verify(conceptRepo, never()).save(any());
     }
+
+    @Test
+    void mcWithoutOptionsRetriesOnceThenFails() {
+        ConceptPayload good = FakeAiClient.samplePayload().concepts().get(0);
+        QuestionPayload bad = new QuestionPayload("MC", "How many steps in the TCP handshake?",
+            null, 2, null, null, List.of(3));
+        ai.nextExtract = new IngestPayload(List.of(new ConceptPayload(
+            good.name(), good.summary(), good.sourcePages(), List.of(bad, good.questions().get(1)))));
+        Material m = service.ingest(1L, "week1.pdf", new byte[] {1, 2, 3});
+        assertEquals(MaterialStatus.FAILED, m.status);
+        assertTrue(m.errorMessage.contains("options"));
+        assertTrue(m.errorMessage.contains("How many steps"));
+        assertEquals(2, ai.extractCalls);
+        verify(conceptRepo, never()).save(any());
+    }
+
+    @Test
+    void mcWithOutOfRangeIndexRetriesOnceThenFails() {
+        ConceptPayload good = FakeAiClient.samplePayload().concepts().get(0);
+        QuestionPayload bad = new QuestionPayload("MC", "How many steps in the TCP handshake?",
+            List.of("1", "2", "3", "4"), 4, null, null, List.of(3));
+        ai.nextExtract = new IngestPayload(List.of(new ConceptPayload(
+            good.name(), good.summary(), good.sourcePages(), List.of(bad, good.questions().get(1)))));
+        Material m = service.ingest(1L, "week1.pdf", new byte[] {1, 2, 3});
+        assertEquals(MaterialStatus.FAILED, m.status);
+        assertTrue(m.errorMessage.contains("correctIndex"));
+        assertTrue(m.errorMessage.contains("How many steps"));
+        assertEquals(2, ai.extractCalls);
+        verify(conceptRepo, never()).save(any());
+    }
+
+    @Test
+    void shortAnswerWithoutModelAnswerRetriesOnceThenFails() {
+        ConceptPayload good = FakeAiClient.samplePayload().concepts().get(0);
+        QuestionPayload bad = new QuestionPayload("SHORT_ANSWER", "Describe the TCP three-way handshake.",
+            null, null, null, "- names all three segments\n- correct order", List.of(3, 4));
+        ai.nextExtract = new IngestPayload(List.of(new ConceptPayload(
+            good.name(), good.summary(), good.sourcePages(), List.of(good.questions().get(0), bad))));
+        Material m = service.ingest(1L, "week1.pdf", new byte[] {1, 2, 3});
+        assertEquals(MaterialStatus.FAILED, m.status);
+        assertTrue(m.errorMessage.contains("modelAnswer"));
+        assertTrue(m.errorMessage.contains("Describe the TCP"));
+        assertEquals(2, ai.extractCalls);
+        verify(conceptRepo, never()).save(any());
+    }
 }

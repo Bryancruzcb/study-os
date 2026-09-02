@@ -14,6 +14,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -126,6 +127,7 @@ public class IngestService {
                 if (!isQuestionType(qp.type())) {
                     throw new AiException("invalid question type: " + qp.type());
                 }
+                validateFieldsForType(qp);
             }
         }
         return payload;
@@ -133,6 +135,40 @@ public class IngestService {
 
     private static boolean isQuestionType(String type) {
         return type != null && Arrays.stream(QuestionType.values()).anyMatch(t -> t.name().equals(type));
+    }
+
+    // The schema marks every type-specific field nullable, so a well-typed question can still be
+    // missing what its type needs to be asked or graded. Extra fields on the other type are fine.
+    private static void validateFieldsForType(QuestionPayload qp) {
+        switch (QuestionType.valueOf(qp.type())) {
+            case MC -> {
+                List<String> options = qp.options();
+                if (options == null || options.size() < 2
+                        || options.stream().anyMatch(o -> o == null || o.isBlank())) {
+                    throw new AiException(describe(qp) + ": MC needs at least 2 non-blank options");
+                }
+                Integer idx = qp.correctIndex();
+                if (idx == null || idx < 0 || idx >= options.size()) {
+                    throw new AiException(describe(qp) + ": MC correctIndex must be 0.."
+                        + (options.size() - 1) + " but was " + idx);
+                }
+            }
+            case SHORT_ANSWER -> {
+                if (isBlank(qp.modelAnswer()) || isBlank(qp.rubric())) {
+                    throw new AiException(describe(qp) + ": SHORT_ANSWER needs modelAnswer and rubric");
+                }
+            }
+        }
+    }
+
+    private static boolean isBlank(String s) {
+        return s == null || s.isBlank();
+    }
+
+    private static String describe(QuestionPayload qp) {
+        String prompt = qp.prompt() == null ? "" : qp.prompt();
+        if (prompt.length() > 60) prompt = prompt.substring(0, 60) + "...";
+        return "question \"" + prompt + "\"";
     }
 
     private String joinPages(ConceptPayload cp) {
