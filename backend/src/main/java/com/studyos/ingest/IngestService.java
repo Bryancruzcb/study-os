@@ -119,7 +119,7 @@ public class IngestService {
             throw new AiException("extraction returned no concepts");
         }
         for (ConceptPayload cp : payload.concepts()) {
-            if (cp.questions() == null) {
+            if (cp.questions() == null || cp.questions().isEmpty()) {
                 throw new AiException("concept has no questions: " + cp.name());
             }
             for (QuestionPayload qp : cp.questions()) {

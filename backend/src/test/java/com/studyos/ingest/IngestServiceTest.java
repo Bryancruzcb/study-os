@@ -115,6 +115,21 @@ class IngestServiceTest {
         ai.nextExtract = new IngestPayload(List.of());
         Material m = service.ingest(1L, "week1.pdf", new byte[] {1, 2, 3});
         assertEquals(MaterialStatus.FAILED, m.status);
+        assertTrue(m.errorMessage.contains("no concepts"));
         assertEquals(2, ai.extractCalls);
+        verify(conceptRepo, never()).save(any());
+    }
+
+    @Test
+    void conceptWithNoQuestionsRetriesOnceThenFails() {
+        ConceptPayload good = FakeAiClient.samplePayload().concepts().get(0);
+        ai.nextExtract = new IngestPayload(List.of(new ConceptPayload(
+            good.name(), good.summary(), good.sourcePages(), List.of())));
+        Material m = service.ingest(1L, "week1.pdf", new byte[] {1, 2, 3});
+        assertEquals(MaterialStatus.FAILED, m.status);
+        assertTrue(m.errorMessage.contains("no questions"));
+        assertTrue(m.errorMessage.contains(good.name()));
+        assertEquals(2, ai.extractCalls);
+        verify(conceptRepo, never()).save(any());
     }
 }
