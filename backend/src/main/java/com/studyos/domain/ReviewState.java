@@ -1,5 +1,6 @@
 package com.studyos.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import java.time.LocalDate;
 
@@ -8,6 +9,7 @@ public class ReviewState {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     public Long id;
     @OneToOne(optional = false)
+    @JsonIgnore
     public Concept concept;
     public int intervalDays;
     public double ease;

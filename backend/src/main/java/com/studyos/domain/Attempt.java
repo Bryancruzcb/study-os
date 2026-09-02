@@ -1,5 +1,6 @@
 package com.studyos.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -9,6 +10,7 @@ public class Attempt {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     public Long id;
     @ManyToOne(optional = false)
+    @JsonIgnore
     public Question question;
     @Column(length = 8000)
     public String givenAnswer;

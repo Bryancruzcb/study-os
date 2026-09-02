@@ -1,5 +1,6 @@
 package com.studyos.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 
 @Entity
@@ -7,6 +8,7 @@ public class Question {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     public Long id;
     @ManyToOne(optional = false)
+    @JsonIgnore
     public Concept concept;
     @Enumerated(EnumType.STRING)
     public QuestionType type;
