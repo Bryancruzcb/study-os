@@ -88,4 +88,27 @@ class IngestServiceTest {
         assertEquals(2, ai.extractCalls);
         verify(conceptRepo, never()).save(any());
     }
+
+    @Test
+    void failedMaterialWithSameHashIsRetried() {
+        Material failed = new Material();
+        failed.status = MaterialStatus.FAILED;
+        failed.errorMessage = "boom";
+        when(materialRepo.findByFileHash(any())).thenReturn(Optional.of(failed));
+        ai.nextExtract = FakeAiClient.samplePayload();
+        Material m = service.ingest(1L, "week1.pdf", new byte[] {1, 2, 3});
+        assertSame(failed, m);
+        assertEquals(MaterialStatus.INGESTED, m.status);
+        assertNull(m.errorMessage);
+        assertEquals(1, ai.extractCalls);
+        verify(conceptRepo, times(1)).save(any());
+    }
+
+    @Test
+    void emptyExtractionRetriesOnceThenFails() {
+        ai.nextExtract = new IngestPayload(List.of());
+        Material m = service.ingest(1L, "week1.pdf", new byte[] {1, 2, 3});
+        assertEquals(MaterialStatus.FAILED, m.status);
+        assertEquals(2, ai.extractCalls);
+    }
 }

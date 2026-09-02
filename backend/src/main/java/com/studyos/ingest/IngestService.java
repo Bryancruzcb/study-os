@@ -44,13 +44,22 @@ public class IngestService {
     public Material ingest(Long courseId, String filename, byte[] pdfBytes) {
         String hash = sha256(pdfBytes);
         var existing = materialRepo.findByFileHash(hash);
-        if (existing.isPresent()) return existing.get();
+        if (existing.isPresent() && existing.get().status != MaterialStatus.FAILED) return existing.get();
 
         Course course = courseRepo.findById(courseId).orElseThrow();
-        Material material = new Material();
-        material.course = course;
-        material.filename = filename;
-        material.fileHash = hash;
+        Material material;
+        if (existing.isPresent()) {
+            // fileHash is unique and there is no retry endpoint, so a FAILED row would block this
+            // PDF forever. Reuse it (it has no concepts) and run the pipeline again.
+            material = existing.get();
+            material.status = MaterialStatus.PENDING;
+            material.errorMessage = null;
+        } else {
+            material = new Material();
+            material.course = course;
+            material.filename = filename;
+            material.fileHash = hash;
+        }
         material = materialRepo.save(material);
 
         IngestPayload payload;
@@ -102,7 +111,7 @@ public class IngestService {
     // constrain question type). Reject it here so it takes the same retry-then-FAILED path as a
     // provider failure instead of escaping the mapping loop and rolling the Material back.
     private static IngestPayload validate(IngestPayload payload) {
-        if (payload == null || payload.concepts() == null) {
+        if (payload == null || payload.concepts() == null || payload.concepts().isEmpty()) {
             throw new AiException("extraction returned no concepts");
         }
         for (ConceptPayload cp : payload.concepts()) {
