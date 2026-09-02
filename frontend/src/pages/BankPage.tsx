@@ -24,7 +24,8 @@ export default function BankPage() {
     setUploading(true)
     setError(null)
     try {
-      await api.upload(courseId, file)
+      const m = await api.upload(courseId, file)
+      if (m.status === 'FAILED') setError(m.errorMessage ?? 'Ingest failed')
       setBank(await api.bank(courseId))
     } catch (e) {
       setError(String(e))
@@ -34,16 +35,24 @@ export default function BankPage() {
   }
 
   async function onRetire(qid: number) {
-    await api.retire(qid)
-    if (courseId != null) setBank(await api.bank(courseId))
+    try {
+      await api.retire(qid)
+      if (courseId != null) setBank(await api.bank(courseId))
+    } catch (e) {
+      setError(String(e))
+    }
   }
 
   async function onCreateCourse() {
     const name = prompt('Course name?')
     if (!name) return
-    const c = await api.createCourse(name, 'Fall 2026')
-    setCourses([...courses, c])
-    setCourseId(c.id)
+    try {
+      const c = await api.createCourse(name, 'Fall 2026')
+      setCourses([...courses, c])
+      setCourseId(c.id)
+    } catch (e) {
+      setError(String(e))
+    }
   }
 
   return (
@@ -55,7 +64,11 @@ export default function BankPage() {
       </select>
       <button onClick={onCreateCourse}>New course</button>
       <input type="file" accept="application/pdf" disabled={uploading}
-        onChange={e => e.target.files?.[0] && onUpload(e.target.files[0])} />
+        onChange={e => {
+          const file = e.target.files?.[0]
+          e.target.value = ''
+          if (file) onUpload(file)
+        }} />
       {uploading && <p>Ingesting… this takes a minute.</p>}
       {bank.map(c => (
         <section key={c.id}>

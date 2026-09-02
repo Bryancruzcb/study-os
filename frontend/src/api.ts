@@ -15,6 +15,12 @@ export interface ConceptWithQuestions {
   sourcePages: string | null
   questions: Question[]
 }
+export interface Material {
+  id: number
+  filename: string
+  status: 'PENDING' | 'INGESTED' | 'FAILED'
+  errorMessage: string | null
+}
 
 async function get<T>(url: string): Promise<T> {
   const res = await fetch(url)
@@ -44,6 +50,6 @@ export const api = {
   courses: () => get<Course[]>('/api/courses'),
   createCourse: (name: string, term: string) => post<Course>('/api/courses', { name, term }),
   bank: (courseId: number) => get<ConceptWithQuestions[]>(`/api/courses/${courseId}/bank`),
-  upload: (courseId: number, file: File) => uploadFile(`/api/courses/${courseId}/materials`, file),
+  upload: (courseId: number, file: File) => uploadFile<Material>(`/api/courses/${courseId}/materials`, file),
   retire: (questionId: number) => post(`/api/questions/${questionId}/retire`, {}),
 }

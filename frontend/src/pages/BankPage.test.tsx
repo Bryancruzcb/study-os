@@ -1,5 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
+import { api } from '../api'
 import BankPage from './BankPage'
 
 vi.mock('../api', () => ({
@@ -24,4 +26,22 @@ test('renders concepts with questions and page citations', async () => {
   await waitFor(() => expect(screen.getByText('TCP handshake')).toBeInTheDocument())
   expect(screen.getByText(/pp\. 3,4/)).toBeInTheDocument()
   expect(screen.getByText('Steps?')).toBeInTheDocument()
+})
+
+test('shows a failed retire in the alert', async () => {
+  vi.mocked(api.retire).mockRejectedValueOnce(new Error('500 /api/questions/9/retire'))
+  render(<BankPage />)
+  await userEvent.click(await screen.findByRole('button', { name: 'retire' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('500 /api/questions/9/retire')
+})
+
+test('shows a failed ingest in the alert and refreshes the bank', async () => {
+  vi.mocked(api.upload).mockResolvedValueOnce({ id: 2, filename: 'week1.pdf', status: 'FAILED', errorMessage: 'boom' })
+  const { container } = render(<BankPage />)
+  await screen.findByText('TCP handshake')
+  const bankCalls = vi.mocked(api.bank).mock.calls.length
+  const input = container.querySelector<HTMLInputElement>('input[type="file"]')!
+  await userEvent.upload(input, new File(['%PDF-1.4'], 'week1.pdf', { type: 'application/pdf' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('boom')
+  await waitFor(() => expect(vi.mocked(api.bank).mock.calls.length).toBe(bankCalls + 1))
 })
