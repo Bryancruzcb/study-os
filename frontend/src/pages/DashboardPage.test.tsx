@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import { vi } from 'vitest'
 import DashboardPage from './DashboardPage'
+import { api } from '../api'
 
 vi.mock('../api', () => ({
   api: {
@@ -17,4 +18,10 @@ test('renders due count and concept rows', async () => {
   await waitFor(() => expect(screen.getByText(/2 due today/)).toBeInTheDocument())
   expect(screen.getByText('TCP')).toBeInTheDocument()
   expect(screen.getByText('3/4')).toBeInTheDocument()
+})
+
+test('shows an alert when the dashboard load fails', async () => {
+  vi.mocked(api.dashboard).mockRejectedValueOnce(new Error('500 /api/dashboard'))
+  render(<DashboardPage />)
+  await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('500 /api/dashboard'))
 })

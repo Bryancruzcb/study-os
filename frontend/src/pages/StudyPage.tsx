@@ -1,18 +1,25 @@
 import { useCallback, useEffect, useState } from 'react'
-import { api, type Attempt, type Course, type Question } from '../api'
+import { api, type Attempt, type Course, type StudyQuestion } from '../api'
 
 export default function StudyPage() {
   const [courses, setCourses] = useState<Course[]>([])
   const [courseId, setCourseId] = useState<number | null>(null)
-  const [question, setQuestion] = useState<Question | null>(null)
+  const [question, setQuestion] = useState<StudyQuestion | null>(null)
   const [attempt, setAttempt] = useState<Attempt | null>(null)
   const [done, setDone] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async (cid: number) => {
     setAttempt(null)
-    const q = await api.next(cid)
-    setQuestion(q)
-    setDone(q === null)
+    setError(null)
+    try {
+      const q = await api.next(cid)
+      setQuestion(q)
+      setDone(q === null)
+    } catch (e) {
+      setError(String(e))
+    }
   }, [])
 
   useEffect(() => {
@@ -22,19 +29,26 @@ export default function StudyPage() {
         setCourseId(cs[0].id)
         load(cs[0].id)
       }
-    })
+    }).catch(e => setError(String(e)))
   }, [load])
 
   async function answerMc(index: number) {
-    if (!question) return
-    setAttempt(await api.answer({ questionId: question.id, answerIndex: index }))
+    if (!question || submitting) return
+    setSubmitting(true)
+    setError(null)
+    try {
+      setAttempt(await api.answer({ questionId: question.id, answerIndex: index }))
+    } catch (e) {
+      setError(String(e))
+    } finally {
+      setSubmitting(false)
+    }
   }
-
-  const options: string[] = question?.optionsJson ? JSON.parse(question.optionsJson) : []
 
   return (
     <div>
       <h2>Study</h2>
+      {error && <p role="alert">{error}</p>}
       <select value={courseId ?? ''} onChange={e => {
         const cid = Number(e.target.value)
         setCourseId(cid)
@@ -47,7 +61,8 @@ export default function StudyPage() {
         <div>
           <p>{question.prompt} <small>pp. {question.sourcePages}</small></p>
           {question.type === 'MC' && !attempt &&
-            options.map((o, i) => <button key={i} onClick={() => answerMc(i)}>{o}</button>)}
+            question.options.map((o, i) =>
+              <button key={i} disabled={submitting} onClick={() => answerMc(i)}>{o}</button>)}
           {attempt && (
             <div>
               <p>{attempt.verdict} {attempt.feedback && `— ${attempt.feedback}`}</p>
