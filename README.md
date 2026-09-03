@@ -1,9 +1,13 @@
 # Study OS
 
-Quiz myself on my own lecture slides. I upload a PDF, get back concepts and questions
-cited to page numbers, then study them daily with spaced repetition. Short answers are
-graded by Claude against a rubric. I can override the grader, and the overrides become
-the dataset that measures it.
+[![CI](https://github.com/Bryancruzcb/study-os/actions/workflows/ci.yml/badge.svg)](https://github.com/Bryancruzcb/study-os/actions/workflows/ci.yml)
+
+Claude grades my short answers against a rubric, I overrule it when it is wrong, and
+every override is counted. The app reports how often the grader and I disagreed, so
+the number it publishes about its own grader is one I can check.
+
+Around that: I upload a lecture PDF, get back concepts and questions cited to their
+source pages, then study them daily with spaced repetition.
 
 ## How it works
 
