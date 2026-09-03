@@ -59,3 +59,16 @@ test('ignores a second click while an answer is pending', async () => {
   resolveAnswer({ id: 1, verdict: 'CORRECT', score: 1, feedback: null })
   await waitFor(() => expect(screen.getByText(/CORRECT/)).toBeInTheDocument())
 })
+
+test('keeps the graded question locked when loading the next one fails', async () => {
+  await renderWithQuestion()
+  await userEvent.click(screen.getByRole('button', { name: '3' }))
+  await waitFor(() => expect(screen.getByText(/CORRECT/)).toBeInTheDocument())
+  vi.mocked(api.next).mockRejectedValueOnce(new Error('500 /api/study/next'))
+  await userEvent.click(screen.getByRole('button', { name: 'Next' }))
+  await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('500 /api/study/next'))
+  expect(screen.getByText(/CORRECT/)).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Next' })).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: '3' })).not.toBeInTheDocument()
+  expect(api.answer).toHaveBeenCalledTimes(1)
+})

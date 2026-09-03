@@ -11,11 +11,11 @@ export default function StudyPage() {
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async (cid: number) => {
-    setAttempt(null)
     setError(null)
     try {
       const q = await api.next(cid)
       setQuestion(q)
+      setAttempt(null)
       setDone(q === null)
     } catch (e) {
       setError(String(e))
