@@ -69,37 +69,57 @@ export default function BankPage() {
   }
 
   return (
-    <div>
-      <h2>Question Bank</h2>
-      {error && <p role="alert">{error}</p>}
-      <select value={courseId ?? ''} onChange={e => setCourseId(Number(e.target.value))}>
-        {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-      </select>
-      <button onClick={onCreateCourse}>New course</button>
-      <input type="file" accept="application/pdf" disabled={uploading}
-        onChange={e => {
-          const file = e.target.files?.[0]
-          e.target.value = ''
-          if (file) onUpload(file)
-        }} />
-      {uploading && <p>Ingesting… this takes a minute.</p>}
-      {bank.map(c => (
-        <section key={c.id}>
-          <h3>{c.name} <small>pp. {c.sourcePages}</small></h3>
-          <p>{c.summary}</p>
-          <ul>
-            {c.questions.map(q => (
-              <li key={q.id} style={{ opacity: q.status === 'RETIRED' ? 0.4 : 1 }}>
-                [{q.type}] <span>{q.prompt}</span> <small>pp. {q.sourcePages}</small>
-                {q.status === 'ACTIVE' && <button onClick={() => onRetire(q.id)}>retire</button>}
-                {/* keyed on the saved labels so a refreshed bank re-seeds the boxes */}
-                <LabelControl key={`${q.labelAnswerable}/${q.labelCorrectAnswer}/${q.labelUnambiguous}`}
-                  question={q} onSave={onLabel} />
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))}
+    <div className="page">
+      <header className="page-head">
+        <h2 className="page-title">Question Bank</h2>
+        <div className="toolbar">
+          <select className="select" value={courseId ?? ''} onChange={e => setCourseId(Number(e.target.value))}>
+            {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          <button className="button button--secondary" onClick={onCreateCourse}>New course</button>
+          <input className="file-input" type="file" accept="application/pdf" disabled={uploading}
+            onChange={e => {
+              const file = e.target.files?.[0]
+              e.target.value = ''
+              if (file) onUpload(file)
+            }} />
+        </div>
+      </header>
+      {error && <p className="alert" role="alert">{error}</p>}
+      {uploading && <p className="empty">Ingesting… this takes a minute.</p>}
+      <div className="bank">
+        {bank.map(c => (
+          <section className="concept" key={c.id}>
+            <div className="concept-head">
+              <h3 className="concept-name">{c.name}</h3>
+              <small className="cite">pp. {c.sourcePages}</small>
+            </div>
+            <p className="concept-summary">{c.summary}</p>
+            <ul className="qlist">
+              {c.questions.map(q => (
+                <li className={q.status === 'RETIRED' ? 'qrow qrow--retired' : 'qrow'} key={q.id}>
+                  <div className="qbody">
+                    <span className="qtype">[{q.type}]</span>
+                    <span className="qprompt">{q.prompt}</span>
+                    <small className="cite">pp. {q.sourcePages}</small>
+                  </div>
+                  <div className="qcontrols">
+                    {/* keyed on the saved labels so a refreshed bank re-seeds the boxes */}
+                    <LabelControl key={`${q.labelAnswerable}/${q.labelCorrectAnswer}/${q.labelUnambiguous}`}
+                      question={q} onSave={onLabel} />
+                    {q.status === 'ACTIVE' && (
+                      <span className="qdanger">
+                        <button className="button button--micro button--danger"
+                          onClick={() => onRetire(q.id)}>retire</button>
+                      </span>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+      </div>
     </div>
   )
 }
@@ -114,11 +134,11 @@ function LabelControl({ question, onSave }: { question: Question; onSave: (qid: 
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(wasLabelled)
   return (
-    <span>
-      <label><input type="checkbox" checked={answerable} disabled={saving} onChange={e => { setAnswerable(e.target.checked); setSaved(false) }} />answerable</label>
-      <label><input type="checkbox" checked={correctAnswer} disabled={saving} onChange={e => { setCorrectAnswer(e.target.checked); setSaved(false) }} />correct</label>
-      <label><input type="checkbox" checked={unambiguous} disabled={saving} onChange={e => { setUnambiguous(e.target.checked); setSaved(false) }} />unambiguous</label>
-      <button disabled={saving} onClick={async () => {
+    <span className="qlabels">
+      <label className="check"><input type="checkbox" checked={answerable} disabled={saving} onChange={e => { setAnswerable(e.target.checked); setSaved(false) }} />answerable</label>
+      <label className="check"><input type="checkbox" checked={correctAnswer} disabled={saving} onChange={e => { setCorrectAnswer(e.target.checked); setSaved(false) }} />correct</label>
+      <label className="check"><input type="checkbox" checked={unambiguous} disabled={saving} onChange={e => { setUnambiguous(e.target.checked); setSaved(false) }} />unambiguous</label>
+      <button className="button button--micro button--secondary" disabled={saving} onClick={async () => {
         setSaving(true)
         const ok = await onSave(question.id, { answerable, correctAnswer, unambiguous })
         setSaving(false)

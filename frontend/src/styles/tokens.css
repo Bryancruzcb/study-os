@@ -1,0 +1,85 @@
+/* Ported from the CreatorFlow token set (01-base.css :root). Dark only: one :root,
+   no prefers-color-scheme block. Values are the extraction's, not CreatorFlow's
+   later hardcoded hexes. */
+:root {
+  color-scheme: dark;
+
+  /* Neutral ramp, dark to light. Warm-green, chroma .004-.012: never neutral grey. */
+  --desk: oklch(18.02% 0.0043 128.73);
+  --graphite: oklch(21.55% 0.0059 121.94);
+  --raised: oklch(25.36% 0.0075 118.35);
+  --raised-strong: oklch(28.4% 0.0085 117);
+  --hairline: oklch(32.59% 0.0104 114.66);
+  --hairline-strong: oklch(41% 0.012 112);
+
+  /* --ink-dim is 66%, not 60/65%: below that it fails AA on --desk. */
+  --ink-dim: oklch(66% 0.0105 102);
+  --ink-muted: oklch(72.36% 0.0114 100.89);
+  --ink: oklch(95.42% 0.008 98.88);
+
+  /* One hue, 249.71, split in two: no single blue cleared 4.5:1 both as a fill
+     under --ink and as a mark on --desk. Deliberately no --blue-accent-hover. */
+  --blue-solid: oklch(48% 0.0627 249.71);
+  --blue-hover: oklch(53% 0.0627 249.71);
+  --blue-down: oklch(44% 0.0627 249.71);
+  --blue-accent: oklch(67% 0.069 249.71);
+
+  /* Semantic chroma caps at .14. --focus is the focus ring only. */
+  --clear: oklch(70% 0.058 151.39);
+  --review: oklch(71.3% 0.1172 80.74);
+  --blocked: oklch(65% 0.14 33.83);
+  --focus: oklch(72% 0.11 249.71);
+
+  --font-sans: 'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Consolas, monospace;
+
+  /* 11px floor: --text-3xs is the smallest type that ships. */
+  --text-3xs: 0.6875rem;
+  --text-2xs: 0.75rem;
+  --text-xs: 0.8125rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 2rem;
+  --text-display: clamp(2.5rem, 1.6rem + 3.4vw, 4rem);
+
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-strong: 600;
+
+  --leading-tight: 1.15;
+  --leading-snug: 1.35;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.6;
+
+  --track-label: 0.14em;
+  --track-mono: 0.02em;
+  --track-normal: 0;
+  --track-tight: -0.02em;
+  --track-tighter: -0.035em;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-24: 6rem;
+
+  --motion-instant: 90ms;
+  --motion-control: 190ms;
+  --motion-panel: 420ms;
+  --motion-story: 680ms;
+  --ease-state: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-artifact: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --depth-hairline: 0 1px 0 oklch(100% 0 0 / 0.035);
+  --depth-raised:
+    0 18px 48px oklch(0% 0 0 / 0.3),
+    0 1px 0 oklch(100% 0 0 / 0.035) inset;
+  --depth-focus: 0 0 0 2px var(--focus);
+}

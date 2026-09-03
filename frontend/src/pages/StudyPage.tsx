@@ -63,47 +63,71 @@ export default function StudyPage() {
   }
 
   return (
-    <div>
-      <h2>Study</h2>
-      {error && <p role="alert">{error}</p>}
-      <select value={courseId ?? ''} disabled={submitting} onChange={e => {
-        const cid = Number(e.target.value)
-        setCourseId(cid)
-        load(cid)
-      }}>
-        {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-      </select>
-      {done && <p>Nothing due. Come back tomorrow.</p>}
+    <div className="page">
+      <header className="page-head">
+        <h2 className="page-title">Study</h2>
+        <div className="toolbar">
+          <select className="select" value={courseId ?? ''} disabled={submitting} onChange={e => {
+            const cid = Number(e.target.value)
+            setCourseId(cid)
+            load(cid)
+          }}>
+            {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+      </header>
+      {error && <p className="alert" role="alert">{error}</p>}
+      {done && <p className="empty">Nothing due. Come back tomorrow.</p>}
       {question && (
-        <div>
-          <p>{question.prompt} <small>pp. {question.sourcePages}</small></p>
-          {question.type === 'MC' && !attempt &&
-            question.options.map((o, i) =>
-              <button key={i} disabled={submitting} onClick={() => answerMc(i)}>{o}</button>)}
+        <div className="study">
+          <div className="study-question">
+            <p className="study-prompt">{question.prompt}</p>
+            <small className="cite">pp. {question.sourcePages}</small>
+          </div>
+          {question.type === 'MC' && !attempt && (
+            <div className="options">
+              {question.options.map((o, i) =>
+                <button className="button button--option" key={i} disabled={submitting}
+                  onClick={() => answerMc(i)}>{o}</button>)}
+            </div>
+          )}
           {question.type === 'SHORT_ANSWER' && !attempt && (
-            <div>
-              <textarea value={text} disabled={submitting} onChange={e => setText(e.target.value)} />
-              <button disabled={submitting} onClick={answerShort}>Submit</button>
+            <div className="short-answer">
+              <textarea className="textarea" value={text} disabled={submitting} onChange={e => setText(e.target.value)} />
+              <button className="button" disabled={submitting} onClick={answerShort}>Submit</button>
             </div>
           )}
           {attempt && (
-            <div>
+            <div className="result">
               {attempt.verdict === 'PENDING' ? (
-                <div>
-                  <p>Grader unavailable — self-grade this one:</p>
-                  <button disabled={submitting} onClick={() => submit(() => api.selfGrade(attempt.id, true))}>I got it right</button>
-                  <button disabled={submitting} onClick={() => submit(() => api.selfGrade(attempt.id, false))}>I got it wrong</button>
-                </div>
+                <>
+                  <p className="result-line status status--review">
+                    <span className="status-bracket" aria-hidden="true" />
+                    Grader unavailable — self-grade this one:
+                  </p>
+                  <div className="result-actions">
+                    <button className="button button--secondary" disabled={submitting} onClick={() => submit(() => api.selfGrade(attempt.id, true))}>I got it right</button>
+                    <button className="button button--secondary" disabled={submitting} onClick={() => submit(() => api.selfGrade(attempt.id, false))}>I got it wrong</button>
+                  </div>
+                </>
               ) : (
-                <div>
-                  <p>{attempt.verdict} {attempt.score != null && `(${attempt.score})`}</p>
-                  {attempt.feedback && <p>Grader: {attempt.feedback}</p>}
-                  <button disabled={submitting} onClick={() => submit(() => api.override(attempt.id))}>
-                    {attempt.verdict === 'INCORRECT' ? 'I was actually right' : 'I was actually wrong'}
-                  </button>
-                </div>
+                <>
+                  <p className={`result-line status status--${attempt.verdict === 'CORRECT' ? 'clear' : 'blocked'}`}>
+                    <span className="status-bracket" aria-hidden="true" />
+                    <span className="status-mark">{attempt.verdict}</span>
+                    {attempt.score != null && <span className="result-score">{`(${attempt.score})`}</span>}
+                  </p>
+                  {attempt.feedback && <p className="result-note">Grader: {attempt.feedback}</p>}
+                  <div className="result-actions">
+                    <button className="button button--secondary" disabled={submitting} onClick={() => submit(() => api.override(attempt.id))}>
+                      {attempt.verdict === 'INCORRECT' ? 'I was actually right' : 'I was actually wrong'}
+                    </button>
+                  </div>
+                </>
               )}
-              <button disabled={submitting} onClick={() => courseId != null && load(courseId)}>Next</button>
+              <div className="result-actions">
+                <button className="button" disabled={submitting} onClick={() => courseId != null && load(courseId)}>Next</button>
+              </div>
             </div>
           )}
         </div>

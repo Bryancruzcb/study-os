@@ -1,0 +1,306 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--desk);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
+  font-weight: var(--weight-normal);
+  line-height: 1.65;
+  letter-spacing: 0.006em;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  color: var(--ink);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--track-tight);
+  text-wrap: balance;
+}
+
+p {
+  margin: 0;
+  text-wrap: pretty;
+}
+
+ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+:where(a, button, input, select, textarea):focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* ---- controls ------------------------------------------------------------ */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: 0.7rem 1.05rem;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: var(--blue-solid);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0;
+  cursor: pointer;
+  transition:
+    background-color 180ms var(--ease-state),
+    border-color 180ms var(--ease-state),
+    color 180ms var(--ease-state),
+    transform 100ms var(--ease-state);
+}
+
+.button:hover:not(:disabled) {
+  background: var(--blue-hover);
+  transform: translateY(-1px);
+}
+
+.button:active:not(:disabled) {
+  background: var(--blue-down);
+  transform: translateY(0) scale(0.985);
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  border-color: var(--hairline);
+  background: var(--graphite);
+  color: var(--ink-dim);
+}
+
+.button--secondary {
+  border-color: var(--hairline-strong);
+  background: var(--graphite);
+  color: var(--ink);
+}
+
+.button--secondary:hover:not(:disabled) {
+  border-color: var(--ink-dim);
+  background: var(--raised);
+}
+
+.button--secondary:active:not(:disabled) {
+  background: var(--raised-strong);
+}
+
+/* Destructive. Reads differently from the benign control on four counts: colour,
+   an outline instead of a fill, a fill that arrives on hover, and its own cell at
+   the end of the row behind a hairline. */
+.button--danger {
+  border-color: var(--blocked);
+  background: transparent;
+  color: var(--blocked);
+}
+
+.button--danger:hover:not(:disabled) {
+  background: var(--blocked);
+  color: var(--desk);
+}
+
+.button--danger:active:not(:disabled) {
+  background: var(--blocked);
+  color: var(--desk);
+}
+
+/* Row-level control, sized down for a question row but still a 36px target. */
+.button--micro {
+  min-height: 36px;
+  padding: 0.3rem 0.6rem;
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+}
+
+.select {
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 4px;
+  background: var(--graphite);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition:
+    border-color var(--motion-control) var(--ease-state),
+    background-color var(--motion-control) var(--ease-state);
+}
+
+.select:hover:not(:disabled) {
+  border-color: var(--ink-dim);
+  background: var(--raised);
+}
+
+.select:disabled {
+  cursor: not-allowed;
+  color: var(--ink-dim);
+}
+
+.file-input {
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px dashed var(--hairline-strong);
+  border-radius: 4px;
+  background: var(--graphite);
+  color: var(--ink-muted);
+  font-family: var(--font-sans);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+}
+
+.file-input::file-selector-button {
+  margin-right: var(--space-3);
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 4px;
+  background: var(--raised);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.file-input:disabled {
+  border-style: solid;
+  color: var(--ink-dim);
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-sans);
+  font-size: var(--text-3xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+
+.check:hover {
+  color: var(--ink);
+}
+
+.check input {
+  width: 0.95rem;
+  height: 0.95rem;
+  margin: 0;
+  accent-color: var(--blue-accent);
+  cursor: pointer;
+}
+
+.textarea {
+  width: 100%;
+  min-height: 7rem;
+  padding: var(--space-3);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 4px;
+  background: var(--graphite);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  resize: vertical;
+}
+
+.textarea:hover:not(:disabled) {
+  border-color: var(--ink-dim);
+}
+
+.textarea:disabled {
+  color: var(--ink-dim);
+}
+
+/* ---- status -------------------------------------------------------------- */
+
+/* Bracket + word + colour. Never colour on its own: the bracket carries the state
+   for anyone who cannot separate the three hues. */
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--ink);
+}
+
+.status-bracket {
+  flex: none;
+  display: inline-block;
+  width: 1.45rem;
+  height: 1.45rem;
+  border: 1px solid var(--status-color, var(--ink-dim));
+}
+
+.status-mark {
+  font-family: var(--font-mono);
+  font-size: var(--text-3xs);
+  letter-spacing: var(--track-mono);
+  text-transform: uppercase;
+  color: var(--status-color, var(--ink));
+}
+
+.status--clear {
+  --status-color: var(--clear);
+}
+
+.status--review {
+  --status-color: var(--review);
+}
+
+.status--blocked {
+  --status-color: var(--blocked);
+}
+
+.alert {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--blocked);
+  background: var(--graphite);
+  color: var(--ink);
+  font-size: var(--text-sm);
+}
+
+.empty {
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .button:hover:not(:disabled),
+  .button:active:not(:disabled) {
+    transform: none;
+  }
+}

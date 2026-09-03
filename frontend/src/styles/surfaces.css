@@ -1,0 +1,349 @@
+/* ---- bank ---------------------------------------------------------------- */
+
+.bank {
+  display: flex;
+  flex-direction: column;
+}
+
+.concept {
+  padding-block: var(--space-6);
+  border-top: 1px solid var(--hairline-strong);
+}
+
+/* the page-head rule already closes the top of the first section */
+.concept:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.concept-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.concept-name {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-strong);
+}
+
+.concept-summary {
+  max-width: 40rem;
+  margin-top: var(--space-2);
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+}
+
+.qlist {
+  margin-top: var(--space-5);
+}
+
+.qrow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--space-4);
+  padding-block: var(--space-4);
+  border-top: 1px solid var(--hairline);
+}
+
+.qrow:last-child {
+  border-bottom: 1px solid var(--hairline);
+}
+
+.qbody {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.qtype {
+  font-family: var(--font-mono);
+  font-size: var(--text-3xs);
+  letter-spacing: var(--track-mono);
+  color: var(--blue-accent);
+}
+
+.qprompt {
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+}
+
+.cite {
+  font-family: var(--font-mono);
+  font-size: var(--text-3xs);
+  font-weight: var(--weight-normal);
+  letter-spacing: var(--track-mono);
+  color: var(--ink-dim);
+  white-space: nowrap;
+}
+
+/* A retired question is de-emphasised by ink and by a rule through the prompt,
+   never by colour on its own. */
+.qrow--retired .qprompt {
+  color: var(--ink-dim);
+  text-decoration: line-through;
+  text-decoration-color: var(--hairline-strong);
+}
+
+.qrow--retired .qtype,
+.qrow--retired .cite {
+  color: var(--ink-dim);
+}
+
+.qcontrols {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.qlabels {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* The destructive control keeps its own cell behind a rule, so a stray click on
+   the benign one cannot land on retire. */
+.qdanger {
+  padding-left: var(--space-4);
+  border-left: 1px solid var(--hairline);
+}
+
+/* ---- study --------------------------------------------------------------- */
+
+.study {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.study-question {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-bottom: var(--space-2);
+}
+
+.study-prompt {
+  max-width: 34rem;
+  font-size: var(--text-lg);
+  line-height: var(--leading-snug);
+  letter-spacing: var(--track-normal);
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: 34rem;
+}
+
+.button--option {
+  justify-content: flex-start;
+  border-color: var(--hairline-strong);
+  background: var(--graphite);
+  color: var(--ink);
+  text-align: left;
+}
+
+.button--option:hover:not(:disabled) {
+  border-color: var(--ink-dim);
+  background: var(--raised);
+}
+
+.button--option:active:not(:disabled) {
+  background: var(--raised-strong);
+}
+
+.short-answer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  max-width: 34rem;
+}
+
+.result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 34rem;
+  padding: var(--space-6);
+  border-top: 1px solid var(--hairline-strong);
+  background: var(--graphite);
+}
+
+.result-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+}
+
+.result .status-mark {
+  font-size: var(--text-sm);
+}
+
+.result-score {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  letter-spacing: var(--track-mono);
+  color: var(--ink-muted);
+}
+
+.result-note {
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--hairline);
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+}
+
+.result-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+/* ---- dashboard ----------------------------------------------------------- */
+
+.due-line {
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+}
+
+.ledger {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--hairline);
+  table-layout: fixed;
+}
+
+.ledger th {
+  height: 2.5rem;
+  padding-inline: var(--space-3);
+  text-align: left;
+  border-right: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
+  font-family: var(--font-sans);
+  font-size: var(--text-3xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.ledger td {
+  height: 2.75rem;
+  padding: var(--space-2) var(--space-3);
+  vertical-align: middle;
+  border-right: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
+  font-size: var(--text-xs);
+  line-height: var(--leading-snug);
+}
+
+.ledger th:last-child,
+.ledger td:last-child {
+  border-right: 0;
+}
+
+.ledger tbody tr {
+  transition: background-color var(--motion-control) var(--ease-state);
+}
+
+.ledger tbody tr:hover {
+  background: var(--raised);
+}
+
+.ledger .num {
+  font-family: var(--font-mono);
+  letter-spacing: var(--track-mono);
+  color: var(--ink-muted);
+}
+
+.ledger th:nth-child(1) {
+  width: 46%;
+}
+
+.ledger th:nth-child(2) {
+  width: 14%;
+}
+
+.ledger th:nth-child(3) {
+  width: 16%;
+}
+
+/* A concept nobody has attempted is marked three ways: weight, the inset ring
+   the source uses for a selected row, and the word the row already carries. */
+.ledger tr.is-new {
+  background: var(--raised);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+}
+
+.ledger tr.is-new td {
+  font-weight: var(--weight-strong);
+  color: var(--ink);
+}
+
+.row-mark {
+  font-family: var(--font-sans);
+  font-size: var(--text-3xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--blue-accent);
+}
+
+/* ---- eval ---------------------------------------------------------------- */
+
+.eval {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  max-width: 34rem;
+}
+
+.eval-line {
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+}
+
+.figures {
+  border-top: 1px solid var(--hairline);
+}
+
+.figure {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--space-4);
+  padding-block: var(--space-4);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.figure-label {
+  font-family: var(--font-sans);
+  font-size: var(--text-3xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.figure-value {
+  font-family: var(--font-mono);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-normal);
+  letter-spacing: var(--track-mono);
+  color: var(--ink);
+}

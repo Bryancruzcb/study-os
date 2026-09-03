@@ -19,24 +19,28 @@ export default function DashboardPage() {
   }, [courseId])
 
   return (
-    <div>
-      <h2>Dashboard</h2>
-      {error && <p role="alert">{error}</p>}
-      <select value={courseId ?? ''} onChange={e => setCourseId(Number(e.target.value))}>
-        {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-      </select>
+    <div className="page">
+      <header className="page-head">
+        <h2 className="page-title">Dashboard</h2>
+        <div className="toolbar">
+          <select className="select" value={courseId ?? ''} onChange={e => setCourseId(Number(e.target.value))}>
+            {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+      </header>
+      {error && <p className="alert" role="alert">{error}</p>}
       {dash && (
-        <div>
-          <p>{dash.dueToday} due today</p>
-          <table>
+        <div className="stack">
+          <p className="due-line">{dash.dueToday} due today</p>
+          <table className="ledger">
             <thead><tr><th>Concept</th><th>Streak</th><th>Correct</th><th>Due</th></tr></thead>
             <tbody>
               {dash.concepts.map(c => (
-                <tr key={c.conceptId} style={{ fontWeight: c.neverAttempted ? 'bold' : 'normal' }}>
-                  <td>{c.name}{c.neverAttempted && ' (new)'}</td>
-                  <td>{c.streak}</td>
-                  <td>{c.correct}/{c.attempts}</td>
-                  <td>{c.dueDate}</td>
+                <tr key={c.conceptId} className={c.neverAttempted ? 'is-new' : undefined}>
+                  <td>{c.name}{c.neverAttempted && <span className="row-mark"> (new)</span>}</td>
+                  <td className="num">{c.streak}</td>
+                  <td className="num">{c.correct}/{c.attempts}</td>
+                  <td className="num">{c.dueDate}</td>
                 </tr>
               ))}
             </tbody>

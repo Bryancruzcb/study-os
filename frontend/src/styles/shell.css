@@ -1,0 +1,197 @@
+/* Nav rail + content. Grid and sizing from the source shell: 14rem rail, sticky,
+   one hairline down its right edge. The rail is typeset below the content it
+   points at (--text-sm against a 1rem body). */
+.app {
+  display: grid;
+  grid-template-columns: 14rem minmax(0, 1fr);
+  min-height: 100svh;
+}
+
+.rail {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  height: 100svh;
+  padding: var(--space-6) var(--space-4);
+  border-right: 1px solid var(--hairline);
+  background: var(--graphite);
+}
+
+.brand {
+  display: grid;
+  grid-template-columns: 1.5rem minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-3);
+  padding-inline: var(--space-2);
+}
+
+/* Four corner brackets around a mono letter. Border only, no asset. */
+.brand-glyph {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--track-mono);
+  color: var(--blue-accent);
+}
+
+.brand-glyph::before,
+.brand-glyph::after {
+  content: '';
+  position: absolute;
+  width: 0.5rem;
+  height: 0.5rem;
+  border: 1px solid var(--hairline-strong);
+}
+
+.brand-glyph::before {
+  top: 0;
+  left: 0;
+  border-right: 0;
+  border-bottom: 0;
+}
+
+.brand-glyph::after {
+  right: 0;
+  bottom: 0;
+  border-top: 0;
+  border-left: 0;
+}
+
+.brand-name {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-strong);
+  letter-spacing: var(--track-normal);
+  color: var(--ink);
+}
+
+.rail-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.nav-item {
+  display: grid;
+  grid-template-columns: 1.5rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 2.7rem;
+  padding-inline: var(--space-2);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+  text-decoration: none;
+  transition:
+    background-color var(--motion-control) var(--ease-state),
+    border-color var(--motion-control) var(--ease-state),
+    color var(--motion-control) var(--ease-state);
+}
+
+.nav-item:hover {
+  background: var(--raised);
+  color: var(--ink);
+}
+
+.nav-item.is-current {
+  border-color: var(--hairline-strong);
+  background: var(--raised);
+  color: var(--ink);
+}
+
+.nav-label {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* The marker is geometry, not an icon: a hairline square that fills when the
+   section is the current one. */
+.nav-tick {
+  justify-self: center;
+  width: 0.5rem;
+  height: 0.5rem;
+  border: 1px solid var(--hairline-strong);
+}
+
+.nav-item:hover .nav-tick {
+  border-color: var(--ink-dim);
+}
+
+.nav-item.is-current .nav-tick {
+  border-color: var(--blue-accent);
+  background: var(--blue-accent);
+}
+
+.content {
+  min-width: 0;
+  padding: var(--space-8) var(--space-8) var(--space-16);
+}
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  max-width: 64rem;
+}
+
+.page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--hairline-strong);
+}
+
+.page-title {
+  font-size: var(--text-xl);
+  font-weight: var(--weight-strong);
+  letter-spacing: var(--track-tight);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  align-items: flex-start;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+@media (max-width: 46rem) {
+  .app {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rail {
+    position: static;
+    height: auto;
+    gap: var(--space-4);
+    border-right: 0;
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  .rail-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .content {
+    padding: var(--space-6) var(--space-4) var(--space-12);
+  }
+}
