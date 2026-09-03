@@ -30,10 +30,24 @@ export interface ConceptStats { conceptId: number; name: string; streak: number;
 export interface Dashboard { dueToday: number; concepts: ConceptStats[] }
 export interface EvalReport { labeled: number; pctAnswerable: number; pctCorrectAnswer: number; pctUnambiguous: number; gradedShortAnswers: number; graderAgreement: number }
 
+// A 200 that is not JSON means the request never reached the backend: the vite dev
+// server answers an unproxied /api path with index.html. res.json() would report that
+// as "Unexpected token '<'", which says nothing about the cause, so name it here.
+async function readJson<T>(res: Response, url: string): Promise<T> {
+  const type = res.headers.get('content-type') ?? ''
+  if (!type.includes('application/json')) {
+    throw new Error(
+      `${url} answered with ${type || 'no content type'}, not JSON. The backend on :8080 is ` +
+      `either down or not proxied — a vite dev server started before the /api proxy was ` +
+      `configured serves index.html here and needs a restart.`)
+  }
+  return res.json()
+}
+
 async function get<T>(url: string): Promise<T> {
   const res = await fetch(url)
   if (!res.ok) throw new Error(`${res.status} ${url}`)
-  return res.json()
+  return readJson<T>(res, url)
 }
 
 async function post<T = unknown>(url: string, body: unknown): Promise<T> {
@@ -43,7 +57,7 @@ async function post<T = unknown>(url: string, body: unknown): Promise<T> {
     body: JSON.stringify(body),
   })
   if (!res.ok) throw new Error(`${res.status} ${url}`)
-  return res.json()
+  return readJson<T>(res, url)
 }
 
 async function uploadFile<T = unknown>(url: string, file: File): Promise<T> {
@@ -51,7 +65,7 @@ async function uploadFile<T = unknown>(url: string, file: File): Promise<T> {
   form.append('file', file)
   const res = await fetch(url, { method: 'POST', body: form })
   if (!res.ok) throw new Error(`${res.status} ${url}`)
-  return res.json()
+  return readJson<T>(res, url)
 }
 
 export const api = {
@@ -66,7 +80,7 @@ export const api = {
     const res = await fetch(`/api/study/next?courseId=${courseId}`)
     if (res.status === 204) return null
     if (!res.ok) throw new Error(`${res.status} /api/study/next`)
-    return res.json()
+    return readJson<StudyQuestion>(res, '/api/study/next')
   },
   answer: (body: { questionId: number; answerIndex?: number; answerText?: string }) =>
     post<Attempt>('/api/study/answer', body),

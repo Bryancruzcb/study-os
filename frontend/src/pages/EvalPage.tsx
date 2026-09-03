@@ -10,6 +10,7 @@ export default function EvalPage() {
   }, [])
 
   const pct = (x: number) => `${Math.round(x * 100)}%`
+  const count = (n: number, noun: string) => `${n} ${noun}${n === 1 ? '' : 's'}`
 
   return (
     <div className="page">
@@ -26,7 +27,7 @@ export default function EvalPage() {
             ? <p className="empty">No labeled questions yet.</p>
             : (
               <>
-                <p className="eval-line">{report.labeled} labeled questions</p>
+                <p className="eval-line">{count(report.labeled, 'labeled question')}</p>
                 <ul className="figures">
                   <li className="figure">
                     <span className="figure-label">Answerable from source: </span>
@@ -46,7 +47,7 @@ export default function EvalPage() {
           {/* the backend reports 0.0 agreement for "nothing graded" too, and 0% would read as total disagreement */}
           {report.gradedShortAnswers === 0
             ? <p className="empty">No graded short answers yet.</p>
-            : <p className="eval-line">{report.gradedShortAnswers} graded short answers, {pct(report.graderAgreement)} grader agreement</p>}
+            : <p className="eval-line">{count(report.gradedShortAnswers, 'graded short answer')}, {pct(report.graderAgreement)} grader agreement</p>}
         </div>
       )}
     </div>

@@ -47,3 +47,13 @@ test('says nothing is labelled yet instead of three 0% label rates', async () =>
   expect(screen.queryByText(/0%/)).not.toBeInTheDocument()
   expect(screen.getByText(/75%.*agreement/)).toBeInTheDocument()
 })
+
+test('counts read as singular when there is exactly one of a thing', async () => {
+  vi.mocked(api.evalReport).mockResolvedValueOnce({
+    labeled: 1, pctAnswerable: 1, pctCorrectAnswer: 1, pctUnambiguous: 1,
+    gradedShortAnswers: 1, graderAgreement: 1,
+  })
+  render(<EvalPage />)
+  await waitFor(() => expect(screen.getByText('1 labeled question')).toBeInTheDocument())
+  expect(screen.getByText(/^1 graded short answer,/)).toBeInTheDocument()
+})

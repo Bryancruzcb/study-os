@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { vi } from 'vitest'
 import App from './App'
 
@@ -12,7 +12,16 @@ vi.mock('./api', () => ({
   },
 }))
 
+afterEach(() => window.history.pushState({}, '', '/'))
+
 test('renders app title', () => {
   render(<App />)
   expect(screen.getByText('Study OS')).toBeInTheDocument()
+})
+
+test('an unknown path lands on the bank instead of an empty content area', async () => {
+  window.history.pushState({}, '', '/bank')
+  render(<App />)
+  await waitFor(() => expect(window.location.pathname).toBe('/'))
+  expect(screen.getByText('Question Bank')).toBeInTheDocument()
 })

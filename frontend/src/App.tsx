@@ -1,4 +1,4 @@
-import { BrowserRouter, NavLink, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, NavLink, Navigate, Route, Routes } from 'react-router-dom'
 import BankPage from './pages/BankPage'
 import StudyPage from './pages/StudyPage'
 import DashboardPage from './pages/DashboardPage'
@@ -36,6 +36,9 @@ export default function App() {
             <Route path="/study" element={<StudyPage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/eval" element={<EvalPage />} />
+            {/* the bank is at "/", so a bookmarked or hand-typed /bank matched nothing
+                and rendered an empty content area next to a working nav */}
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
       </div>
