@@ -2,7 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, vi } from 'vitest'
 import StudyPage from './StudyPage'
-import { api, type Attempt } from '../api'
+import { api, type Attempt, type StudyQuestion } from '../api'
 
 vi.mock('../api', () => ({
   api: {
@@ -139,4 +139,31 @@ test('disables Next while a self-grade is in flight', async () => {
   resolveSelfGrade({ id: 2, verdict: 'CORRECT', score: 1, feedback: null })
   await waitFor(() => expect(screen.getByRole('button', { name: 'Next' })).toBeEnabled())
   expect(api.next).toHaveBeenCalledTimes(1)
+})
+
+test('ignores a second Next click while the next question is loading', async () => {
+  await renderWithQuestion()
+  await userEvent.click(screen.getByRole('button', { name: '3' }))
+  await waitFor(() => expect(screen.getByText(/CORRECT/)).toBeInTheDocument())
+  let resolveNext!: (q: StudyQuestion | null) => void
+  vi.mocked(api.next).mockClear()
+  vi.mocked(api.next).mockReturnValueOnce(new Promise<StudyQuestion | null>(r => { resolveNext = r }))
+  await userEvent.click(screen.getByRole('button', { name: 'Next' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Next' }))
+  expect(api.next).toHaveBeenCalledTimes(1)
+  expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled()
+  resolveNext(null)
+  await waitFor(() => expect(screen.getByText(/Nothing due/)).toBeInTheDocument())
+})
+
+test('attributes short-answer feedback to the grader', async () => {
+  vi.mocked(api.next).mockResolvedValueOnce({
+    id: 10, type: 'SHORT_ANSWER', prompt: 'Describe the handshake.', options: [], sourcePages: '3,4',
+  })
+  vi.mocked(api.answer).mockResolvedValueOnce({ id: 2, verdict: 'INCORRECT', score: 0.4, feedback: 'Missed ACK.' })
+  render(<StudyPage />)
+  await waitFor(() => expect(screen.getByText('Describe the handshake.')).toBeInTheDocument())
+  await userEvent.type(screen.getByRole('textbox'), 'SYN then SYN-ACK')
+  await userEvent.click(screen.getByRole('button', { name: /submit/i }))
+  await waitFor(() => expect(screen.getByText('Grader: Missed ACK.')).toBeInTheDocument())
 })

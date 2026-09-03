@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, type Attempt, type Course, type StudyQuestion } from '../api'
 
 export default function StudyPage() {
@@ -10,18 +10,31 @@ export default function StudyPage() {
   const [done, setDone] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // a ref, not the state: two clicks in one tick both read the pre-render value of `submitting`
+  const inFlight = useRef(false)
 
-  const load = useCallback(async (cid: number) => {
+  // every call that talks to the API goes through here, so only one is ever in flight
+  const run = useCallback(async (work: () => Promise<void>) => {
+    if (inFlight.current) return
+    inFlight.current = true
+    setSubmitting(true)
     setError(null)
     try {
-      const q = await api.next(cid)
-      setQuestion(q)
-      setAttempt(null)
-      setDone(q === null)
+      await work()
     } catch (e) {
       setError(String(e))
+    } finally {
+      inFlight.current = false
+      setSubmitting(false)
     }
   }, [])
+
+  const load = useCallback((cid: number) => run(async () => {
+    const q = await api.next(cid)
+    setQuestion(q)
+    setAttempt(null)
+    setDone(q === null)
+  }), [run])
 
   useEffect(() => {
     api.courses().then(cs => {
@@ -33,17 +46,8 @@ export default function StudyPage() {
     }).catch(e => setError(String(e)))
   }, [load])
 
-  async function submit(call: () => Promise<Attempt>) {
-    if (submitting) return
-    setSubmitting(true)
-    setError(null)
-    try {
-      setAttempt(await call())
-    } catch (e) {
-      setError(String(e))
-    } finally {
-      setSubmitting(false)
-    }
+  function submit(call: () => Promise<Attempt>) {
+    return run(async () => setAttempt(await call()))
   }
 
   function answerMc(index: number) {
@@ -92,7 +96,8 @@ export default function StudyPage() {
                 </div>
               ) : (
                 <div>
-                  <p>{attempt.verdict} {attempt.score != null && `(${attempt.score})`} {attempt.feedback && `— ${attempt.feedback}`}</p>
+                  <p>{attempt.verdict} {attempt.score != null && `(${attempt.score})`}</p>
+                  {attempt.feedback && <p>Grader: {attempt.feedback}</p>}
                   <button disabled={submitting} onClick={() => submit(() => api.override(attempt.id))}>
                     {attempt.verdict === 'INCORRECT' ? 'I was actually right' : 'I was actually wrong'}
                   </button>
