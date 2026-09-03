@@ -173,28 +173,9 @@ class StudyServiceTest {
     }
 
     @Test
-    void nextSkipsShortAnswerQuestions() {
-        Concept concept6 = new Concept();
-        concept6.id = 6L;
-        ReviewState rsEarlier = ReviewState.initial(concept, LocalDate.of(2026, 8, 30));
-        ReviewState rsLater = ReviewState.initial(concept6, LocalDate.of(2026, 9, 1));
-        Question sa = new Question();
-        sa.id = 13L;
-        sa.concept = concept;
-        sa.type = QuestionType.SHORT_ANSWER;
-        Question q6 = new Question();
-        q6.id = 12L;
-        q6.concept = concept6;
-        q6.type = QuestionType.MC;
-        when(reviewStateRepo.findByConceptCourseIdAndDueDateLessThanEqualOrderByDueDateAsc(eq(1L), any()))
-            .thenReturn(List.of(rsEarlier, rsLater));
+    void nextServesShortAnswerQuestions() {
         when(questionRepo.findByConceptIdAndStatus(5L, QuestionStatus.ACTIVE)).thenReturn(List.of(sa));
-        when(questionRepo.findByConceptIdAndStatus(6L, QuestionStatus.ACTIVE)).thenReturn(List.of(q6));
-        assertEquals(q6, service.next(1L).orElseThrow());
-
-        when(reviewStateRepo.findByConceptCourseIdAndDueDateLessThanEqualOrderByDueDateAsc(eq(1L), any()))
-            .thenReturn(List.of(rsEarlier));
-        assertTrue(service.next(1L).isEmpty());
+        assertEquals(sa, service.next(1L).orElseThrow());
     }
 
     @Test

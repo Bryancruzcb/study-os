@@ -35,9 +35,7 @@ public class StudyService {
         List<ReviewState> due =
             reviewStateRepo.findByConceptCourseIdAndDueDateLessThanEqualOrderByDueDateAsc(courseId, today);
         for (ReviewState rs : due) {
-            // MC only until short-answer grading lands (Task 14 lifts this filter).
-            List<Question> candidates = questionRepo.findByConceptIdAndStatus(rs.concept.id, QuestionStatus.ACTIVE)
-                .stream().filter(q -> q.type == QuestionType.MC).toList();
+            List<Question> candidates = questionRepo.findByConceptIdAndStatus(rs.concept.id, QuestionStatus.ACTIVE);
             Map<Long, Instant> lastAttemptAt = new HashMap<>();
             for (Question q : candidates) {
                 lastAttemptAt.put(q.id, attemptRepo.findTopByQuestionIdOrderByCreatedAtDesc(q.id)
