@@ -56,4 +56,45 @@ class DashboardControllerTest {
             .andExpect(jsonPath("$.concepts[0].correct").value(1))
             .andExpect(jsonPath("$.concepts[0].neverAttempted").value(false));
     }
+
+    @Test
+    void pendingAttemptsAreNotCountedAsAccuracy() throws Exception {
+        Concept c = new Concept();
+        c.id = 5L;
+        c.name = "TCP";
+        ReviewState rs = ReviewState.initial(c, LocalDate.of(2026, 9, 1));
+        Attempt good = new Attempt();
+        good.verdict = Verdict.CORRECT;
+        Attempt ungraded = new Attempt();
+        ungraded.verdict = Verdict.PENDING;
+        when(conceptRepo.findByCourseId(1L)).thenReturn(List.of(c));
+        when(reviewStateRepo.findByConceptId(5L)).thenReturn(Optional.of(rs));
+        when(attemptRepo.findByQuestionConceptId(5L)).thenReturn(List.of(good, ungraded));
+        when(reviewStateRepo.findByConceptCourseIdAndDueDateLessThanEqualOrderByDueDateAsc(eq(1L), any()))
+            .thenReturn(List.of(rs));
+        mvc.perform(get("/api/dashboard").param("courseId", "1"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.concepts[0].attempts").value(1))
+            .andExpect(jsonPath("$.concepts[0].correct").value(1))
+            .andExpect(jsonPath("$.concepts[0].neverAttempted").value(false));
+    }
+
+    @Test
+    void conceptWithOnlyPendingAttemptsCountsAsNeverAttempted() throws Exception {
+        Concept c = new Concept();
+        c.id = 5L;
+        c.name = "TCP";
+        ReviewState rs = ReviewState.initial(c, LocalDate.of(2026, 9, 1));
+        Attempt ungraded = new Attempt();
+        ungraded.verdict = Verdict.PENDING;
+        when(conceptRepo.findByCourseId(1L)).thenReturn(List.of(c));
+        when(reviewStateRepo.findByConceptId(5L)).thenReturn(Optional.of(rs));
+        when(attemptRepo.findByQuestionConceptId(5L)).thenReturn(List.of(ungraded));
+        when(reviewStateRepo.findByConceptCourseIdAndDueDateLessThanEqualOrderByDueDateAsc(eq(1L), any()))
+            .thenReturn(List.of(rs));
+        mvc.perform(get("/api/dashboard").param("courseId", "1"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.concepts[0].attempts").value(0))
+            .andExpect(jsonPath("$.concepts[0].neverAttempted").value(true));
+    }
 }

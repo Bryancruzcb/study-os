@@ -38,10 +38,12 @@ public class DashboardController {
             .findByConceptCourseIdAndDueDateLessThanEqualOrderByDueDateAsc(courseId, today).size();
         List<ConceptStats> stats = conceptRepo.findByCourseId(courseId).stream().map(c -> {
             var rs = reviewStateRepo.findByConceptId(c.id).orElseThrow();
-            List<Attempt> attempts = attemptRepo.findByQuestionConceptId(c.id);
-            long correct = attempts.stream().filter(a -> a.verdict == Verdict.CORRECT).count();
-            return new ConceptStats(c.id, c.name, rs.streak, attempts.size(), correct,
-                rs.dueDate, attempts.isEmpty());
+            // PENDING attempts were never judged, so they say nothing about accuracy
+            List<Attempt> graded = attemptRepo.findByQuestionConceptId(c.id).stream()
+                .filter(a -> a.verdict != Verdict.PENDING).toList();
+            long correct = graded.stream().filter(a -> a.verdict == Verdict.CORRECT).count();
+            return new ConceptStats(c.id, c.name, rs.streak, graded.size(), correct,
+                rs.dueDate, graded.isEmpty());
         }).toList();
         return new Dashboard(dueToday, stats);
     }
