@@ -1,0 +1,89 @@
+package com.studyos.study;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+import com.studyos.ai.FakeAiClient;
+import com.studyos.domain.*;
+import com.studyos.repo.*;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+class OverrideTest {
+    QuestionRepo questionRepo = mock(QuestionRepo.class);
+    AttemptRepo attemptRepo = mock(AttemptRepo.class);
+    ReviewStateRepo reviewStateRepo = mock(ReviewStateRepo.class);
+    Clock clock = Clock.fixed(Instant.parse("2026-09-01T12:00:00Z"), ZoneOffset.UTC);
+    StudyService service;
+
+    Concept concept = new Concept();
+    ReviewState rs;
+    Question q = new Question();
+    Attempt attempt = new Attempt();
+
+    @BeforeEach
+    void setUp() {
+        concept.id = 5L;
+        rs = ReviewState.initial(concept, LocalDate.of(2026, 9, 1));
+        q.concept = concept;
+        q.type = QuestionType.SHORT_ANSWER;
+        attempt.id = 3L;
+        attempt.question = q;
+        when(reviewStateRepo.findByConceptId(5L)).thenReturn(Optional.of(rs));
+        when(attemptRepo.findById(3L)).thenReturn(Optional.of(attempt));
+        when(attemptRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(reviewStateRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        service = new StudyService(questionRepo, attemptRepo, reviewStateRepo, clock,
+            new GradingService(new FakeAiClient()));
+    }
+
+    @Test
+    void overrideFlipsVerdictAndRecomputesFromSnapshot() {
+        // grader said INCORRECT and the schedule was punished: interval 1, ease 2.3
+        attempt.verdict = Verdict.INCORRECT;
+        attempt.prevInterval = 1;
+        attempt.prevEase = 2.5;
+        attempt.prevStreak = 0;
+        attempt.prevDueDate = LocalDate.of(2026, 9, 1);
+        rs.intervalDays = 1;
+        rs.ease = 2.3;
+        rs.streak = 0;
+
+        Attempt out = service.override(3L);
+
+        assertEquals(Verdict.CORRECT, out.verdict);
+        assertTrue(out.overridden);
+        // reverted to snapshot then re-applied as correct: round(1 * 2.5) = 3
+        assertEquals(3, rs.intervalDays);
+        assertEquals(2.5, rs.ease, 1e-9);
+        assertEquals(1, rs.streak);
+    }
+
+    @Test
+    void overrideRejectsPending() {
+        attempt.verdict = Verdict.PENDING;
+        assertThrows(IllegalStateException.class, () -> service.override(3L));
+    }
+
+    @Test
+    void selfGradeResolvesPendingAndAppliesSchedule() {
+        attempt.verdict = Verdict.PENDING;
+        Attempt out = service.selfGrade(3L, true);
+        assertEquals(Verdict.CORRECT, out.verdict);
+        assertEquals(1.0, out.score, 1e-9);
+        assertEquals(1, out.prevInterval);
+        assertEquals(3, rs.intervalDays);
+    }
+
+    @Test
+    void selfGradeRejectsResolved() {
+        attempt.verdict = Verdict.CORRECT;
+        assertThrows(IllegalStateException.class, () -> service.selfGrade(3L, false));
+    }
+}

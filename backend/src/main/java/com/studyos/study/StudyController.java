@@ -17,6 +17,7 @@ public class StudyController {
     }
 
     public record AnswerRequest(Long questionId, Integer answerIndex, String answerText) {}
+    public record SelfGradeRequest(boolean correct) {}
 
     @GetMapping("/next")
     public ResponseEntity<QuestionView> next(@RequestParam Long courseId) {
@@ -34,5 +35,15 @@ public class StudyController {
             return studyService.answerShort(req.questionId(), req.answerText());
         }
         throw new IllegalArgumentException("answerIndex or answerText required");
+    }
+
+    @PostMapping("/attempts/{id}/override")
+    public Attempt override(@PathVariable Long id) {
+        return studyService.override(id);
+    }
+
+    @PostMapping("/attempts/{id}/self-grade")
+    public Attempt selfGrade(@PathVariable Long id, @RequestBody SelfGradeRequest req) {
+        return studyService.selfGrade(id, req.correct());
     }
 }

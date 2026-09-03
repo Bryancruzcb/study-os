@@ -85,6 +85,35 @@ public class StudyService {
         return attemptRepo.save(a);
     }
 
+    @Transactional
+    public Attempt override(Long attemptId) {
+        Attempt a = attemptRepo.findById(attemptId).orElseThrow();
+        if (a.verdict == Verdict.PENDING) throw new IllegalStateException("resolve PENDING via self-grade");
+        ReviewState rs = reviewStateRepo.findByConceptId(a.question.concept.id).orElseThrow();
+        // revert to the snapshot taken when this attempt's schedule update was applied
+        rs.intervalDays = a.prevInterval;
+        rs.ease = a.prevEase;
+        rs.streak = a.prevStreak;
+        rs.dueDate = a.prevDueDate;
+        boolean flipped = a.verdict == Verdict.INCORRECT; // new verdict is the flip
+        a.verdict = flipped ? Verdict.CORRECT : Verdict.INCORRECT;
+        a.score = flipped ? 1.0 : 0.0;
+        a.overridden = true;
+        Sm2Scheduler.apply(rs, flipped, LocalDate.now(clock));
+        reviewStateRepo.save(rs);
+        return attemptRepo.save(a);
+    }
+
+    @Transactional
+    public Attempt selfGrade(Long attemptId, boolean correct) {
+        Attempt a = attemptRepo.findById(attemptId).orElseThrow();
+        if (a.verdict != Verdict.PENDING) throw new IllegalStateException("only PENDING attempts can be self-graded");
+        a.verdict = correct ? Verdict.CORRECT : Verdict.INCORRECT;
+        a.score = correct ? 1.0 : 0.0;
+        applySchedule(a, correct);
+        return attemptRepo.save(a);
+    }
+
     /** Snapshot the concept's ReviewState onto the attempt, then apply SM-2. Reused by grading paths. */
     void applySchedule(Attempt a, boolean correct) {
         ReviewState rs = reviewStateRepo.findByConceptId(a.question.concept.id).orElseThrow();
