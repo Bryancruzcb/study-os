@@ -62,9 +62,11 @@ class StudyServiceTest {
         Question a = new Question();
         a.id = 10L;
         a.concept = concept;
+        a.type = QuestionType.MC;
         Question b = new Question();
         b.id = 11L;
         b.concept = concept;
+        b.type = QuestionType.MC;
         Attempt aLatest = new Attempt();
         aLatest.createdAt = Instant.parse("2026-08-30T10:00:00Z");
         Attempt bLatest = new Attempt();
@@ -85,6 +87,7 @@ class StudyServiceTest {
         Question q6 = new Question();
         q6.id = 12L;
         q6.concept = concept6;
+        q6.type = QuestionType.MC;
         when(reviewStateRepo.findByConceptCourseIdAndDueDateLessThanEqualOrderByDueDateAsc(eq(1L), any()))
             .thenReturn(List.of(rsEarlier, rsLater));
         when(questionRepo.findByConceptIdAndStatus(5L, QuestionStatus.ACTIVE)).thenReturn(List.of());
@@ -110,5 +113,52 @@ class StudyServiceTest {
         assertEquals(0.0, a.score, 1e-9);
         assertEquals(1, rs.intervalDays);
         assertEquals(2.3, rs.ease, 1e-9);
+    }
+
+    @Test
+    void nextSkipsShortAnswerQuestions() {
+        Concept concept6 = new Concept();
+        concept6.id = 6L;
+        ReviewState rsEarlier = ReviewState.initial(concept, LocalDate.of(2026, 8, 30));
+        ReviewState rsLater = ReviewState.initial(concept6, LocalDate.of(2026, 9, 1));
+        Question sa = new Question();
+        sa.id = 13L;
+        sa.concept = concept;
+        sa.type = QuestionType.SHORT_ANSWER;
+        Question q6 = new Question();
+        q6.id = 12L;
+        q6.concept = concept6;
+        q6.type = QuestionType.MC;
+        when(reviewStateRepo.findByConceptCourseIdAndDueDateLessThanEqualOrderByDueDateAsc(eq(1L), any()))
+            .thenReturn(List.of(rsEarlier, rsLater));
+        when(questionRepo.findByConceptIdAndStatus(5L, QuestionStatus.ACTIVE)).thenReturn(List.of(sa));
+        when(questionRepo.findByConceptIdAndStatus(6L, QuestionStatus.ACTIVE)).thenReturn(List.of(q6));
+        assertEquals(q6, service.next(1L).orElseThrow());
+
+        when(reviewStateRepo.findByConceptCourseIdAndDueDateLessThanEqualOrderByDueDateAsc(eq(1L), any()))
+            .thenReturn(List.of(rsEarlier));
+        assertTrue(service.next(1L).isEmpty());
+    }
+
+    @Test
+    void nextQueriesLastAttemptOncePerCandidate() {
+        Question a = new Question();
+        a.id = 10L;
+        a.concept = concept;
+        a.type = QuestionType.MC;
+        Question b = new Question();
+        b.id = 11L;
+        b.concept = concept;
+        b.type = QuestionType.MC;
+        Question c = new Question();
+        c.id = 12L;
+        c.concept = concept;
+        c.type = QuestionType.MC;
+        // three candidates: a pairwise min over two only compares once, so two could never re-query
+        when(questionRepo.findByConceptIdAndStatus(5L, QuestionStatus.ACTIVE)).thenReturn(List.of(a, b, c));
+        service.next(1L);
+        verify(attemptRepo, times(1)).findTopByQuestionIdOrderByCreatedAtDesc(10L);
+        verify(attemptRepo, times(1)).findTopByQuestionIdOrderByCreatedAtDesc(11L);
+        verify(attemptRepo, times(1)).findTopByQuestionIdOrderByCreatedAtDesc(12L);
     }
 }

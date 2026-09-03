@@ -60,4 +60,15 @@ class Sm2SchedulerTest {
         assertEquals(2, rs.intervalDays); // round(1 * 1.5) = 2
         assertEquals(TODAY.plusDays(2), rs.dueDate);
     }
+
+    @Test
+    void correctAtLowEaseStillGrows() {
+        ReviewState rs = fresh();
+        rs.ease = 1.3;
+        rs.intervalDays = 1;
+        Sm2Scheduler.apply(rs, true, TODAY);
+        assertEquals(2, rs.intervalDays); // max(1 + 1, round(1 * 1.3) = 1) = 2
+        assertEquals(1, rs.streak);
+        assertEquals(TODAY.plusDays(2), rs.dueDate);
+    }
 }

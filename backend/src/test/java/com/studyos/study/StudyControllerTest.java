@@ -26,14 +26,25 @@ class StudyControllerTest {
     }
 
     @Test
-    void nextReturnsQuestion() throws Exception {
+    void nextReturnsQuestionViewWithoutAnswerKey() throws Exception {
         Question q = new Question();
         q.id = 9L;
         q.type = QuestionType.MC;
+        q.prompt = "Steps in the TCP handshake?";
+        q.optionsJson = "[\"1\",\"2\",\"3\",\"4\"]";
+        q.correctIndex = 2;
+        q.sourcePages = "3";
         when(studyService.next(1L)).thenReturn(Optional.of(q));
         mvc.perform(get("/api/study/next").param("courseId", "1"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.id").value(9));
+            .andExpect(jsonPath("$.id").value(9))
+            .andExpect(jsonPath("$.type").value("MC"))
+            .andExpect(jsonPath("$.prompt").value("Steps in the TCP handshake?"))
+            .andExpect(jsonPath("$.options[0]").value("1"))
+            .andExpect(jsonPath("$.options.length()").value(4))
+            .andExpect(jsonPath("$.sourcePages").value("3"))
+            .andExpect(jsonPath("$.correctIndex").doesNotExist())
+            .andExpect(jsonPath("$.modelAnswer").doesNotExist());
     }
 
     @Test

@@ -8,7 +8,7 @@ public final class Sm2Scheduler {
 
     public static void apply(ReviewState rs, boolean correct, LocalDate today) {
         if (correct) {
-            rs.intervalDays = Math.max(1, (int) Math.round(rs.intervalDays * rs.ease));
+            rs.intervalDays = Math.max(rs.intervalDays + 1, (int) Math.round(rs.intervalDays * rs.ease));
             rs.streak += 1;
         } else {
             rs.intervalDays = 1;

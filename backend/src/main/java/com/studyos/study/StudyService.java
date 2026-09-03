@@ -6,7 +6,9 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,11 +33,17 @@ public class StudyService {
         List<ReviewState> due =
             reviewStateRepo.findByConceptCourseIdAndDueDateLessThanEqualOrderByDueDateAsc(courseId, today);
         for (ReviewState rs : due) {
-            List<Question> candidates = questionRepo.findByConceptIdAndStatus(rs.concept.id, QuestionStatus.ACTIVE);
-            Optional<Question> pick = candidates.stream()
-                .min(Comparator.comparing(q -> attemptRepo.findTopByQuestionIdOrderByCreatedAtDesc(q.id)
+            // MC only until short-answer grading lands (Task 14 lifts this filter).
+            List<Question> candidates = questionRepo.findByConceptIdAndStatus(rs.concept.id, QuestionStatus.ACTIVE)
+                .stream().filter(q -> q.type == QuestionType.MC).toList();
+            Map<Long, Instant> lastAttemptAt = new HashMap<>();
+            for (Question q : candidates) {
+                lastAttemptAt.put(q.id, attemptRepo.findTopByQuestionIdOrderByCreatedAtDesc(q.id)
                     .map(a -> a.createdAt)
-                    .orElse(Instant.EPOCH)));
+                    .orElse(Instant.EPOCH));
+            }
+            Optional<Question> pick = candidates.stream()
+                .min(Comparator.comparing(q -> lastAttemptAt.get(q.id)));
             if (pick.isPresent()) return pick;
         }
         return Optional.empty();
