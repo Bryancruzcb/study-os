@@ -64,5 +64,7 @@ export const api = {
   },
   answer: (body: { questionId: number; answerIndex?: number; answerText?: string }) =>
     post<Attempt>('/api/study/answer', body),
+  override: (attemptId: number) => post<Attempt>(`/api/study/attempts/${attemptId}/override`, {}),
+  selfGrade: (attemptId: number, correct: boolean) => post<Attempt>(`/api/study/attempts/${attemptId}/self-grade`, { correct }),
   dashboard: (courseId: number) => get<Dashboard>(`/api/dashboard?courseId=${courseId}`),
 }

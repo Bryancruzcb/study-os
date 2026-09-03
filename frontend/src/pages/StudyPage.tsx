@@ -6,6 +6,7 @@ export default function StudyPage() {
   const [courseId, setCourseId] = useState<number | null>(null)
   const [question, setQuestion] = useState<StudyQuestion | null>(null)
   const [attempt, setAttempt] = useState<Attempt | null>(null)
+  const [text, setText] = useState('')
   const [done, setDone] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -32,17 +33,29 @@ export default function StudyPage() {
     }).catch(e => setError(String(e)))
   }, [load])
 
-  async function answerMc(index: number) {
-    if (!question || submitting) return
+  async function submit(call: () => Promise<Attempt>) {
+    if (submitting) return
     setSubmitting(true)
     setError(null)
     try {
-      setAttempt(await api.answer({ questionId: question.id, answerIndex: index }))
+      setAttempt(await call())
     } catch (e) {
       setError(String(e))
     } finally {
       setSubmitting(false)
     }
+  }
+
+  function answerMc(index: number) {
+    if (question) submit(() => api.answer({ questionId: question.id, answerIndex: index }))
+  }
+
+  function answerShort() {
+    if (question) submit(async () => {
+      const a = await api.answer({ questionId: question.id, answerText: text })
+      setText('')
+      return a
+    })
   }
 
   return (
@@ -63,9 +76,28 @@ export default function StudyPage() {
           {question.type === 'MC' && !attempt &&
             question.options.map((o, i) =>
               <button key={i} disabled={submitting} onClick={() => answerMc(i)}>{o}</button>)}
+          {question.type === 'SHORT_ANSWER' && !attempt && (
+            <div>
+              <textarea value={text} disabled={submitting} onChange={e => setText(e.target.value)} />
+              <button disabled={submitting} onClick={answerShort}>Submit</button>
+            </div>
+          )}
           {attempt && (
             <div>
-              <p>{attempt.verdict} {attempt.feedback && `— ${attempt.feedback}`}</p>
+              {attempt.verdict === 'PENDING' ? (
+                <div>
+                  <p>Grader unavailable — self-grade this one:</p>
+                  <button disabled={submitting} onClick={() => submit(() => api.selfGrade(attempt.id, true))}>I got it right</button>
+                  <button disabled={submitting} onClick={() => submit(() => api.selfGrade(attempt.id, false))}>I got it wrong</button>
+                </div>
+              ) : (
+                <div>
+                  <p>{attempt.verdict} {attempt.score != null && `(${attempt.score})`} {attempt.feedback && `— ${attempt.feedback}`}</p>
+                  <button disabled={submitting} onClick={() => submit(() => api.override(attempt.id))}>
+                    {attempt.verdict === 'INCORRECT' ? 'I was actually right' : 'I was actually wrong'}
+                  </button>
+                </div>
+              )}
               <button onClick={() => courseId != null && load(courseId)}>Next</button>
             </div>
           )}

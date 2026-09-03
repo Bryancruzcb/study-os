@@ -11,6 +11,8 @@ vi.mock('../api', () => ({
       id: 9, type: 'MC', prompt: 'Steps in the TCP handshake?', options: ['1', '2', '3', '4'], sourcePages: '3',
     }),
     answer: vi.fn().mockResolvedValue({ id: 1, verdict: 'CORRECT', score: 1, feedback: null }),
+    override: vi.fn(),
+    selfGrade: vi.fn(),
   },
 }))
 
@@ -71,4 +73,51 @@ test('keeps the graded question locked when loading the next one fails', async (
   expect(screen.getByRole('button', { name: 'Next' })).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: '3' })).not.toBeInTheDocument()
   expect(api.answer).toHaveBeenCalledTimes(1)
+})
+
+test('short answer flow with override button', async () => {
+  vi.mocked(api.next).mockResolvedValueOnce({
+    id: 10, type: 'SHORT_ANSWER', prompt: 'Describe the handshake.', options: [], sourcePages: '3,4',
+  })
+  vi.mocked(api.answer).mockResolvedValueOnce({ id: 2, verdict: 'INCORRECT', score: 0.4, feedback: 'Missed ACK.' })
+  render(<StudyPage />)
+  await waitFor(() => expect(screen.getByText('Describe the handshake.')).toBeInTheDocument())
+  await userEvent.type(screen.getByRole('textbox'), 'SYN then SYN-ACK')
+  await userEvent.click(screen.getByRole('button', { name: /submit/i }))
+  await waitFor(() => expect(screen.getByText(/INCORRECT/)).toBeInTheDocument())
+  expect(screen.getByText(/Missed ACK/)).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: /I was actually right/i })).toBeInTheDocument()
+  expect(api.answer).toHaveBeenCalledWith({ questionId: 10, answerText: 'SYN then SYN-ACK' })
+})
+
+test('pending verdict offers self-grade', async () => {
+  vi.mocked(api.next).mockResolvedValueOnce({
+    id: 10, type: 'SHORT_ANSWER', prompt: 'Describe the handshake.', options: [], sourcePages: '3,4',
+  })
+  vi.mocked(api.answer).mockResolvedValueOnce({ id: 2, verdict: 'PENDING', score: null, feedback: null })
+  render(<StudyPage />)
+  await waitFor(() => expect(screen.getByText('Describe the handshake.')).toBeInTheDocument())
+  await userEvent.type(screen.getByRole('textbox'), 'SYN then SYN-ACK')
+  await userEvent.click(screen.getByRole('button', { name: /submit/i }))
+  await waitFor(() => expect(screen.getByText(/grader unavailable/i)).toBeInTheDocument())
+  expect(screen.getByRole('button', { name: /I got it right/i })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: /I got it wrong/i })).toBeInTheDocument()
+})
+
+test('shows an alert when self-grading fails and keeps the self-grade buttons', async () => {
+  vi.mocked(api.next).mockResolvedValueOnce({
+    id: 10, type: 'SHORT_ANSWER', prompt: 'Describe the handshake.', options: [], sourcePages: '3,4',
+  })
+  vi.mocked(api.answer).mockResolvedValueOnce({ id: 2, verdict: 'PENDING', score: null, feedback: null })
+  vi.mocked(api.selfGrade).mockRejectedValueOnce(new Error('500 /api/study/attempts/2/self-grade'))
+  render(<StudyPage />)
+  await waitFor(() => expect(screen.getByText('Describe the handshake.')).toBeInTheDocument())
+  await userEvent.type(screen.getByRole('textbox'), 'SYN then SYN-ACK')
+  await userEvent.click(screen.getByRole('button', { name: /submit/i }))
+  await waitFor(() => expect(screen.getByRole('button', { name: /I got it right/i })).toBeInTheDocument())
+  await userEvent.click(screen.getByRole('button', { name: /I got it right/i }))
+  await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('500 /api/study/attempts/2/self-grade'))
+  expect(api.selfGrade).toHaveBeenCalledWith(2, true)
+  expect(screen.getByRole('button', { name: /I got it right/i })).toBeEnabled()
+  expect(screen.getByRole('button', { name: /I got it wrong/i })).toBeEnabled()
 })
