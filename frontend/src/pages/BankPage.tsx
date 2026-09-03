@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { api, type ConceptWithQuestions, type Course } from '../api'
+import { api, type ConceptWithQuestions, type Course, type Question } from '../api'
 
 interface LabelBody { answerable: boolean; correctAnswer: boolean; unambiguous: boolean }
 
@@ -92,7 +92,9 @@ export default function BankPage() {
               <li key={q.id} style={{ opacity: q.status === 'RETIRED' ? 0.4 : 1 }}>
                 [{q.type}] <span>{q.prompt}</span> <small>pp. {q.sourcePages}</small>
                 {q.status === 'ACTIVE' && <button onClick={() => onRetire(q.id)}>retire</button>}
-                <LabelControl questionId={q.id} onSave={onLabel} />
+                {/* keyed on the saved labels so a refreshed bank re-seeds the boxes */}
+                <LabelControl key={`${q.labelAnswerable}/${q.labelCorrectAnswer}/${q.labelUnambiguous}`}
+                  question={q} onSave={onLabel} />
               </li>
             ))}
           </ul>
@@ -102,12 +104,15 @@ export default function BankPage() {
   )
 }
 
-function LabelControl({ questionId, onSave }: { questionId: number; onSave: (qid: number, body: LabelBody) => Promise<boolean> }) {
-  const [answerable, setAnswerable] = useState(true)
-  const [correctAnswer, setCorrectAnswer] = useState(true)
-  const [unambiguous, setUnambiguous] = useState(true)
+function LabelControl({ question, onSave }: { question: Question; onSave: (qid: number, body: LabelBody) => Promise<boolean> }) {
+  // an unlabelled question comes back with all three null: default those to checked, but never
+  // default over a stored false, or re-saving would overwrite the label the eval report counts
+  const wasLabelled = question.labelAnswerable != null || question.labelCorrectAnswer != null || question.labelUnambiguous != null
+  const [answerable, setAnswerable] = useState(question.labelAnswerable ?? true)
+  const [correctAnswer, setCorrectAnswer] = useState(question.labelCorrectAnswer ?? true)
+  const [unambiguous, setUnambiguous] = useState(question.labelUnambiguous ?? true)
   const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
+  const [saved, setSaved] = useState(wasLabelled)
   return (
     <span>
       <label><input type="checkbox" checked={answerable} disabled={saving} onChange={e => { setAnswerable(e.target.checked); setSaved(false) }} />answerable</label>
@@ -115,7 +120,7 @@ function LabelControl({ questionId, onSave }: { questionId: number; onSave: (qid
       <label><input type="checkbox" checked={unambiguous} disabled={saving} onChange={e => { setUnambiguous(e.target.checked); setSaved(false) }} />unambiguous</label>
       <button disabled={saving} onClick={async () => {
         setSaving(true)
-        const ok = await onSave(questionId, { answerable, correctAnswer, unambiguous })
+        const ok = await onSave(question.id, { answerable, correctAnswer, unambiguous })
         setSaving(false)
         setSaved(ok)
       }}>{saved ? 'labeled ✓' : 'label'}</button>

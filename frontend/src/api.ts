@@ -7,6 +7,9 @@ export interface Question {
   correctIndex: number | null
   sourcePages: string | null
   status: 'ACTIVE' | 'RETIRED'
+  labelAnswerable: boolean | null
+  labelCorrectAnswer: boolean | null
+  labelUnambiguous: boolean | null
 }
 export interface ConceptWithQuestions {
   id: number

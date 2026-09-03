@@ -11,7 +11,7 @@ vi.mock('../api', () => ({
       {
         id: 5, name: 'TCP handshake', summary: 'SYN/SYN-ACK/ACK', sourcePages: '3,4',
         questions: [
-          { id: 9, type: 'MC', prompt: 'Steps?', optionsJson: '["1","2","3","4"]', correctIndex: 2, sourcePages: '3', status: 'ACTIVE' },
+          { id: 9, type: 'MC', prompt: 'Steps?', optionsJson: '["1","2","3","4"]', correctIndex: 2, sourcePages: '3', status: 'ACTIVE', labelAnswerable: null, labelCorrectAnswer: null, labelUnambiguous: null },
         ],
       },
     ]),
@@ -65,4 +65,35 @@ test('shows a failed label in the alert and leaves the question unlabelled', asy
   await userEvent.click(await screen.findByRole('button', { name: 'label' }))
   expect(await screen.findByRole('alert')).toHaveTextContent('500 /api/questions/9/label')
   expect(screen.getByRole('button', { name: 'label' })).toBeInTheDocument()
+})
+
+test('seeds the boxes from the labels the question arrives with', async () => {
+  vi.mocked(api.bank).mockResolvedValueOnce([
+    {
+      id: 5, name: 'TCP handshake', summary: 'SYN/SYN-ACK/ACK', sourcePages: '3,4',
+      questions: [
+        { id: 9, type: 'MC', prompt: 'Steps?', optionsJson: '["1","2","3","4"]', correctIndex: 2, sourcePages: '3', status: 'ACTIVE', labelAnswerable: true, labelCorrectAnswer: false, labelUnambiguous: true },
+      ],
+    },
+  ])
+  render(<BankPage />)
+  expect(await screen.findByLabelText('answerable')).toBeChecked()
+  expect(screen.getByLabelText('correct')).not.toBeChecked()
+  expect(screen.getByLabelText('unambiguous')).toBeChecked()
+  expect(screen.getByRole('button', { name: /labeled/ })).toBeInTheDocument()
+})
+
+test('re-saving a labelled question posts the saved labels, not the defaults', async () => {
+  vi.mocked(api.bank).mockResolvedValueOnce([
+    {
+      id: 5, name: 'TCP handshake', summary: 'SYN/SYN-ACK/ACK', sourcePages: '3,4',
+      questions: [
+        { id: 9, type: 'MC', prompt: 'Steps?', optionsJson: '["1","2","3","4"]', correctIndex: 2, sourcePages: '3', status: 'ACTIVE', labelAnswerable: true, labelCorrectAnswer: false, labelUnambiguous: true },
+      ],
+    },
+  ])
+  render(<BankPage />)
+  await userEvent.click(await screen.findByRole('button', { name: /labeled/ }))
+  await waitFor(() =>
+    expect(api.label).toHaveBeenCalledWith(9, { answerable: true, correctAnswer: false, unambiguous: true }))
 })

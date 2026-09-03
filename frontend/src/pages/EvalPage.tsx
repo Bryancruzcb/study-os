@@ -18,12 +18,20 @@ export default function EvalPage() {
       {!report && !error && <p>Loading…</p>}
       {report && (
         <div>
-          <p>{report.labeled} labeled questions</p>
-          <ul>
-            <li>Answerable from source: {pct(report.pctAnswerable)}</li>
-            <li>Correct answer: {pct(report.pctCorrectAnswer)}</li>
-            <li>Unambiguous: {pct(report.pctUnambiguous)}</li>
-          </ul>
+          {/* the backend reports 0.0 rates for "nothing labeled" too, and 0% would read as
+              "no question is answerable" rather than "no question has been judged yet" */}
+          {report.labeled === 0
+            ? <p>No labeled questions yet.</p>
+            : (
+              <>
+                <p>{report.labeled} labeled questions</p>
+                <ul>
+                  <li>Answerable from source: {pct(report.pctAnswerable)}</li>
+                  <li>Correct answer: {pct(report.pctCorrectAnswer)}</li>
+                  <li>Unambiguous: {pct(report.pctUnambiguous)}</li>
+                </ul>
+              </>
+            )}
           {/* the backend reports 0.0 agreement for "nothing graded" too, and 0% would read as total disagreement */}
           {report.gradedShortAnswers === 0
             ? <p>No graded short answers yet.</p>

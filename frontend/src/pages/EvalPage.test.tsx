@@ -35,3 +35,15 @@ test('shows a failed report load in the alert', async () => {
   render(<EvalPage />)
   await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('500 /api/eval/report'))
 })
+
+test('says nothing is labelled yet instead of three 0% label rates', async () => {
+  vi.mocked(api.evalReport).mockResolvedValueOnce({
+    labeled: 0, pctAnswerable: 0, pctCorrectAnswer: 0, pctUnambiguous: 0,
+    gradedShortAnswers: 8, graderAgreement: 0.75,
+  })
+  render(<EvalPage />)
+  await waitFor(() => expect(screen.getByText(/no labeled questions yet/i)).toBeInTheDocument())
+  expect(screen.queryByText(/answerable/i)).not.toBeInTheDocument()
+  expect(screen.queryByText(/0%/)).not.toBeInTheDocument()
+  expect(screen.getByText(/75%.*agreement/)).toBeInTheDocument()
+})
