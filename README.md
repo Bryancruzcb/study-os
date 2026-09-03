@@ -9,6 +9,27 @@ the number it publishes about its own grader is one I can check.
 Around that: I upload a lecture PDF, get back concepts and questions cited to their
 source pages, then study them daily with spaced repetition.
 
+![The question bank: concepts and questions extracted from a lecture PDF, each with its
+source page, the three label checkboxes, and a retired question struck
+through](docs/screenshots/bank.jpg)
+
+*The bank after an ingest. Every question carries the pages it came from, the three
+label checkboxes are how I judge the generator, and a question I decided was bad is
+struck through rather than deleted.*
+
+![The dashboard: a table of concepts with streak, correct-out-of-attempted, and next
+due date](docs/screenshots/dashboard.jpg)
+
+*The schedule. New concepts are due today; the ones I answered correctly have moved out
+to the sixth.*
+
+![The evaluation page: 31 labeled questions at 100, 97 and 94 percent, and one graded
+short answer at 100 percent grader agreement](docs/screenshots/eval.jpg)
+
+*The evaluation page, and the honest state of it. The label rates are worth reading at
+31 questions. The grader agreement line is not: it is one graded short answer, so 100%
+there means "no disagreement yet", not "the grader is right".*
+
 ## How it works
 
 - Spring Boot backend (Java 21), React and TypeScript frontend (Vite), Postgres.
