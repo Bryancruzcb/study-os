@@ -57,7 +57,7 @@ The two models are set in `backend/src/main/resources/application.yml` under
     mvn -f backend/pom.xml test
     cd frontend && npm test
 
-59 backend tests and 27 frontend tests. Neither suite calls the Claude API or needs a
+63 backend tests and 27 frontend tests. Neither suite calls the Claude API or needs a
 database, so no key is needed to run them. GitHub Actions runs both on push and on
 pull requests.
 
