@@ -58,6 +58,41 @@ class StudyServiceTest {
     }
 
     @Test
+    void nextPrefersLeastRecentlyAttemptedQuestion() {
+        Question a = new Question();
+        a.id = 10L;
+        a.concept = concept;
+        Question b = new Question();
+        b.id = 11L;
+        b.concept = concept;
+        Attempt aLatest = new Attempt();
+        aLatest.createdAt = Instant.parse("2026-08-30T10:00:00Z");
+        Attempt bLatest = new Attempt();
+        bLatest.createdAt = Instant.parse("2026-08-31T10:00:00Z");
+        // b listed first so list order cannot mask the comparator
+        when(questionRepo.findByConceptIdAndStatus(5L, QuestionStatus.ACTIVE)).thenReturn(List.of(b, a));
+        when(attemptRepo.findTopByQuestionIdOrderByCreatedAtDesc(10L)).thenReturn(Optional.of(aLatest));
+        when(attemptRepo.findTopByQuestionIdOrderByCreatedAtDesc(11L)).thenReturn(Optional.of(bLatest));
+        assertEquals(a, service.next(1L).orElseThrow());
+    }
+
+    @Test
+    void nextSkipsDueConceptWithNoActiveQuestions() {
+        Concept concept6 = new Concept();
+        concept6.id = 6L;
+        ReviewState rsEarlier = ReviewState.initial(concept, LocalDate.of(2026, 8, 30));
+        ReviewState rsLater = ReviewState.initial(concept6, LocalDate.of(2026, 9, 1));
+        Question q6 = new Question();
+        q6.id = 12L;
+        q6.concept = concept6;
+        when(reviewStateRepo.findByConceptCourseIdAndDueDateLessThanEqualOrderByDueDateAsc(eq(1L), any()))
+            .thenReturn(List.of(rsEarlier, rsLater));
+        when(questionRepo.findByConceptIdAndStatus(5L, QuestionStatus.ACTIVE)).thenReturn(List.of());
+        when(questionRepo.findByConceptIdAndStatus(6L, QuestionStatus.ACTIVE)).thenReturn(List.of(q6));
+        assertEquals(q6, service.next(1L).orElseThrow());
+    }
+
+    @Test
     void correctMcAnswerAppliesScheduleWithSnapshot() {
         Attempt a = service.answerMc(9L, 2);
         assertEquals(Verdict.CORRECT, a.verdict);
