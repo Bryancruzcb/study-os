@@ -169,4 +169,21 @@ class OverrideTest {
         assertNull(out.graderVerdict);
         assertFalse(out.overridden);
     }
+
+    @Test
+    void overrideClearsAStaleFlagWhenNoGraderJudged() {
+        // a row already flagged as a disagreement even though no grader ever judged it
+        attempt.verdict = Verdict.CORRECT;
+        attempt.graderVerdict = null;
+        attempt.overridden = true;
+        attempt.prevInterval = 1;
+        attempt.prevEase = 2.5;
+        attempt.prevStreak = 0;
+        attempt.prevDueDate = LocalDate.of(2026, 9, 1);
+
+        Attempt out = service.override(3L);
+
+        assertEquals(Verdict.INCORRECT, out.verdict);
+        assertFalse(out.overridden); // nothing to disagree with, so the flag cannot stand
+    }
 }

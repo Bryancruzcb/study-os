@@ -104,10 +104,9 @@ public class StudyService {
         a.verdict = flipped ? Verdict.CORRECT : Verdict.INCORRECT;
         a.score = flipped ? 1.0 : 0.0;
         // only a real grader judgment can be disagreed with (PENDING means the grader
-        // produced none); flipping back to it clears the flag
-        if (a.graderVerdict != null && a.graderVerdict != Verdict.PENDING) {
-            a.overridden = a.verdict != a.graderVerdict;
-        }
+        // produced none); the assignment is total, so agreement always clears the flag
+        a.overridden = a.graderVerdict != null && a.graderVerdict != Verdict.PENDING
+            && a.verdict != a.graderVerdict;
         Sm2Scheduler.apply(rs, flipped, LocalDate.now(clock));
         reviewStateRepo.save(rs);
         return attemptRepo.save(a);
