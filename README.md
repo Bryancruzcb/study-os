@@ -62,8 +62,18 @@ The two models are set in `backend/src/main/resources/application.yml` under
     cd frontend && npm test
 
 63 backend tests and 27 frontend tests. Neither suite calls the Claude API or needs a
-database, so no key is needed to run them. GitHub Actions runs both on push and on
-pull requests.
+database, so no key is needed to run them.
+
+One suite is deliberately not in that number. `PersistenceTest` runs against a real
+Postgres, because two things cannot be checked without one: that `Attempt.createdAt`
+is non-null, and that the concept and question lookups really are ordered. That
+ordering is what the latest-attempt override guard trusts. It is tagged `jpa` and
+excluded by default, so run it with a database up:
+
+    mvn -f backend/pom.xml test -Dtest.excludedGroups=none -Dgroups=jpa
+
+GitHub Actions runs all three jobs on push and on pull requests: the hermetic backend
+suite, the JPA suite against a Postgres service container, and the frontend.
 
 ## Limits
 
