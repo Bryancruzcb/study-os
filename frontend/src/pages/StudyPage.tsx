@@ -98,7 +98,7 @@ export default function StudyPage() {
                   </button>
                 </div>
               )}
-              <button onClick={() => courseId != null && load(courseId)}>Next</button>
+              <button disabled={submitting} onClick={() => courseId != null && load(courseId)}>Next</button>
             </div>
           )}
         </div>

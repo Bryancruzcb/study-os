@@ -121,3 +121,22 @@ test('shows an alert when self-grading fails and keeps the self-grade buttons', 
   expect(screen.getByRole('button', { name: /I got it right/i })).toBeEnabled()
   expect(screen.getByRole('button', { name: /I got it wrong/i })).toBeEnabled()
 })
+
+test('disables Next while a self-grade is in flight', async () => {
+  vi.mocked(api.next).mockResolvedValueOnce({
+    id: 10, type: 'SHORT_ANSWER', prompt: 'Describe the handshake.', options: [], sourcePages: '3,4',
+  })
+  vi.mocked(api.answer).mockResolvedValueOnce({ id: 2, verdict: 'PENDING', score: null, feedback: null })
+  let resolveSelfGrade!: (a: Attempt) => void
+  vi.mocked(api.selfGrade).mockReturnValueOnce(new Promise<Attempt>(r => { resolveSelfGrade = r }))
+  render(<StudyPage />)
+  await waitFor(() => expect(screen.getByText('Describe the handshake.')).toBeInTheDocument())
+  await userEvent.type(screen.getByRole('textbox'), 'SYN then SYN-ACK')
+  await userEvent.click(screen.getByRole('button', { name: /submit/i }))
+  await waitFor(() => expect(screen.getByRole('button', { name: /I got it right/i })).toBeInTheDocument())
+  await userEvent.click(screen.getByRole('button', { name: /I got it right/i }))
+  expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled()
+  resolveSelfGrade({ id: 2, verdict: 'CORRECT', score: 1, feedback: null })
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Next' })).toBeEnabled())
+  expect(api.next).toHaveBeenCalledTimes(1)
+})
