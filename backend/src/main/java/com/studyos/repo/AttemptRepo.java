@@ -9,5 +9,6 @@ public interface AttemptRepo extends JpaRepository<Attempt, Long> {
     Optional<Attempt> findTopByQuestionIdOrderByCreatedAtDesc(Long questionId);
     List<Attempt> findByQuestionConceptId(Long conceptId);
     Optional<Attempt> findTopByQuestionConceptIdOrderByCreatedAtDesc(Long conceptId);
-    List<Attempt> findByGraderRawIsNotNull();
+    // every attempt a grader judged, including the failures it recorded as PENDING
+    List<Attempt> findByGraderVerdictIsNotNull();
 }
