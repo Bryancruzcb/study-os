@@ -21,6 +21,8 @@ public class Attempt {
     public String feedback;
     @Column(length = 8000)
     public String graderRaw;     // raw grader JSON, null for MC / PENDING
+    @Enumerated(EnumType.STRING)
+    public Verdict graderVerdict; // what the grader said, null when no grader judged it (MC)
     public boolean overridden = false;
     public Instant createdAt;
     // ReviewState snapshot taken when the schedule update was applied (null while PENDING)

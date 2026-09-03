@@ -8,5 +8,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface AttemptRepo extends JpaRepository<Attempt, Long> {
     Optional<Attempt> findTopByQuestionIdOrderByCreatedAtDesc(Long questionId);
     List<Attempt> findByQuestionConceptId(Long conceptId);
+    Optional<Attempt> findTopByQuestionConceptIdOrderByCreatedAtDesc(Long conceptId);
     List<Attempt> findByGraderRawIsNotNull();
 }

@@ -73,6 +73,7 @@ public class StudyService {
         a.question = q;
         a.givenAnswer = answerText;
         a.verdict = out.verdict();
+        a.graderVerdict = out.verdict();
         a.score = out.score();
         a.feedback = out.feedback();
         a.graderRaw = out.graderRaw();
@@ -87,7 +88,13 @@ public class StudyService {
     public Attempt override(Long attemptId) {
         Attempt a = attemptRepo.findById(attemptId).orElseThrow();
         if (a.verdict == Verdict.PENDING) throw new IllegalStateException("resolve PENDING via self-grade");
-        ReviewState rs = reviewStateRepo.findByConceptId(a.question.concept.id).orElseThrow();
+        Long conceptId = a.question.concept.id;
+        Attempt latest = attemptRepo.findTopByQuestionConceptIdOrderByCreatedAtDesc(conceptId).orElseThrow();
+        // the snapshot only reverts the newest schedule update, so an older attempt cannot be undone
+        if (!latest.id.equals(a.id)) {
+            throw new IllegalStateException("only the concept's most recent attempt can be overridden");
+        }
+        ReviewState rs = reviewStateRepo.findByConceptId(conceptId).orElseThrow();
         // revert to the snapshot taken when this attempt's schedule update was applied
         rs.intervalDays = a.prevInterval;
         rs.ease = a.prevEase;
@@ -96,7 +103,8 @@ public class StudyService {
         boolean flipped = a.verdict == Verdict.INCORRECT; // new verdict is the flip
         a.verdict = flipped ? Verdict.CORRECT : Verdict.INCORRECT;
         a.score = flipped ? 1.0 : 0.0;
-        a.overridden = true;
+        // only a grader's judgment can be disagreed with; flipping back to it clears the flag
+        if (a.graderVerdict != null) a.overridden = a.verdict != a.graderVerdict;
         Sm2Scheduler.apply(rs, flipped, LocalDate.now(clock));
         reviewStateRepo.save(rs);
         return attemptRepo.save(a);

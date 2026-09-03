@@ -111,6 +111,7 @@ class StudyServiceTest {
     void correctMcAnswerAppliesScheduleWithSnapshot() {
         Attempt a = service.answerMc(9L, 2);
         assertEquals(Verdict.CORRECT, a.verdict);
+        assertNull(a.graderVerdict);           // no grader sees an MC question
         assertEquals(1.0, a.score, 1e-9);
         assertEquals(1, a.prevInterval);       // snapshot of pre-update state
         assertEquals(2.5, a.prevEase, 1e-9);
@@ -136,6 +137,7 @@ class StudyServiceTest {
         assertEquals(Verdict.CORRECT, a.verdict);
         assertEquals(0.9, a.score, 1e-9);
         assertEquals("Good: all three segments named.", a.feedback);
+        assertEquals(Verdict.CORRECT, a.graderVerdict);
         assertNotNull(a.graderRaw);
         assertEquals(Instant.parse("2026-09-01T12:00:00Z"), a.createdAt);
         assertEquals(1, a.prevInterval);       // snapshot of pre-update state
@@ -150,6 +152,7 @@ class StudyServiceTest {
         ai.nextError = new AiException("api down");
         Attempt a = service.answerShort(13L, "SYN, SYN-ACK, ACK");
         assertEquals(Verdict.PENDING, a.verdict);
+        assertEquals(Verdict.PENDING, a.graderVerdict); // recorded: the grader never judged it
         assertEquals("SYN, SYN-ACK, ACK", a.givenAnswer);
         assertNull(a.score);
         assertNull(a.feedback);

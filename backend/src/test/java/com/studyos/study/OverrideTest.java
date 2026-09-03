@@ -35,8 +35,10 @@ class OverrideTest {
         q.type = QuestionType.SHORT_ANSWER;
         attempt.id = 3L;
         attempt.question = q;
+        attempt.createdAt = Instant.parse("2026-09-01T12:00:00Z");
         when(reviewStateRepo.findByConceptId(5L)).thenReturn(Optional.of(rs));
         when(attemptRepo.findById(3L)).thenReturn(Optional.of(attempt));
+        when(attemptRepo.findTopByQuestionConceptIdOrderByCreatedAtDesc(5L)).thenReturn(Optional.of(attempt));
         when(attemptRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(reviewStateRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
         service = new StudyService(questionRepo, attemptRepo, reviewStateRepo, clock,
@@ -47,6 +49,7 @@ class OverrideTest {
     void overrideFlipsVerdictAndRecomputesFromSnapshot() {
         // grader said INCORRECT and the schedule was punished: interval 1, ease 2.3
         attempt.verdict = Verdict.INCORRECT;
+        attempt.graderVerdict = Verdict.INCORRECT;
         attempt.prevInterval = 1;
         attempt.prevEase = 2.5;
         attempt.prevStreak = 0;
@@ -85,5 +88,68 @@ class OverrideTest {
     void selfGradeRejectsResolved() {
         attempt.verdict = Verdict.CORRECT;
         assertThrows(IllegalStateException.class, () -> service.selfGrade(3L, false));
+    }
+
+    @Test
+    void overrideMarksDisagreementWithGrader() {
+        // the grader said CORRECT; the human knows better
+        attempt.verdict = Verdict.CORRECT;
+        attempt.graderVerdict = Verdict.CORRECT;
+        attempt.prevInterval = 1;
+        attempt.prevEase = 2.5;
+        attempt.prevStreak = 0;
+        attempt.prevDueDate = LocalDate.of(2026, 9, 1);
+        rs.intervalDays = 3;
+        rs.streak = 1;
+
+        Attempt out = service.override(3L);
+
+        assertEquals(Verdict.INCORRECT, out.verdict);
+        assertEquals(Verdict.CORRECT, out.graderVerdict); // the grader's call survives the flip
+        assertTrue(out.overridden);
+    }
+
+    @Test
+    void doubleOverrideClearsTheDisagreementFlag() {
+        attempt.verdict = Verdict.CORRECT;
+        attempt.graderVerdict = Verdict.CORRECT;
+        attempt.prevInterval = 1;
+        attempt.prevEase = 2.5;
+        attempt.prevStreak = 0;
+        attempt.prevDueDate = LocalDate.of(2026, 9, 1);
+
+        service.override(3L);               // flips away from the grader
+        Attempt out = service.override(3L); // and back to it
+
+        assertEquals(Verdict.CORRECT, out.verdict);
+        assertEquals(out.graderVerdict, out.verdict);
+        assertFalse(out.overridden);
+    }
+
+    @Test
+    void overrideRejectsOlderAttempt() {
+        attempt.verdict = Verdict.INCORRECT;
+        attempt.graderVerdict = Verdict.INCORRECT;
+        attempt.prevInterval = 1;
+        attempt.prevEase = 2.5;
+        attempt.prevStreak = 0;
+        attempt.prevDueDate = LocalDate.of(2026, 9, 1);
+        Attempt newer = new Attempt();
+        newer.id = 4L;
+        newer.question = q;
+        newer.createdAt = Instant.parse("2026-09-01T13:00:00Z");
+        when(attemptRepo.findTopByQuestionConceptIdOrderByCreatedAtDesc(5L)).thenReturn(Optional.of(newer));
+
+        assertThrows(IllegalStateException.class, () -> service.override(3L));
+        assertEquals(Verdict.INCORRECT, attempt.verdict); // untouched
+    }
+
+    @Test
+    void selfGradedAttemptIsNotMarkedOverridden() {
+        attempt.verdict = Verdict.PENDING; // no grader judged it, so graderVerdict stays null
+        Attempt out = service.selfGrade(3L, true);
+        assertEquals(Verdict.CORRECT, out.verdict);
+        assertNull(out.graderVerdict);
+        assertFalse(out.overridden);
     }
 }
