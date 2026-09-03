@@ -88,7 +88,8 @@ the user retire bad questions by hand.
    for grader evaluation.
 5. Scheduling (SM-2-lite): correct → interval = max(1, round(interval × ease)), streak + 1;
    incorrect → interval = 1, ease reduced (floor 1.3), streak = 0. Due date = today + interval.
-6. Session summary: concepts touched, accuracy, what is due next.
+6. Session summary (concepts touched, accuracy, what is due next): covered by the Dashboard
+   below rather than a separate per-sitting view.
 
 Dashboard: per-concept mastery (streak, accuracy), due-today count, coverage (concepts with
 zero attempts) per course.
