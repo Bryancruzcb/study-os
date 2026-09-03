@@ -145,6 +145,23 @@ class OverrideTest {
     }
 
     @Test
+    void selfGradeRejectsOlderAttempt() {
+        // A1 is PENDING and unscheduled; A2 has since applied the schedule and stored its snapshot.
+        // Resolving A1 now would stack a second update on top, leaving A2's snapshot stale, and
+        // override(A2) would then revert past A1's self-grade and discard it.
+        attempt.verdict = Verdict.PENDING;
+        Attempt newer = new Attempt();
+        newer.id = 4L;
+        newer.question = q;
+        newer.createdAt = Instant.parse("2026-09-01T13:00:00Z");
+        when(attemptRepo.findTopByQuestionConceptIdOrderByCreatedAtDesc(5L)).thenReturn(Optional.of(newer));
+
+        assertThrows(IllegalStateException.class, () -> service.selfGrade(3L, true));
+        assertEquals(Verdict.PENDING, attempt.verdict); // untouched
+        verify(reviewStateRepo, never()).save(any());
+    }
+
+    @Test
     void pendingGraderVerdictIsNotADisagreement() {
         // the grader failed and produced no judgement, so there is nothing to disagree with
         attempt.verdict = Verdict.PENDING;

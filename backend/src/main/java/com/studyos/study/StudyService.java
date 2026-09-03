@@ -88,12 +88,8 @@ public class StudyService {
     public Attempt override(Long attemptId) {
         Attempt a = attemptRepo.findById(attemptId).orElseThrow();
         if (a.verdict == Verdict.PENDING) throw new IllegalStateException("resolve PENDING via self-grade");
+        requireLatestAttemptForConcept(a, "overridden");
         Long conceptId = a.question.concept.id;
-        Attempt latest = attemptRepo.findTopByQuestionConceptIdOrderByCreatedAtDesc(conceptId).orElseThrow();
-        // the snapshot only reverts the newest schedule update, so an older attempt cannot be undone
-        if (!latest.id.equals(a.id)) {
-            throw new IllegalStateException("only the concept's most recent attempt can be overridden");
-        }
         ReviewState rs = reviewStateRepo.findByConceptId(conceptId).orElseThrow();
         // revert to the snapshot taken when this attempt's schedule update was applied
         rs.intervalDays = a.prevInterval;
@@ -116,10 +112,25 @@ public class StudyService {
     public Attempt selfGrade(Long attemptId, boolean correct) {
         Attempt a = attemptRepo.findById(attemptId).orElseThrow();
         if (a.verdict != Verdict.PENDING) throw new IllegalStateException("only PENDING attempts can be self-graded");
+        requireLatestAttemptForConcept(a, "self-graded");
         a.verdict = correct ? Verdict.CORRECT : Verdict.INCORRECT;
         a.score = correct ? 1.0 : 0.0;
         applySchedule(a, correct);
         return attemptRepo.save(a);
+    }
+
+    /**
+     * Both override and selfGrade apply a schedule update from the attempt's own snapshot, and a
+     * snapshot can only undo the newest update. Acting on an older attempt would stack an update on
+     * a stale snapshot, so the newer attempt's revert would then discard it. One method, so the two
+     * callers cannot drift apart about which attempts they will act on.
+     */
+    private void requireLatestAttemptForConcept(Attempt a, String action) {
+        Attempt latest = attemptRepo
+            .findTopByQuestionConceptIdOrderByCreatedAtDesc(a.question.concept.id).orElseThrow();
+        if (!latest.id.equals(a.id)) {
+            throw new IllegalStateException("only the concept's most recent attempt can be " + action);
+        }
     }
 
     /** Snapshot the concept's ReviewState onto the attempt, then apply SM-2. Reused by grading paths. */
