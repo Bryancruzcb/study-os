@@ -177,4 +177,19 @@ class IngestServiceTest {
         assertEquals(2, ai.extractCalls);
         verify(conceptRepo, never()).save(any());
     }
+
+    @Test
+    void oversizedErrorMessageIsTruncatedSoTheFailedRowSurvives() {
+        // Material.errorMessage is a varchar(2000). An oversized message throws at flush, after
+        // ingest() has returned, so the whole transaction rolls back and the FAILED row the user
+        // is meant to see never exists.
+        ai.nextError = new AiException("x".repeat(5000));
+        Material m = service.ingest(1L, "week1.pdf", new byte[] {1, 2, 3});
+        assertEquals(MaterialStatus.FAILED, m.status);
+        assertTrue(m.errorMessage.length() <= 2000,
+            "errorMessage must fit varchar(2000) but was " + m.errorMessage.length());
+        assertTrue(m.errorMessage.endsWith("[truncated]"), "truncation must be visible in the message");
+        // the initial PENDING save plus the FAILED save: the row is written, not rolled back
+        verify(materialRepo, times(2)).save(m);
+    }
 }

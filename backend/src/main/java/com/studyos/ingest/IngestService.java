@@ -29,6 +29,9 @@ public class IngestService {
     private final AiClient ai;
     private final Clock clock;
     private final ObjectMapper mapper = new ObjectMapper();
+    // matches @Column(length = 2000) on Material.errorMessage
+    private static final int ERROR_MESSAGE_MAX = 2000;
+    private static final String TRUNCATION_MARKER = " ...[truncated]";
 
     public IngestService(CourseRepo courseRepo, MaterialRepo materialRepo, ConceptRepo conceptRepo,
                          QuestionRepo questionRepo, ReviewStateRepo reviewStateRepo, AiClient ai, Clock clock) {
@@ -72,7 +75,7 @@ public class IngestService {
             payload = extractWithOneRetry(pdfBytes, course.name);
         } catch (AiException e) {
             material.status = MaterialStatus.FAILED;
-            material.errorMessage = e.getMessage();
+            material.errorMessage = truncateForColumn(e.getMessage());
             return materialRepo.save(material);
         }
 
@@ -102,6 +105,15 @@ public class IngestService {
         }
         material.status = MaterialStatus.INGESTED;
         return materialRepo.save(material);
+    }
+
+    // Material.errorMessage is a varchar(2000). save() on a managed entity only marks it, so an
+    // oversized message throws at flush after ingest() has returned, outside the catch, and rolls
+    // the transaction back: the user gets a 500 and no FAILED row at all. Truncate at assignment
+    // so the row the spec promises always survives, and say so in the message that is kept.
+    private static String truncateForColumn(String message) {
+        if (message.length() <= ERROR_MESSAGE_MAX) return message;
+        return message.substring(0, ERROR_MESSAGE_MAX - TRUNCATION_MARKER.length()) + TRUNCATION_MARKER;
     }
 
     private IngestPayload extractWithOneRetry(byte[] pdfBytes, String courseName) {
