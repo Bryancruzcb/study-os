@@ -24,6 +24,9 @@ public class Attempt {
     @Enumerated(EnumType.STRING)
     public Verdict graderVerdict; // what the grader said, null when no grader judged it (MC)
     public boolean overridden = false;
+    // AttemptRepo orders on this and the latest-attempt guard trusts that ordering, so it
+    // must never be null: NULLS FIRST on a DESC sort would hand the guard the wrong attempt
+    @Column(nullable = false)
     public Instant createdAt;
     // ReviewState snapshot taken when the schedule update was applied (null while PENDING)
     public Integer prevInterval;

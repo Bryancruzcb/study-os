@@ -49,9 +49,9 @@ public class IngestController {
 
     @GetMapping("/courses/{courseId}/bank")
     public List<ConceptWithQuestions> bank(@PathVariable Long courseId) {
-        return conceptRepo.findByCourseId(courseId).stream()
+        return conceptRepo.findByCourseIdOrderByIdAsc(courseId).stream()
             .map(c -> new ConceptWithQuestions(c.id, c.name, c.summary, c.sourcePages,
-                questionRepo.findByConceptId(c.id)))
+                questionRepo.findByConceptIdOrderByIdAsc(c.id)))
             .toList();
     }
 

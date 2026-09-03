@@ -58,8 +58,8 @@ class IngestControllerTest {
         q.id = 9L;
         q.type = QuestionType.MC;
         q.concept = c;
-        when(conceptRepo.findByCourseId(1L)).thenReturn(List.of(c));
-        when(questionRepo.findByConceptId(5L)).thenReturn(List.of(q));
+        when(conceptRepo.findByCourseIdOrderByIdAsc(1L)).thenReturn(List.of(c));
+        when(questionRepo.findByConceptIdOrderByIdAsc(5L)).thenReturn(List.of(q));
         mvc.perform(get("/api/courses/1/bank"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[0].name").value("TCP"))

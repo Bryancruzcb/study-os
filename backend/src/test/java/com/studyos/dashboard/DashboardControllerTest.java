@@ -44,7 +44,7 @@ class DashboardControllerTest {
         good.verdict = Verdict.CORRECT;
         Attempt bad = new Attempt();
         bad.verdict = Verdict.INCORRECT;
-        when(conceptRepo.findByCourseId(1L)).thenReturn(List.of(c));
+        when(conceptRepo.findByCourseIdOrderByIdAsc(1L)).thenReturn(List.of(c));
         when(reviewStateRepo.findByConceptId(5L)).thenReturn(Optional.of(rs));
         when(attemptRepo.findByQuestionConceptId(5L)).thenReturn(List.of(good, bad));
         when(reviewStateRepo.findByConceptCourseIdAndDueDateLessThanEqualOrderByDueDateAsc(eq(1L), any()))
@@ -67,7 +67,7 @@ class DashboardControllerTest {
         good.verdict = Verdict.CORRECT;
         Attempt ungraded = new Attempt();
         ungraded.verdict = Verdict.PENDING;
-        when(conceptRepo.findByCourseId(1L)).thenReturn(List.of(c));
+        when(conceptRepo.findByCourseIdOrderByIdAsc(1L)).thenReturn(List.of(c));
         when(reviewStateRepo.findByConceptId(5L)).thenReturn(Optional.of(rs));
         when(attemptRepo.findByQuestionConceptId(5L)).thenReturn(List.of(good, ungraded));
         when(reviewStateRepo.findByConceptCourseIdAndDueDateLessThanEqualOrderByDueDateAsc(eq(1L), any()))
@@ -87,7 +87,7 @@ class DashboardControllerTest {
         ReviewState rs = ReviewState.initial(c, LocalDate.of(2026, 9, 1));
         Attempt ungraded = new Attempt();
         ungraded.verdict = Verdict.PENDING;
-        when(conceptRepo.findByCourseId(1L)).thenReturn(List.of(c));
+        when(conceptRepo.findByCourseIdOrderByIdAsc(1L)).thenReturn(List.of(c));
         when(reviewStateRepo.findByConceptId(5L)).thenReturn(Optional.of(rs));
         when(attemptRepo.findByQuestionConceptId(5L)).thenReturn(List.of(ungraded));
         when(reviewStateRepo.findByConceptCourseIdAndDueDateLessThanEqualOrderByDueDateAsc(eq(1L), any()))

@@ -36,7 +36,7 @@ public class DashboardController {
         LocalDate today = LocalDate.now(clock);
         int dueToday = reviewStateRepo
             .findByConceptCourseIdAndDueDateLessThanEqualOrderByDueDateAsc(courseId, today).size();
-        List<ConceptStats> stats = conceptRepo.findByCourseId(courseId).stream().map(c -> {
+        List<ConceptStats> stats = conceptRepo.findByCourseIdOrderByIdAsc(courseId).stream().map(c -> {
             var rs = reviewStateRepo.findByConceptId(c.id).orElseThrow();
             // PENDING attempts were never judged, so they say nothing about accuracy
             List<Attempt> graded = attemptRepo.findByQuestionConceptId(c.id).stream()
