@@ -18,6 +18,7 @@ vi.mock('../api', () => ({
     upload: vi.fn(),
     retire: vi.fn(),
     createCourse: vi.fn(),
+    label: vi.fn(),
   },
 }))
 
@@ -44,4 +45,24 @@ test('shows a failed ingest in the alert and refreshes the bank', async () => {
   await userEvent.upload(input, new File(['%PDF-1.4'], 'week1.pdf', { type: 'application/pdf' }))
   expect(await screen.findByRole('alert')).toHaveTextContent('boom')
   await waitFor(() => expect(vi.mocked(api.bank).mock.calls.length).toBe(bankCalls + 1))
+})
+
+test('labels a question with the boxes as checked', async () => {
+  render(<BankPage />)
+  await userEvent.click(await screen.findByLabelText('unambiguous'))
+  await userEvent.click(screen.getByRole('button', { name: 'label' }))
+  await waitFor(() =>
+    expect(api.label).toHaveBeenCalledWith(9, { answerable: true, correctAnswer: true, unambiguous: false }))
+  expect(await screen.findByRole('button', { name: /labeled/ })).toBeInTheDocument()
+  // changing a box after the save means the stored labels no longer match what is shown
+  await userEvent.click(screen.getByLabelText('correct'))
+  expect(screen.getByRole('button', { name: 'label' })).toBeInTheDocument()
+})
+
+test('shows a failed label in the alert and leaves the question unlabelled', async () => {
+  vi.mocked(api.label).mockRejectedValueOnce(new Error('500 /api/questions/9/label'))
+  render(<BankPage />)
+  await userEvent.click(await screen.findByRole('button', { name: 'label' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('500 /api/questions/9/label')
+  expect(screen.getByRole('button', { name: 'label' })).toBeInTheDocument()
 })

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { api, type ConceptWithQuestions, type Course } from '../api'
 
+interface LabelBody { answerable: boolean; correctAnswer: boolean; unambiguous: boolean }
+
 export default function BankPage() {
   const [courses, setCourses] = useState<Course[]>([])
   const [courseId, setCourseId] = useState<number | null>(null)
@@ -43,6 +45,17 @@ export default function BankPage() {
     }
   }
 
+  async function onLabel(qid: number, body: LabelBody) {
+    setError(null)
+    try {
+      await api.label(qid, body)
+      return true
+    } catch (e) {
+      setError(String(e))
+      return false
+    }
+  }
+
   async function onCreateCourse() {
     const name = prompt('Course name?')
     if (!name) return
@@ -79,11 +92,33 @@ export default function BankPage() {
               <li key={q.id} style={{ opacity: q.status === 'RETIRED' ? 0.4 : 1 }}>
                 [{q.type}] <span>{q.prompt}</span> <small>pp. {q.sourcePages}</small>
                 {q.status === 'ACTIVE' && <button onClick={() => onRetire(q.id)}>retire</button>}
+                <LabelControl questionId={q.id} onSave={onLabel} />
               </li>
             ))}
           </ul>
         </section>
       ))}
     </div>
+  )
+}
+
+function LabelControl({ questionId, onSave }: { questionId: number; onSave: (qid: number, body: LabelBody) => Promise<boolean> }) {
+  const [answerable, setAnswerable] = useState(true)
+  const [correctAnswer, setCorrectAnswer] = useState(true)
+  const [unambiguous, setUnambiguous] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  return (
+    <span>
+      <label><input type="checkbox" checked={answerable} disabled={saving} onChange={e => { setAnswerable(e.target.checked); setSaved(false) }} />answerable</label>
+      <label><input type="checkbox" checked={correctAnswer} disabled={saving} onChange={e => { setCorrectAnswer(e.target.checked); setSaved(false) }} />correct</label>
+      <label><input type="checkbox" checked={unambiguous} disabled={saving} onChange={e => { setUnambiguous(e.target.checked); setSaved(false) }} />unambiguous</label>
+      <button disabled={saving} onClick={async () => {
+        setSaving(true)
+        const ok = await onSave(questionId, { answerable, correctAnswer, unambiguous })
+        setSaving(false)
+        setSaved(ok)
+      }}>{saved ? 'labeled ✓' : 'label'}</button>
+    </span>
   )
 }

@@ -25,6 +25,7 @@ export interface StudyQuestion { id: number; type: 'MC' | 'SHORT_ANSWER'; prompt
 export interface Attempt { id: number; verdict: 'CORRECT' | 'INCORRECT' | 'PENDING'; score: number | null; feedback: string | null }
 export interface ConceptStats { conceptId: number; name: string; streak: number; attempts: number; correct: number; dueDate: string; neverAttempted: boolean }
 export interface Dashboard { dueToday: number; concepts: ConceptStats[] }
+export interface EvalReport { labeled: number; pctAnswerable: number; pctCorrectAnswer: number; pctUnambiguous: number; gradedShortAnswers: number; graderAgreement: number }
 
 async function get<T>(url: string): Promise<T> {
   const res = await fetch(url)
@@ -56,6 +57,8 @@ export const api = {
   bank: (courseId: number) => get<ConceptWithQuestions[]>(`/api/courses/${courseId}/bank`),
   upload: (courseId: number, file: File) => uploadFile<Material>(`/api/courses/${courseId}/materials`, file),
   retire: (questionId: number) => post(`/api/questions/${questionId}/retire`, {}),
+  label: (questionId: number, body: { answerable: boolean; correctAnswer: boolean; unambiguous: boolean }) =>
+    post(`/api/questions/${questionId}/label`, body),
   next: async (courseId: number): Promise<StudyQuestion | null> => {
     const res = await fetch(`/api/study/next?courseId=${courseId}`)
     if (res.status === 204) return null
@@ -67,4 +70,5 @@ export const api = {
   override: (attemptId: number) => post<Attempt>(`/api/study/attempts/${attemptId}/override`, {}),
   selfGrade: (attemptId: number, correct: boolean) => post<Attempt>(`/api/study/attempts/${attemptId}/self-grade`, { correct }),
   dashboard: (courseId: number) => get<Dashboard>(`/api/dashboard?courseId=${courseId}`),
+  evalReport: () => get<EvalReport>('/api/eval/report'),
 }
