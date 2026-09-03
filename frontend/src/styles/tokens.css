@@ -1,34 +1,40 @@
-/* Ported from the CreatorFlow token set (01-base.css :root). Dark only: one :root,
-   no prefers-color-scheme block. Values are the extraction's, not CreatorFlow's
-   later hardcoded hexes. */
+/* Ported from the CreatorFlow token set, then pushed for contrast. The first pass
+   kept CreatorFlow's near-achromatic ramp (18-41% lightness, chroma .004-.012) and
+   an accent at chroma .069, and the result read washed out: it had drifted into the
+   one antipattern the restyle existed to avoid, low-contrast dark mode. The ground
+   is now darker, the ink brighter, and the accent and the three state colours carry
+   real chroma. Dark only: one :root, no prefers-color-scheme block. */
 :root {
   color-scheme: dark;
 
-  /* Neutral ramp, dark to light. Warm-green, chroma .004-.012: never neutral grey. */
-  --desk: oklch(18.02% 0.0043 128.73);
-  --graphite: oklch(21.55% 0.0059 121.94);
-  --raised: oklch(25.36% 0.0075 118.35);
-  --raised-strong: oklch(28.4% 0.0085 117);
-  --hairline: oklch(32.59% 0.0104 114.66);
-  --hairline-strong: oklch(41% 0.012 112);
+  /* Neutral ramp, dark to light. Warm-green, still never neutral grey, but the
+     ground drops to 10.5% so a hairline and a mark both have somewhere to stand. */
+  --desk: oklch(10.5% 0.004 128.73);
+  --graphite: oklch(13.5% 0.005 128);
+  --raised: oklch(17% 0.006 128);
+  --raised-strong: oklch(20.5% 0.007 120);
+  --hairline: oklch(30% 0.012 114);
+  --hairline-strong: oklch(40% 0.014 112);
 
-  /* --ink-dim is 66%, not 60/65%: below that it fails AA on --desk. */
-  --ink-dim: oklch(66% 0.0105 102);
-  --ink-muted: oklch(72.36% 0.0114 100.89);
-  --ink: oklch(95.42% 0.008 98.88);
+  /* All three lifted. --ink-dim carried most secondary text at 66% on an 18% ground,
+     which is where "pale" came from; on a 10.5% ground it can sit at 72% instead. */
+  --ink-dim: oklch(72% 0.01 102);
+  --ink-muted: oklch(80% 0.01 100);
+  --ink: oklch(98% 0.005 98);
 
-  /* One hue, 249.71, split in two: no single blue cleared 4.5:1 both as a fill
-     under --ink and as a mark on --desk. Deliberately no --blue-accent-hover. */
-  --blue-solid: oklch(48% 0.0627 249.71);
-  --blue-hover: oklch(53% 0.0627 249.71);
-  --blue-down: oklch(44% 0.0627 249.71);
-  --blue-accent: oklch(67% 0.069 249.71);
+  /* Still one hue split in two, moved to 232 and taken from chroma .069 to .13/.15.
+     At .069 the accent was close enough to grey that it read as another neutral. */
+  --blue-solid: oklch(42% 0.13 232);
+  --blue-hover: oklch(48% 0.13 232);
+  --blue-down: oklch(37% 0.13 232);
+  --blue-accent: oklch(76% 0.15 232);
 
-  /* Semantic chroma caps at .14. --focus is the focus ring only. */
-  --clear: oklch(70% 0.058 151.39);
-  --review: oklch(71.3% 0.1172 80.74);
-  --blocked: oklch(65% 0.14 33.83);
-  --focus: oklch(72% 0.11 249.71);
+  /* State colour has to signal at a glance, so the cap goes to .19 and each one is
+     lighter than the ground by a wide margin. --focus is the focus ring only. */
+  --clear: oklch(84% 0.14 152);
+  --review: oklch(80% 0.15 85);
+  --blocked: oklch(70% 0.19 28);
+  --focus: oklch(76% 0.15 232);
 
   --font-sans: 'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Consolas, monospace;

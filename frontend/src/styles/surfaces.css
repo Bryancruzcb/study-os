@@ -5,22 +5,26 @@
   flex-direction: column;
 }
 
+/* A concept is a bordered panel, not a run of rows under a hairline: at this ground
+   lightness a single rule was not enough to group a concept with its questions. */
 .concept {
-  padding-block: var(--space-6);
-  border-top: 1px solid var(--hairline-strong);
+  border: 1px solid var(--hairline);
+  margin-bottom: var(--space-5);
 }
 
-/* the page-head rule already closes the top of the first section */
-.concept:first-child {
-  border-top: 0;
-  padding-top: 0;
+.concept:last-child {
+  margin-bottom: 0;
 }
 
+/* the panel head is a titled bar, so it carries its own fill and closing rule */
 .concept-head {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--hairline);
+  background: var(--graphite);
 }
 
 .concept-name {
@@ -29,15 +33,15 @@
 }
 
 .concept-summary {
-  max-width: 40rem;
-  margin-top: var(--space-2);
+  max-width: 44rem;
+  padding: var(--space-4) var(--space-4) 0;
   color: var(--ink-muted);
   font-size: var(--text-sm);
   line-height: var(--leading-relaxed);
 }
 
 .qlist {
-  margin-top: var(--space-5);
+  margin-top: var(--space-4);
 }
 
 .qrow {
@@ -45,12 +49,13 @@
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
   gap: var(--space-4);
-  padding-block: var(--space-4);
+  padding: var(--space-4);
   border-top: 1px solid var(--hairline);
 }
 
+/* the panel border already closes the last row */
 .qrow:last-child {
-  border-bottom: 1px solid var(--hairline);
+  border-bottom: 0;
 }
 
 .qbody {
@@ -309,7 +314,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
-  max-width: 34rem;
+  max-width: 52rem;
 }
 
 .eval-line {
@@ -319,16 +324,17 @@
 }
 
 .figures {
-  border-top: 1px solid var(--hairline);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
 }
 
 .figure {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: baseline;
-  gap: var(--space-4);
-  padding-block: var(--space-4);
-  border-bottom: 1px solid var(--hairline);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--hairline);
 }
 
 .figure-label {
@@ -342,8 +348,15 @@
 
 .figure-value {
   font-family: var(--font-mono);
-  font-size: var(--text-xl);
-  font-weight: var(--weight-normal);
-  letter-spacing: var(--track-mono);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-strong);
+  line-height: 1;
+  letter-spacing: var(--track-tighter);
   color: var(--ink);
+}
+
+@media (max-width: 46rem) {
+  .figures {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

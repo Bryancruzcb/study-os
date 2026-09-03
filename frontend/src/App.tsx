@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react'
 import { BrowserRouter, NavLink, Navigate, Route, Routes } from 'react-router-dom'
+import { api, type EvalReport } from './api'
 import BankPage from './pages/BankPage'
 import StudyPage from './pages/StudyPage'
 import DashboardPage from './pages/DashboardPage'
@@ -12,14 +14,24 @@ const sections = [
 ]
 
 export default function App() {
+  // The strip is chrome, so a failed load leaves it showing the brand alone rather
+  // than raising an alert over whichever page the user actually came for.
+  const [report, setReport] = useState<EvalReport | null>(null)
+  useEffect(() => {
+    api.evalReport().then(setReport).catch(() => setReport(null))
+  }, [])
+
   return (
     <BrowserRouter>
       <div className="app">
+        <div className="strip">
+          <span className="strip-brand">Study OS</span>
+          {report && <span>{report.labeled} labeled</span>}
+          {report && <span>{report.gradedShortAnswers} graded</span>}
+          {report && report.gradedShortAnswers > 0 &&
+            <span className="strip-due">{Math.round(report.graderAgreement * 100)}% agreement</span>}
+        </div>
         <aside className="rail">
-          <div className="brand">
-            <span className="brand-glyph" aria-hidden="true">S</span>
-            <h1 className="brand-name">Study OS</h1>
-          </div>
           <nav className="rail-nav">
             {sections.map(s => (
               <NavLink key={s.to} to={s.to} end
