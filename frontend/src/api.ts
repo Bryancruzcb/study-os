@@ -22,6 +22,8 @@ export interface Material {
   errorMessage: string | null
 }
 export interface Attempt { id: number; verdict: 'CORRECT' | 'INCORRECT' | 'PENDING'; score: number | null; feedback: string | null }
+export interface ConceptStats { conceptId: number; name: string; streak: number; attempts: number; correct: number; dueDate: string; neverAttempted: boolean }
+export interface Dashboard { dueToday: number; concepts: ConceptStats[] }
 
 async function get<T>(url: string): Promise<T> {
   const res = await fetch(url)
@@ -61,4 +63,5 @@ export const api = {
   },
   answer: (body: { questionId: number; answerIndex?: number; answerText?: string }) =>
     post<Attempt>('/api/study/answer', body),
+  dashboard: (courseId: number) => get<Dashboard>(`/api/dashboard?courseId=${courseId}`),
 }
