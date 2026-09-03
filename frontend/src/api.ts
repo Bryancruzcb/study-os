@@ -21,6 +21,7 @@ export interface Material {
   status: 'PENDING' | 'INGESTED' | 'FAILED'
   errorMessage: string | null
 }
+export interface Attempt { id: number; verdict: 'CORRECT' | 'INCORRECT' | 'PENDING'; score: number | null; feedback: string | null }
 
 async function get<T>(url: string): Promise<T> {
   const res = await fetch(url)
@@ -52,4 +53,12 @@ export const api = {
   bank: (courseId: number) => get<ConceptWithQuestions[]>(`/api/courses/${courseId}/bank`),
   upload: (courseId: number, file: File) => uploadFile<Material>(`/api/courses/${courseId}/materials`, file),
   retire: (questionId: number) => post(`/api/questions/${questionId}/retire`, {}),
+  next: async (courseId: number): Promise<Question | null> => {
+    const res = await fetch(`/api/study/next?courseId=${courseId}`)
+    if (res.status === 204) return null
+    if (!res.ok) throw new Error(`${res.status} /api/study/next`)
+    return res.json()
+  },
+  answer: (body: { questionId: number; answerIndex?: number; answerText?: string }) =>
+    post<Attempt>('/api/study/answer', body),
 }
