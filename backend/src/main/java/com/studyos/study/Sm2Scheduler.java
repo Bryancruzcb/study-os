@@ -12,7 +12,7 @@ public final class Sm2Scheduler {
             rs.streak += 1;
         } else {
             rs.intervalDays = 1;
-            rs.ease = Math.max(1.3, rs.ease - 0.2);
+            rs.ease = Math.max(1.3, Math.round((rs.ease - 0.2) * 10) / 10.0);
             rs.streak = 0;
         }
         rs.dueDate = today.plusDays(rs.intervalDays);

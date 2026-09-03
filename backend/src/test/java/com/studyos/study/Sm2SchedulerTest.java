@@ -50,4 +50,14 @@ class Sm2SchedulerTest {
         for (int i = 0; i < 10; i++) Sm2Scheduler.apply(rs, false, TODAY);
         assertEquals(1.3, rs.ease, 1e-9);
     }
+
+    @Test
+    void fiveMissesThenCorrectUsesExactEase() {
+        ReviewState rs = fresh();
+        for (int i = 0; i < 5; i++) Sm2Scheduler.apply(rs, false, TODAY);
+        assertEquals(1.5, rs.ease, 0.0); // exact: 2.5 - 5 * 0.2 on a one-decimal grid
+        Sm2Scheduler.apply(rs, true, TODAY);
+        assertEquals(2, rs.intervalDays); // round(1 * 1.5) = 2
+        assertEquals(TODAY.plusDays(2), rs.dueDate);
+    }
 }
