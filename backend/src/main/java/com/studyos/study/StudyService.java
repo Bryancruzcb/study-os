@@ -103,8 +103,11 @@ public class StudyService {
         boolean flipped = a.verdict == Verdict.INCORRECT; // new verdict is the flip
         a.verdict = flipped ? Verdict.CORRECT : Verdict.INCORRECT;
         a.score = flipped ? 1.0 : 0.0;
-        // only a grader's judgment can be disagreed with; flipping back to it clears the flag
-        if (a.graderVerdict != null) a.overridden = a.verdict != a.graderVerdict;
+        // only a real grader judgment can be disagreed with (PENDING means the grader
+        // produced none); flipping back to it clears the flag
+        if (a.graderVerdict != null && a.graderVerdict != Verdict.PENDING) {
+            a.overridden = a.verdict != a.graderVerdict;
+        }
         Sm2Scheduler.apply(rs, flipped, LocalDate.now(clock));
         reviewStateRepo.save(rs);
         return attemptRepo.save(a);

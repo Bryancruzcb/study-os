@@ -145,6 +145,23 @@ class OverrideTest {
     }
 
     @Test
+    void pendingGraderVerdictIsNotADisagreement() {
+        // the grader failed and produced no judgement, so there is nothing to disagree with
+        attempt.verdict = Verdict.PENDING;
+        attempt.graderVerdict = Verdict.PENDING;
+
+        service.selfGrade(3L, true);   // human resolves it as correct
+        Attempt out = service.override(3L); // and then changes their mind
+
+        assertEquals(Verdict.INCORRECT, out.verdict);
+        assertFalse(out.overridden);
+        // reverted to the snapshot then re-applied as incorrect
+        assertEquals(1, rs.intervalDays);
+        assertEquals(2.3, rs.ease, 1e-9);
+        assertEquals(0, rs.streak);
+    }
+
+    @Test
     void selfGradedAttemptIsNotMarkedOverridden() {
         attempt.verdict = Verdict.PENDING; // no grader judged it, so graderVerdict stays null
         Attempt out = service.selfGrade(3L, true);
