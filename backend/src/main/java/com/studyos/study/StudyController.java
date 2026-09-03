@@ -30,6 +30,9 @@ public class StudyController {
         if (req.answerIndex() != null) {
             return studyService.answerMc(req.questionId(), req.answerIndex());
         }
-        throw new IllegalArgumentException("answerText grading arrives in Task 14");
+        if (req.answerText() != null) {
+            return studyService.answerShort(req.questionId(), req.answerText());
+        }
+        throw new IllegalArgumentException("answerIndex or answerText required");
     }
 }

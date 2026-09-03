@@ -4,6 +4,9 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+import com.studyos.ai.AiException;
+import com.studyos.ai.FakeAiClient;
+import com.studyos.ai.GradePayload;
 import com.studyos.domain.*;
 import com.studyos.repo.*;
 import java.time.Clock;
@@ -20,11 +23,13 @@ class StudyServiceTest {
     AttemptRepo attemptRepo = mock(AttemptRepo.class);
     ReviewStateRepo reviewStateRepo = mock(ReviewStateRepo.class);
     Clock clock = Clock.fixed(Instant.parse("2026-09-01T12:00:00Z"), ZoneOffset.UTC);
+    FakeAiClient ai = new FakeAiClient();
     StudyService service;
 
     Concept concept = new Concept();
     ReviewState rs;
     Question mc = new Question();
+    Question sa = new Question();
 
     @BeforeEach
     void setUp() {
@@ -34,15 +39,22 @@ class StudyServiceTest {
         mc.concept = concept;
         mc.type = QuestionType.MC;
         mc.correctIndex = 2;
+        sa.id = 13L;
+        sa.concept = concept;
+        sa.type = QuestionType.SHORT_ANSWER;
+        sa.prompt = "Describe the TCP three-way handshake.";
+        sa.modelAnswer = "SYN, then SYN-ACK, then ACK";
+        sa.rubric = "- names all three segments\n- correct order";
         when(reviewStateRepo.findByConceptCourseIdAndDueDateLessThanEqualOrderByDueDateAsc(eq(1L), any()))
             .thenReturn(List.of(rs));
         when(reviewStateRepo.findByConceptId(5L)).thenReturn(Optional.of(rs));
         when(questionRepo.findByConceptIdAndStatus(5L, QuestionStatus.ACTIVE)).thenReturn(List.of(mc));
         when(questionRepo.findById(9L)).thenReturn(Optional.of(mc));
+        when(questionRepo.findById(13L)).thenReturn(Optional.of(sa));
         when(attemptRepo.findTopByQuestionIdOrderByCreatedAtDesc(any())).thenReturn(Optional.empty());
         when(attemptRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(reviewStateRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        service = new StudyService(questionRepo, attemptRepo, reviewStateRepo, clock);
+        service = new StudyService(questionRepo, attemptRepo, reviewStateRepo, clock, new GradingService(ai));
     }
 
     @Test
@@ -113,6 +125,51 @@ class StudyServiceTest {
         assertEquals(0.0, a.score, 1e-9);
         assertEquals(1, rs.intervalDays);
         assertEquals(2.3, rs.ease, 1e-9);
+    }
+
+    @Test
+    void gradedShortAnswerAppliesScheduleWithSnapshot() {
+        ai.nextGrade = new GradePayload(true, 0.9, "Good: all three segments named.");
+        Attempt a = service.answerShort(13L, "SYN, SYN-ACK, ACK");
+        assertEquals(sa, a.question);
+        assertEquals("SYN, SYN-ACK, ACK", a.givenAnswer);
+        assertEquals(Verdict.CORRECT, a.verdict);
+        assertEquals(0.9, a.score, 1e-9);
+        assertEquals("Good: all three segments named.", a.feedback);
+        assertNotNull(a.graderRaw);
+        assertEquals(Instant.parse("2026-09-01T12:00:00Z"), a.createdAt);
+        assertEquals(1, a.prevInterval);       // snapshot of pre-update state
+        assertEquals(2.5, a.prevEase, 1e-9);
+        assertEquals(3, rs.intervalDays);      // schedule applied
+        assertEquals(1, rs.streak);
+        verify(attemptRepo).save(a);
+    }
+
+    @Test
+    void pendingShortAnswerLeavesScheduleUntouched() {
+        ai.nextError = new AiException("api down");
+        Attempt a = service.answerShort(13L, "SYN, SYN-ACK, ACK");
+        assertEquals(Verdict.PENDING, a.verdict);
+        assertEquals("SYN, SYN-ACK, ACK", a.givenAnswer);
+        assertNull(a.score);
+        assertNull(a.feedback);
+        assertNull(a.graderRaw);
+        assertNull(a.prevInterval);            // no snapshot while PENDING
+        assertNull(a.prevEase);
+        assertNull(a.prevStreak);
+        assertNull(a.prevDueDate);
+        assertEquals(1, rs.intervalDays);      // schedule untouched
+        assertEquals(2.5, rs.ease, 1e-9);
+        assertEquals(0, rs.streak);
+        assertEquals(LocalDate.of(2026, 9, 1), rs.dueDate);
+        verify(reviewStateRepo, never()).save(any());
+        verify(attemptRepo).save(a);
+    }
+
+    @Test
+    void answerShortRejectsMcQuestion() {
+        assertThrows(IllegalArgumentException.class, () -> service.answerShort(9L, "SYN, SYN-ACK, ACK"));
+        verify(attemptRepo, never()).save(any());
     }
 
     @Test

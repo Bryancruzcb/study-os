@@ -19,13 +19,15 @@ public class StudyService {
     private final AttemptRepo attemptRepo;
     private final ReviewStateRepo reviewStateRepo;
     private final Clock clock;
+    private final GradingService gradingService;
 
     public StudyService(QuestionRepo questionRepo, AttemptRepo attemptRepo,
-                        ReviewStateRepo reviewStateRepo, Clock clock) {
+                        ReviewStateRepo reviewStateRepo, Clock clock, GradingService gradingService) {
         this.questionRepo = questionRepo;
         this.attemptRepo = attemptRepo;
         this.reviewStateRepo = reviewStateRepo;
         this.clock = clock;
+        this.gradingService = gradingService;
     }
 
     public Optional<Question> next(Long courseId) {
@@ -61,6 +63,25 @@ public class StudyService {
         a.score = correct ? 1.0 : 0.0;
         a.createdAt = Instant.now(clock);
         applySchedule(a, correct);
+        return attemptRepo.save(a);
+    }
+
+    @Transactional
+    public Attempt answerShort(Long questionId, String answerText) {
+        Question q = questionRepo.findById(questionId).orElseThrow();
+        if (q.type != QuestionType.SHORT_ANSWER) throw new IllegalArgumentException("not a short-answer question");
+        GradingService.GradeOutcome out = gradingService.gradeShortAnswer(q, answerText);
+        Attempt a = new Attempt();
+        a.question = q;
+        a.givenAnswer = answerText;
+        a.verdict = out.verdict();
+        a.score = out.score();
+        a.feedback = out.feedback();
+        a.graderRaw = out.graderRaw();
+        a.createdAt = Instant.now(clock);
+        if (out.verdict() != Verdict.PENDING) {
+            applySchedule(a, out.verdict() == Verdict.CORRECT);
+        }
         return attemptRepo.save(a);
     }
 
