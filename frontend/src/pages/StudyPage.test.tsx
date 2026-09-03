@@ -167,3 +167,17 @@ test('attributes short-answer feedback to the grader', async () => {
   await userEvent.click(screen.getByRole('button', { name: /submit/i }))
   await waitFor(() => expect(screen.getByText('Grader: Missed ACK.')).toBeInTheDocument())
 })
+
+test('locks the course picker while an answer is in flight', async () => {
+  vi.mocked(api.courses).mockResolvedValueOnce([
+    { id: 1, name: 'CS 158A', term: 'Fall 2026' },
+    { id: 2, name: 'CS 146', term: 'Fall 2026' },
+  ])
+  let resolveAnswer!: (a: Attempt) => void
+  vi.mocked(api.answer).mockReturnValueOnce(new Promise<Attempt>(r => { resolveAnswer = r }))
+  await renderWithQuestion()
+  await userEvent.click(screen.getByRole('button', { name: '3' }))
+  expect(screen.getByRole('combobox')).toBeDisabled()
+  resolveAnswer({ id: 1, verdict: 'CORRECT', score: 1, feedback: null })
+  await waitFor(() => expect(screen.getByRole('combobox')).toBeEnabled())
+})

@@ -66,7 +66,7 @@ export default function StudyPage() {
     <div>
       <h2>Study</h2>
       {error && <p role="alert">{error}</p>}
-      <select value={courseId ?? ''} onChange={e => {
+      <select value={courseId ?? ''} disabled={submitting} onChange={e => {
         const cid = Number(e.target.value)
         setCourseId(cid)
         load(cid)
