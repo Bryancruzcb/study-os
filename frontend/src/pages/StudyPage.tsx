@@ -56,7 +56,9 @@ export default function StudyPage() {
 
   function answerShort() {
     if (question) submit(async () => {
-      const a = await api.answer({ questionId: question.id, answerText: text })
+      // trimmed on the way out for the same reason Submit is gated on the trim: the
+      // padding is not part of the answer and it is billed and stored either way
+      const a = await api.answer({ questionId: question.id, answerText: text.trim() })
       setText('')
       return a
     })
@@ -82,7 +84,7 @@ export default function StudyPage() {
         <div className="study">
           <div className="study-question">
             <p className="study-prompt">{question.prompt}</p>
-            <small className="cite">pp. {question.sourcePages}</small>
+            {question.sourcePages && <small className="cite">pp. {question.sourcePages}</small>}
           </div>
           {question.type === 'MC' && !attempt && (
             <div className="options">
@@ -94,7 +96,8 @@ export default function StudyPage() {
           {question.type === 'SHORT_ANSWER' && !attempt && (
             <div className="short-answer">
               <textarea className="textarea" value={text} disabled={submitting} onChange={e => setText(e.target.value)} />
-              <button className="button" disabled={submitting} onClick={answerShort}>Submit</button>
+              {/* a blank or whitespace-only answer still buys a real grader call and banks an attempt that drags the schedule */}
+              <button className="button" disabled={submitting || !text.trim()} onClick={answerShort}>Submit</button>
             </div>
           )}
           {attempt && (

@@ -168,6 +168,36 @@ test('attributes short-answer feedback to the grader', async () => {
   await waitFor(() => expect(screen.getByText('Grader: Missed ACK.')).toBeInTheDocument())
 })
 
+test('will not send a blank or whitespace-only short answer to the grader', async () => {
+  vi.mocked(api.next).mockResolvedValueOnce({
+    id: 10, type: 'SHORT_ANSWER', prompt: 'Describe the handshake.', options: [], sourcePages: '3,4',
+  })
+  render(<StudyPage />)
+  await waitFor(() => expect(screen.getByText('Describe the handshake.')).toBeInTheDocument())
+  expect(screen.getByRole('button', { name: /submit/i })).toBeDisabled()
+  await userEvent.click(screen.getByRole('button', { name: /submit/i }))
+  await userEvent.type(screen.getByRole('textbox'), '   ')
+  expect(screen.getByRole('button', { name: /submit/i })).toBeDisabled()
+  await userEvent.click(screen.getByRole('button', { name: /submit/i }))
+  expect(api.answer).not.toHaveBeenCalled()
+  await userEvent.clear(screen.getByRole('textbox'))
+  await userEvent.type(screen.getByRole('textbox'), '  SYN then SYN-ACK  ')
+  expect(screen.getByRole('button', { name: /submit/i })).toBeEnabled()
+  await userEvent.click(screen.getByRole('button', { name: /submit/i }))
+  await waitFor(() => expect(screen.getByText(/CORRECT/)).toBeInTheDocument())
+  // the padding is gated on the trim, so it is not part of what gets billed and stored
+  expect(api.answer).toHaveBeenCalledWith({ questionId: 10, answerText: 'SYN then SYN-ACK' })
+})
+
+test('shows no page citation for a question with no source pages', async () => {
+  vi.mocked(api.next).mockResolvedValueOnce({
+    id: 11, type: 'MC', prompt: 'Steps in the TCP handshake?', options: ['1', '2', '3', '4'], sourcePages: null,
+  })
+  render(<StudyPage />)
+  await waitFor(() => expect(screen.getByText('Steps in the TCP handshake?')).toBeInTheDocument())
+  expect(screen.queryByText(/pp\./)).not.toBeInTheDocument()
+})
+
 test('locks the course picker while an answer is in flight', async () => {
   vi.mocked(api.courses).mockResolvedValueOnce([
     { id: 1, name: 'CS 158A', term: 'Fall 2026' },
