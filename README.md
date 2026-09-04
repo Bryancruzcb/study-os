@@ -10,12 +10,14 @@ Around that: I upload a lecture PDF, get back concepts and questions cited to th
 source pages, then study them daily with spaced repetition.
 
 ![The question bank: concepts and questions extracted from a lecture PDF, each with its
-source page, the three label checkboxes, and a retired question struck
-through](docs/screenshots/bank.jpg)
+source page and the three label checkboxes, retire in a column of its own at the right,
+and a retired question struck through with a restore button](docs/screenshots/bank.jpg)
 
-*The bank after an ingest. Every question carries the pages it came from, the three
-label checkboxes are how I judge the generator, and a question I decided was bad is
-struck through rather than deleted.*
+*The bank after an ingest. Every question carries the pages it came from, and the three
+label checkboxes are how I judge the generator. Retire sits in its own column behind a
+hairline and asks for a confirm, because when it sat next to the label button I retired
+two questions by misclicking. A question I decided was bad is struck through rather than
+deleted, and I can put it back.*
 
 ![The dashboard: a table of concepts with streak, correct-out-of-attempted, and next
 due date](docs/screenshots/dashboard.jpg)
