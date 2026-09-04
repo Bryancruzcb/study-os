@@ -45,10 +45,11 @@ there means "no disagreement yet", not "the grader is right".*
 - Grading: multiple choice is checked against the stored answer index. A short answer
   gets one grader call against the question's rubric. If that call fails the attempt
   stays PENDING and I grade it myself, so studying never blocks on the API.
-- Four pages: Bank (upload a PDF, read the questions, retire bad ones, label them),
-  Study (answer, override a verdict, self-grade a PENDING one), Dashboard (how many
-  concepts are due, and per concept the streak, the correct-out-of-attempted count and
-  the next due date), Eval (the report below).
+- Four pages: Bank (upload a PDF, read the questions, retire bad ones behind a confirm
+  step and restore them when I misclick, label them), Study (answer, override a verdict,
+  self-grade a PENDING one), Dashboard (how many concepts are due, and per concept the
+  streak, the correct-out-of-attempted count and the next due date), Eval (the report
+  below).
 
 ## Evaluation
 
@@ -59,7 +60,10 @@ there means "no disagreement yet", not "the grader is right".*
   grader actually judged. Reported on the same page.
 
 Both numbers only cover what I have labeled and answered so far. With nothing labeled
-the page says so instead of showing 0%.
+the page says so instead of showing 0%. One narrowing worth knowing when reading the
+agreement number: I can only override the concept's most recent attempt, because that is
+the only one whose schedule change can still be undone. A disagreement I notice after
+clicking Next is never recorded, so the dataset holds in-the-moment disagreements only.
 
 ## Run it
 
@@ -80,9 +84,9 @@ The two models are set in `backend/src/main/resources/application.yml` under
 ## Tests
 
     mvn -f backend/pom.xml test
-    cd frontend && npm test
+    cd frontend && npm install && npm test
 
-63 backend tests and 33 frontend tests. Neither suite calls the Claude API or needs a
+71 backend tests and 50 frontend tests. Neither suite calls the Claude API or needs a
 database, so no key is needed to run them.
 
 One suite is deliberately not in that number. `PersistenceTest` runs against a real
@@ -100,6 +104,8 @@ suite, the JPA suite against a Postgres service container, and the frontend.
 
 This is v1 and it is built for one person: me. There are no accounts and no auth, so
 anyone who can reach the port can use it. It runs on my laptop and nothing is deployed.
-Uploads must be PDFs; nothing checks that, so anything else just fails ingest. Files are
-capped at 32MB. Ingest is one call per file with no progress and no background queue, so
-a long deck takes a while and the upload request waits for it.
+Uploads must be PDFs. Anything else is refused on its first bytes, before the upload
+reaches Claude, so uploading a PowerPoint deck costs nothing and comes back telling me
+to export it first. Files are capped at 32MB. Ingest is one call per file with no
+progress and no background queue, so a long deck takes a while and the upload request
+waits for it.
