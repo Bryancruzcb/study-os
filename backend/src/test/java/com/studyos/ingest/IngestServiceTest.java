@@ -12,6 +12,7 @@ import com.studyos.ai.QuestionPayload;
 import com.studyos.config.AppStudyProps;
 import com.studyos.domain.*;
 import com.studyos.repo.*;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -32,6 +33,10 @@ class IngestServiceTest {
     FakeAiClient ai = new FakeAiClient();
     Clock clock = Clock.fixed(Instant.parse("2026-09-01T12:00:00Z"), ZoneOffset.UTC);
     static final LocalDate TODAY = LocalDate.of(2026, 9, 1);
+    // ingest only accepts bytes that start with the PDF magic, so every fixture that is meant to
+    // reach the provider has to carry it
+    static final byte[] PDF = "%PDF-1.7\nnot a real document".getBytes(StandardCharsets.UTF_8);
+    static final byte[] PPTX = {'P', 'K', 0x03, 0x04, 0x14, 0x00, 0x06, 0x00};
     IngestService service;
     Course course = new Course();
 
@@ -85,7 +90,7 @@ class IngestServiceTest {
     @Test
     void successfulIngestPersistsBankAndReviewStates() {
         ai.nextExtract = FakeAiClient.samplePayload();
-        Material m = service.ingest(1L, "week1.pdf", new byte[] {1, 2, 3});
+        Material m = service.ingest(1L, "week1.pdf", PDF);
         assertEquals(MaterialStatus.INGESTED, m.status);
         verify(conceptRepo, times(1)).save(any());
         verify(questionRepo, times(2)).save(any());
@@ -99,7 +104,7 @@ class IngestServiceTest {
         Material existing = new Material();
         existing.status = MaterialStatus.INGESTED;
         when(materialRepo.findByFileHash(any())).thenReturn(Optional.of(existing));
-        Material m = service.ingest(1L, "week1.pdf", new byte[] {1, 2, 3});
+        Material m = service.ingest(1L, "week1.pdf", PDF);
         assertSame(existing, m);
         assertEquals(0, ai.extractCalls);
     }
@@ -107,7 +112,7 @@ class IngestServiceTest {
     @Test
     void aiFailureRetriesOnceThenFails() {
         ai.nextError = new AiException("boom");
-        Material m = service.ingest(1L, "week1.pdf", new byte[] {1, 2, 3});
+        Material m = service.ingest(1L, "week1.pdf", PDF);
         assertEquals(MaterialStatus.FAILED, m.status);
         assertTrue(m.errorMessage.contains("boom"));
         assertEquals(2, ai.extractCalls);
@@ -121,7 +126,7 @@ class IngestServiceTest {
             List.of("1", "2", "3", "4"), 2, null, null, List.of(3));
         ai.nextExtract = new IngestPayload(List.of(new ConceptPayload(
             good.name(), good.summary(), good.sourcePages(), List.of(bad, good.questions().get(1)))));
-        Material m = service.ingest(1L, "week1.pdf", new byte[] {1, 2, 3});
+        Material m = service.ingest(1L, "week1.pdf", PDF);
         assertEquals(MaterialStatus.FAILED, m.status);
         assertTrue(m.errorMessage.contains("multiple_choice"));
         assertEquals(2, ai.extractCalls);
@@ -139,7 +144,7 @@ class IngestServiceTest {
         failed.errorMessage = "boom";
         when(materialRepo.findByFileHash(any())).thenReturn(Optional.of(failed));
         ai.nextExtract = FakeAiClient.samplePayload();
-        Material m = service.ingest(1L, "week1.pdf", new byte[] {1, 2, 3});
+        Material m = service.ingest(1L, "week1.pdf", PDF);
         assertSame(failed, m);
         assertEquals(MaterialStatus.INGESTED, m.status);
         assertNull(m.errorMessage);
@@ -152,7 +157,7 @@ class IngestServiceTest {
     @Test
     void emptyExtractionRetriesOnceThenFails() {
         ai.nextExtract = new IngestPayload(List.of());
-        Material m = service.ingest(1L, "week1.pdf", new byte[] {1, 2, 3});
+        Material m = service.ingest(1L, "week1.pdf", PDF);
         assertEquals(MaterialStatus.FAILED, m.status);
         assertTrue(m.errorMessage.contains("no concepts"));
         assertEquals(2, ai.extractCalls);
@@ -164,7 +169,7 @@ class IngestServiceTest {
         ConceptPayload good = FakeAiClient.samplePayload().concepts().get(0);
         ai.nextExtract = new IngestPayload(List.of(new ConceptPayload(
             good.name(), good.summary(), good.sourcePages(), List.of())));
-        Material m = service.ingest(1L, "week1.pdf", new byte[] {1, 2, 3});
+        Material m = service.ingest(1L, "week1.pdf", PDF);
         assertEquals(MaterialStatus.FAILED, m.status);
         assertTrue(m.errorMessage.contains("no questions"));
         assertTrue(m.errorMessage.contains(good.name()));
@@ -179,7 +184,7 @@ class IngestServiceTest {
             null, 2, null, null, List.of(3));
         ai.nextExtract = new IngestPayload(List.of(new ConceptPayload(
             good.name(), good.summary(), good.sourcePages(), List.of(bad, good.questions().get(1)))));
-        Material m = service.ingest(1L, "week1.pdf", new byte[] {1, 2, 3});
+        Material m = service.ingest(1L, "week1.pdf", PDF);
         assertEquals(MaterialStatus.FAILED, m.status);
         assertTrue(m.errorMessage.contains("options"));
         assertTrue(m.errorMessage.contains("How many steps"));
@@ -194,7 +199,7 @@ class IngestServiceTest {
             List.of("1", "2", "3", "4"), 4, null, null, List.of(3));
         ai.nextExtract = new IngestPayload(List.of(new ConceptPayload(
             good.name(), good.summary(), good.sourcePages(), List.of(bad, good.questions().get(1)))));
-        Material m = service.ingest(1L, "week1.pdf", new byte[] {1, 2, 3});
+        Material m = service.ingest(1L, "week1.pdf", PDF);
         assertEquals(MaterialStatus.FAILED, m.status);
         assertTrue(m.errorMessage.contains("correctIndex"));
         assertTrue(m.errorMessage.contains("How many steps"));
@@ -209,7 +214,7 @@ class IngestServiceTest {
             null, null, null, "- names all three segments\n- correct order", List.of(3, 4));
         ai.nextExtract = new IngestPayload(List.of(new ConceptPayload(
             good.name(), good.summary(), good.sourcePages(), List.of(good.questions().get(0), bad))));
-        Material m = service.ingest(1L, "week1.pdf", new byte[] {1, 2, 3});
+        Material m = service.ingest(1L, "week1.pdf", PDF);
         assertEquals(MaterialStatus.FAILED, m.status);
         assertTrue(m.errorMessage.contains("modelAnswer"));
         assertTrue(m.errorMessage.contains("Describe the TCP"));
@@ -223,13 +228,61 @@ class IngestServiceTest {
         // ingest() has returned, so the whole transaction rolls back and the FAILED row the user
         // is meant to see never exists.
         ai.nextError = new AiException("x".repeat(5000));
-        Material m = service.ingest(1L, "week1.pdf", new byte[] {1, 2, 3});
+        Material m = service.ingest(1L, "week1.pdf", PDF);
         assertEquals(MaterialStatus.FAILED, m.status);
         assertTrue(m.errorMessage.length() <= 2000,
             "errorMessage must fit varchar(2000) but was " + m.errorMessage.length());
         assertTrue(m.errorMessage.endsWith("[truncated]"), "truncation must be visible in the message");
         // the initial PENDING save plus the FAILED save: the row is written, not rolled back
         verify(materialRepo, times(2)).save(m);
+    }
+
+    // --- an upload that is not a PDF is refused before it costs a provider call ---------
+
+    @Test
+    void pptxUploadFailsWithoutCallingTheProvider() {
+        // the payload is armed so the ingest would succeed on these bytes if the guard let them by
+        ai.nextExtract = FakeAiClient.samplePayload();
+        Material m = service.ingest(1L, "climate-lecture.pptx", PPTX);
+        assertEquals(MaterialStatus.FAILED, m.status);
+        assertTrue(m.errorMessage.contains("PowerPoint"), m.errorMessage);
+        assertTrue(m.errorMessage.contains("Export to PDF"), m.errorMessage);
+        assertEquals(0, ai.extractCalls);
+        verify(conceptRepo, never()).save(any());
+        verify(questionRepo, never()).save(any());
+        verify(reviewStateRepo, never()).save(any());
+    }
+
+    @Test
+    void plainTextUploadFailsWithoutCallingTheProvider() {
+        ai.nextExtract = FakeAiClient.samplePayload();
+        Material m = service.ingest(1L, "notes.txt",
+            "week 1 lecture notes".getBytes(StandardCharsets.UTF_8));
+        assertEquals(MaterialStatus.FAILED, m.status);
+        assertTrue(m.errorMessage.contains("not a PDF"), m.errorMessage);
+        assertFalse(m.errorMessage.contains("PowerPoint"), m.errorMessage);
+        assertEquals(0, ai.extractCalls);
+        verify(conceptRepo, never()).save(any());
+        verify(questionRepo, never()).save(any());
+        verify(reviewStateRepo, never()).save(any());
+    }
+
+    @Test
+    void reuploadingTheSameRejectedFileReusesItsFailedRow() {
+        // this is why the guard sits below the hash lookup: fileHash is unique, so a second
+        // upload of the same .pptx has to land on the existing FAILED row
+        Material failed = new Material();
+        failed.course = course;
+        failed.filename = "climate-lecture.pptx";
+        failed.status = MaterialStatus.FAILED;
+        failed.errorMessage = "boom";
+        when(materialRepo.findByFileHash(any())).thenReturn(Optional.of(failed));
+        ai.nextExtract = FakeAiClient.samplePayload();
+        Material m = service.ingest(1L, "climate-lecture.pptx", PPTX);
+        assertSame(failed, m);
+        assertEquals(MaterialStatus.FAILED, m.status);
+        assertTrue(m.errorMessage.contains("PowerPoint"), m.errorMessage);
+        assertEquals(0, ai.extractCalls);
     }
 
     // --- new concepts are spread over the calendar instead of all landing today ---------
@@ -239,7 +292,7 @@ class IngestServiceTest {
         service = serviceWithDailyLimit(3);
         ai.nextExtract = payloadOf(7);
 
-        service.ingest(1L, "week1.pdf", new byte[] {1, 2, 3});
+        service.ingest(1L, "week1.pdf", PDF);
 
         assertEquals(List.of(
             TODAY, TODAY, TODAY,
@@ -256,7 +309,7 @@ class IngestServiceTest {
         alreadyScheduled(dueCount(TODAY, 2L), dueCount(TODAY.plusDays(1), 3L));
         ai.nextExtract = payloadOf(5);
 
-        service.ingest(1L, "week1.pdf", new byte[] {1, 2, 3});
+        service.ingest(1L, "week1.pdf", PDF);
 
         assertEquals(List.of(
             TODAY,
@@ -269,7 +322,7 @@ class IngestServiceTest {
         service = serviceWithDailyLimit(2);
         ai.nextExtract = payloadOf(7);
 
-        service.ingest(1L, "week1.pdf", new byte[] {1, 2, 3});
+        service.ingest(1L, "week1.pdf", PDF);
 
         assertEquals(List.of(
             TODAY, TODAY,
