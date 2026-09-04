@@ -1,0 +1,80 @@
+# Publishes the project page at https://bryancruzcb.github.io/study-os/.
+#
+# The page lives in site/ and the screenshots live in docs/screenshots/, where the
+# README already references them. Rather than keep a second copy of three JPEGs in
+# sync, this assembles the upload directory from both, so there is exactly one source
+# of truth for the images.
+#
+# One-time setup: repository Settings -> Pages -> Source: "GitHub Actions". Until that
+# is selected, the deploy step fails with a "Pages site not found" error.
+name: Pages
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'site/**'
+      - 'docs/screenshots/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+# Least privilege. The build job only needs to read the repo; the deploy token is
+# granted to the deploy job alone, below, rather than to the whole workflow.
+permissions:
+  contents: read
+
+# Never let two deploys race, and let an in-flight one finish rather than cancelling it.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assemble the site
+        run: |
+          mkdir -p _site
+          cp site/index.html _site/
+          cp -r docs/screenshots _site/screenshots
+
+      # The page hard-codes image paths, in <img src> and in the absolute og:image URL.
+      # A rename in docs/screenshots/ would otherwise deploy broken images with a green
+      # tick. Note the empty-match guard: `for x in $(grep ...)` discards grep's exit
+      # status, so without it a grep that matches nothing skips the loop and passes.
+      - name: Check every referenced image exists
+        run: |
+          refs=$(grep -oE '(src="|content="https://[^"]*/)screenshots/[^"]+' _site/index.html                  | sed 's#.*screenshots/#screenshots/#' | sort -u)
+          if [ -z "$refs" ]; then
+            echo "no screenshot references found - this check is not checking anything"
+            exit 1
+          fi
+          missing=0
+          for src in $refs; do
+            if [ -f "_site/$src" ]; then
+              echo "ok      $src"
+            else
+              echo "MISSING $src"
+              missing=1
+            fi
+          done
+          exit $missing
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

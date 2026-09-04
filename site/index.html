@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Study OS — an AI grader I can overrule, and count</title>
+<meta name="description" content="Study OS turns a lecture PDF into page-cited questions, grades short answers against a rubric, and counts every time I overrule the grader.">
+<link rel="canonical" href="https://bryancruzcb.github.io/study-os/">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="Study OS — an AI grader I can overrule, and count">
+<meta property="og:description" content="A lecture PDF becomes page-cited questions. Short answers are graded against a rubric. Every time I overrule the grader is recorded, and that rate is the number the app publishes about itself.">
+<meta property="og:url" content="https://bryancruzcb.github.io/study-os/">
+<meta property="og:image" content="https://bryancruzcb.github.io/study-os/screenshots/bank.jpg">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230f1417'/%3E%3Crect x='8' y='8' width='16' height='16' fill='%2338bdf8'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+
+<style>
+  :root {
+    --page: oklch(99% 0.002 250);
+    --card: oklch(100% 0 0);
+    --sunken: oklch(97.5% 0.006 250);
+    --line: oklch(91% 0.006 250);
+    --ink: oklch(22% 0.012 250);
+    --ink-soft: oklch(38% 0.012 250);
+    --ink-dim: oklch(46% 0.012 250);
+    --accent: oklch(50% 0.14 232);
+    --accent-strong: oklch(40% 0.14 232);
+    --flag: oklch(52% 0.16 28);
+    --radius: 14px;
+    --measure: 46ch;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: var(--page);
+    color: var(--ink);
+    font-family: 'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 17px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3 { margin: 0; line-height: 1.1; letter-spacing: -0.03em; text-wrap: balance; }
+  p { margin: 0; text-wrap: pretty; }
+  ul { margin: 0; padding: 0; list-style: none; }
+
+  a { color: var(--accent-strong); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+  /* no radius here: an outline inherits the element's, and .btn is a 999px pill */
+  .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+  .wrap { max-width: 1180px; margin: 0 auto; padding-inline: clamp(20px, 4vw, 56px); }
+
+  /* One gradient, one band, nothing below it. Everything under this is plain white. */
+  .band {
+    padding: 22px 0 clamp(56px, 7vw, 96px);
+    background: linear-gradient(118deg,
+      oklch(93% 0.055 218) 0%,
+      oklch(95% 0.035 265) 42%,
+      oklch(94% 0.05 12) 100%);
+  }
+
+  .nav {
+    display: flex;
+    align-items: center;
+    gap: clamp(16px, 3vw, 40px);
+    flex-wrap: wrap;
+    padding: 15px 24px;
+    background: var(--card);
+    border-radius: 12px;
+    box-shadow: 0 1px 2px oklch(22% 0.012 250 / 0.06), 0 8px 24px oklch(22% 0.012 250 / 0.06);
+  }
+  .wordmark {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+  }
+  .wordmark::before { content: ''; width: 9px; height: 9px; background: var(--accent); }
+  .nav-links { display: flex; flex-wrap: wrap; gap: clamp(14px, 2vw, 28px); font-size: 15px; }
+  .nav-links a { color: var(--ink-soft); }
+  .nav-cta { margin-left: auto; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 11px 22px;
+    border-radius: 999px;
+    background: oklch(20% 0.012 250);
+    color: oklch(99% 0 0);
+    font-size: 15px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background-color 160ms ease;
+  }
+  .btn:hover { background: oklch(28% 0.012 250); color: oklch(99% 0 0); text-decoration: none; }
+  .btn--ghost { background: transparent; color: var(--accent-strong); padding-inline: 4px; }
+  .btn--ghost:hover { background: transparent; color: var(--ink); text-decoration: underline; }
+
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+    align-items: center;
+    gap: clamp(32px, 5vw, 56px);
+    margin-top: clamp(44px, 6vw, 72px);
+  }
+  .eyebrow {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--accent-strong);
+  }
+  .hero h1 { margin-top: 14px; font-size: clamp(34px, 4.4vw, 52px); font-weight: 700; }
+  .hero p { margin-top: 20px; max-width: var(--measure); font-size: clamp(17px, 1.4vw, 18px); color: var(--ink-soft); }
+  .hero-actions { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin-top: 30px; }
+
+  .shot {
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: 0 2px 4px oklch(22% 0.012 250 / 0.08), 0 24px 60px oklch(22% 0.012 250 / 0.16);
+  }
+  .shot img { display: block; width: 100%; height: auto; }
+
+  section { margin-top: clamp(56px, 8vw, 84px); }
+  .lede { margin-top: 10px; max-width: 64ch; color: var(--ink-dim); }
+
+  .cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; margin-top: 34px; }
+  .card {
+    display: flex;
+    flex-direction: column;
+    padding: 26px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+  }
+  .card--lead { border-color: var(--accent); }
+  .step {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    color: var(--accent-strong);
+  }
+  .card h3 { margin-top: 14px; font-size: 19px; font-weight: 600; letter-spacing: -0.015em; }
+  .card p { margin-top: 9px; font-size: 15px; color: var(--ink-soft); }
+
+  .panel { padding: clamp(28px, 4vw, 44px) clamp(24px, 4vw, 48px); background: var(--sunken); border-radius: 18px; }
+  .figures { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; margin-top: 32px; }
+  .figure {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 22px;
+    background: var(--card);
+    border: 1px solid transparent;
+    border-radius: 12px;
+  }
+  .figure--flagged { border-color: var(--flag); }
+  .figure b {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: clamp(30px, 3.2vw, 40px);
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -0.04em;
+  }
+  .figure span { font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-dim); }
+  .n {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--flag);
+  }
+  .caveat { margin-top: 22px; max-width: 74ch; font-size: 15px; color: var(--ink-dim); }
+
+  .split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: clamp(24px, 4vw, 48px); }
+  .split ul { display: flex; flex-direction: column; gap: 14px; }
+  .split li { color: var(--ink-soft); }
+
+  .stack-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 26px; }
+  .chip {
+    padding: 6px 12px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--card);
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+
+  .gallery { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-top: 34px; }
+  figure { margin: 0; }
+  figcaption { margin-top: 12px; font-size: 14px; color: var(--ink-dim); }
+
+  footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: clamp(56px, 8vw, 84px);
+    /* padding-block only: the footer also carries .wrap, whose padding-inline is the
+       page gutter, and a padding shorthand here would zero it on narrow screens */
+    padding-block: 28px 44px;
+    border-top: 1px solid var(--line);
+    font-size: 14px;
+    color: var(--ink-dim);
+  }
+  footer nav { display: flex; gap: 26px; }
+
+  @media (max-width: 860px) {
+    .hero { grid-template-columns: minmax(0, 1fr); }
+    .cards { grid-template-columns: minmax(0, 1fr); }
+    .figures { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .split { grid-template-columns: minmax(0, 1fr); }
+    .gallery { grid-template-columns: minmax(0, 1fr); }
+    .nav-cta { margin-left: 0; }
+  }
+
+  @media (max-width: 460px) {
+    .figures { grid-template-columns: minmax(0, 1fr); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    * { transition-duration: 0.01ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="band">
+  <div class="wrap">
+    <nav class="nav" aria-label="Primary">
+      <span class="wordmark">Study OS</span>
+      <span class="nav-links">
+        <a href="#how">How it works</a>
+        <a href="#evaluation">Evaluation</a>
+        <a href="#limits">Limits</a>
+      </span>
+      <span class="nav-cta"><a class="btn" href="https://github.com/Bryancruzcb/study-os">View on GitHub</a></span>
+    </nav>
+
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Spring Boot &middot; React &middot; Postgres &middot; Claude</p>
+        <h1>I grade my own answers. Then I check the grader.</h1>
+        <p>Study OS turns a lecture PDF into questions cited to their source pages, grades my short answers against a rubric, and records every time I overrule the grader. That rate is the number it publishes about itself.</p>
+        <div class="hero-actions">
+          <a class="btn" href="https://github.com/Bryancruzcb/study-os">View on GitHub</a>
+          <a class="btn btn--ghost" href="#evaluation">Read the evaluation
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2.5 8h10M9 4.5 12.5 8 9 11.5"/></svg>
+          </a>
+        </div>
+      </div>
+      <div class="shot">
+        <img src="screenshots/bank.jpg" width="1400" height="850"
+             alt="The Study OS question bank. Concepts pulled from a lecture PDF, each question tagged with its type and the pages it came from, three label checkboxes per question, and one question struck through as retired.">
+      </div>
+    </header>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <section id="how">
+    <h2>How it works</h2>
+    <p class="lede">Three steps. The third one is the interesting one.</p>
+    <div class="cards">
+      <article class="card">
+        <p class="step">01</p>
+        <h3>Ingest</h3>
+        <p>A lecture PDF goes to Claude as a document block under a structured-output schema. Back come concepts and questions, asked to cite the pages they were drawn from. A file already ingested is recognised by its content hash and never paid for twice. A failed extraction is retried once, then marked failed, so there are no silent partial ingests.</p>
+      </article>
+      <article class="card">
+        <p class="step">02</p>
+        <h3>Study</h3>
+        <p>Concepts are scheduled with SM-2-lite spaced repetition. A correct answer multiplies the interval by the ease and always adds at least a day; a miss resets the interval to one day and drops the ease by 0.2, with a floor of 1.3. The dashboard shows what is due and how each concept is actually going.</p>
+      </article>
+      <article class="card card--lead">
+        <p class="step">03</p>
+        <h3>Grade, and overrule</h3>
+        <p>A short answer gets one grader call against that question's rubric. I can overrule the grader on my most recent answer, and every one of those corrections is recorded. They become the dataset that measures the grader. If the grader call fails there is no verdict to overrule, so the attempt waits for me to grade it myself rather than blocking the session.</p>
+      </article>
+    </div>
+  </section>
+
+  <section id="evaluation">
+    <div class="panel">
+      <h2>What it measures about itself</h2>
+      <p class="lede">I hand-label questions on three checks and the app reports the share that pass each one. It reports its own grader the same way.</p>
+      <ul class="figures" role="list">
+        <li class="figure"><b>100%</b><span>Answerable from source</span></li>
+        <li class="figure"><b>97%</b><span>Correct answer</span></li>
+        <li class="figure"><b>94%</b><span>Unambiguous</span></li>
+        <li class="figure figure--flagged">
+          <b>100% <span class="n">n=1</span></b>
+          <span>Grader agreement</span>
+        </li>
+      </ul>
+      <p class="caveat">The three label rates cover 31 questions. The grader agreement covers one graded short answer, so it means &ldquo;no disagreement yet&rdquo; rather than &ldquo;the grader is right&rdquo;. The app reports the sample size beside it; the flag is on this page, and it stays until there is a real sample behind it.</p>
+    </div>
+  </section>
+
+  <section id="screens">
+    <h2>The rest of it</h2>
+    <div class="gallery">
+      <figure>
+        <div class="shot">
+          <img src="screenshots/dashboard.jpg" width="1400" height="850" loading="lazy"
+               alt="The Study OS dashboard: a table of concepts with a streak count, a correct-out-of-attempted count, and the next due date for each.">
+        </div>
+        <figcaption>The schedule. New concepts are due today; the ones answered correctly have moved out several days.</figcaption>
+      </figure>
+      <figure>
+        <div class="shot">
+          <img src="screenshots/eval.jpg" width="1400" height="850" loading="lazy"
+               alt="The Study OS evaluation page showing 31 labeled questions at 100, 97 and 94 percent, and one graded short answer at 100 percent grader agreement.">
+        </div>
+        <figcaption>The evaluation page in the app, reporting the same numbers and the same sample size.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section id="built">
+    <h2>How it is built</h2>
+    <p class="lede">A Spring Boot API over Postgres, a React and TypeScript frontend, and the Anthropic Claude API for both generation and grading.</p>
+    <ul class="stack-list" role="list">
+      <li class="chip">Java 21</li>
+      <li class="chip">Spring Boot</li>
+      <li class="chip">PostgreSQL</li>
+      <li class="chip">React 19</li>
+      <li class="chip">TypeScript</li>
+      <li class="chip">Vite</li>
+      <li class="chip">Anthropic Claude API</li>
+      <li class="chip">Docker Compose</li>
+      <li class="chip">GitHub Actions</li>
+    </ul>
+    <p class="lede" style="margin-top: 26px;">Continuous integration runs three jobs on every pull request and on pushes to the main branches: the backend suite, a JPA suite against a real Postgres service container, and the frontend. The default backend and frontend suites are hermetic, needing neither a database nor an API key.</p>
+  </section>
+
+  <section id="limits">
+    <div class="split">
+      <h2>What it is not</h2>
+      <ul role="list">
+        <li>This is v1 and it is built for exactly one person. There are no accounts and no auth, so anyone who can reach the port can use it.</li>
+        <li>It runs on a laptop. Nothing is deployed: the source and this page are the only parts of it on the internet.</li>
+        <li>Ingest is one call per file with no progress and no background queue, so a long deck takes a while and the upload request waits for it.</li>
+        <li>Uploads have to be PDFs and nothing checks that, so anything else simply fails to ingest. Files are capped at 32&nbsp;MB.</li>
+      </ul>
+    </div>
+  </section>
+
+</main>
+
+<footer class="wrap">
+  <span>Built by Bryan Cruz &middot; San Jos&eacute; State University</span>
+  <nav aria-label="Footer">
+    <a href="https://github.com/Bryancruzcb/study-os">GitHub</a>
+    <a href="https://github.com/Bryancruzcb/study-os#evaluation">Evaluation</a>
+    <a href="https://github.com/Bryancruzcb/study-os#readme">README</a>
+  </nav>
+</footer>
+</body>
+</html>
