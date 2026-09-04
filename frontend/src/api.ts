@@ -74,6 +74,7 @@ export const api = {
   bank: (courseId: number) => get<ConceptWithQuestions[]>(`/api/courses/${courseId}/bank`),
   upload: (courseId: number, file: File) => uploadFile<Material>(`/api/courses/${courseId}/materials`, file),
   retire: (questionId: number) => post(`/api/questions/${questionId}/retire`, {}),
+  restore: (questionId: number) => post(`/api/questions/${questionId}/restore`, {}),
   label: (questionId: number, body: { answerable: boolean; correctAnswer: boolean; unambiguous: boolean }) =>
     post(`/api/questions/${questionId}/label`, body),
   next: async (courseId: number): Promise<StudyQuestion | null> => {

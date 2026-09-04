@@ -215,6 +215,43 @@ ul {
   cursor: pointer;
 }
 
+/* A labelled field stacks its label over its control, so a field survives the row
+   it sits in wrapping to a second line without the label losing its input. */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.field-label {
+  font-size: var(--text-3xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.input {
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 4px;
+  background: var(--graphite);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  transition: border-color var(--motion-control) var(--ease-state);
+}
+
+.input:hover:not(:disabled) {
+  border-color: var(--ink-dim);
+}
+
+.input:disabled {
+  cursor: not-allowed;
+  color: var(--ink-dim);
+}
+
 .textarea {
   width: 100%;
   min-height: 7rem;
@@ -287,6 +324,16 @@ ul {
 .empty {
   color: var(--ink-muted);
   font-size: var(--text-sm);
+}
+
+/* A hint states what a control accepts before it is used, so it carries no colour
+   and no border: those belong to .alert, which reports something that went wrong. */
+.hint {
+  color: var(--ink-dim);
+  font-size: var(--text-3xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -44,9 +44,12 @@
   margin-top: var(--space-4);
 }
 
+/* Three columns, not two: the prompt, the benign controls, and the destructive one.
+   Retire used to ride at the tail of the wrapping label group, so every reflow moved
+   it, and twice it landed under a click aimed at the label button. */
 .qrow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: start;
   gap: var(--space-4);
   padding: var(--space-4);
@@ -100,6 +103,8 @@
   color: var(--ink-dim);
 }
 
+/* The benign controls own the middle column, and every reflow in the row happens
+   inside it: the label group grows downward here instead of pushing its neighbour. */
 .qcontrols {
   display: flex;
   align-items: center;
@@ -113,11 +118,49 @@
   gap: var(--space-3);
 }
 
-/* The destructive control keeps its own cell behind a rule, so a stray click on
-   the benign one cannot land on retire. */
+/* The last column, and the only place a destructive control appears. Because it is
+   a row-level track pinned to the right edge by the 1fr in front of it, and the row
+   aligns to start, this cell's top-right corner is fixed at every viewport width:
+   the label group can wrap to any number of lines without moving retire. What a
+   mis-aimed click has to cross is the row gap, this padding and the hairline.
+   It is held wide enough for [confirm][cancel] (186px measured) while it still holds
+   only retire, because this track's growth comes out of the 1fr in front of it: a cell
+   that widened on arming would pull the label group 98px left, under the confirm that
+   caused it, and the second click of a double on confirm would save a label instead.
+   Right-aligned so whatever is rendered ends at the row's right edge, which is what
+   puts cancel on the pixels retire gave up. */
 .qdanger {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  min-width: 12rem;
   padding-left: var(--space-4);
   border-left: 1px solid var(--hairline);
+}
+
+/* Narrow: the prompt takes the whole width and the two control cells drop to a line
+   of their own, still side by side behind the same hairline. Stacking them instead
+   would put retire back underneath the label button. */
+@media (max-width: 46rem) {
+  .qrow {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .qbody {
+    grid-column: 1 / -1;
+  }
+}
+
+/* New course is a form in the page rather than a prompt(): term is a real column on
+   the course row, and a prompt() could only ever ask for the name. */
+.course-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--hairline);
 }
 
 /* ---- study --------------------------------------------------------------- */

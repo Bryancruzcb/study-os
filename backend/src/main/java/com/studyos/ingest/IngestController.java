@@ -62,4 +62,12 @@ public class IngestController {
         questionRepo.save(q);
         return Map.of("status", "retired");
     }
+
+    @PostMapping("/questions/{id}/restore")
+    public Map<String, String> restore(@PathVariable Long id) {
+        Question q = questionRepo.findById(id).orElseThrow();
+        q.status = QuestionStatus.ACTIVE;
+        questionRepo.save(q);
+        return Map.of("status", "active");
+    }
 }

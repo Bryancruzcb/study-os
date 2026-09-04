@@ -74,4 +74,32 @@ class IngestControllerTest {
         mvc.perform(post("/api/questions/9/retire")).andExpect(status().isOk());
         verify(questionRepo).save(argThat(saved -> saved.status == QuestionStatus.RETIRED));
     }
+
+    // the New course button is the only way a course is made through the UI, and nothing
+    // exercised this endpoint until now: the frontend tests mock the whole api module away
+    @Test
+    void createCourseSavesTheNameAndTermItWasSent() throws Exception {
+        Course saved = new Course();
+        saved.id = 7L;
+        saved.name = "METR 112";
+        saved.term = "Fall 2026";
+        when(courseRepo.save(any())).thenReturn(saved);
+        mvc.perform(post("/api/courses")
+                .contentType("application/json")
+                .content("{\"name\":\"METR 112\",\"term\":\"Fall 2026\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.id").value(7))
+            .andExpect(jsonPath("$.name").value("METR 112"))
+            .andExpect(jsonPath("$.term").value("Fall 2026"));
+        verify(courseRepo).save(argThat(c -> "METR 112".equals(c.name) && "Fall 2026".equals(c.term)));
+    }
+
+    @Test
+    void restoreSetsStatus() throws Exception {
+        Question q = new Question();
+        q.status = QuestionStatus.RETIRED;
+        when(questionRepo.findById(9L)).thenReturn(Optional.of(q));
+        mvc.perform(post("/api/questions/9/restore")).andExpect(status().isOk());
+        verify(questionRepo).save(argThat(saved -> saved.status == QuestionStatus.ACTIVE));
+    }
 }

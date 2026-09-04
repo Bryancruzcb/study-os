@@ -9,6 +9,7 @@ vi.mock('./api', () => ({
     bank: vi.fn().mockResolvedValue([]),
     upload: vi.fn(),
     retire: vi.fn(),
+    restore: vi.fn(),
     createCourse: vi.fn(),
     evalReport: vi.fn().mockResolvedValue({
       labeled: 31, pctAnswerable: 1, pctCorrectAnswer: 0.97, pctUnambiguous: 0.94,
