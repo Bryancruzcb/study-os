@@ -12,6 +12,9 @@ spring:
       max-file-size: 32MB
       max-request-size: 33MB
 app:
+  study:
+    # a bulk import fills the calendar forward at this many new concepts a day per course
+    new-concepts-per-day: 8
   model:
     generation: claude-opus-5
     grading: claude-opus-5

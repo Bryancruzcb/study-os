@@ -7,14 +7,17 @@ import com.studyos.ai.AiException;
 import com.studyos.ai.ConceptPayload;
 import com.studyos.ai.IngestPayload;
 import com.studyos.ai.QuestionPayload;
+import com.studyos.config.AppStudyProps;
 import com.studyos.domain.*;
 import com.studyos.repo.*;
 import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,13 +31,15 @@ public class IngestService {
     private final ReviewStateRepo reviewStateRepo;
     private final AiClient ai;
     private final Clock clock;
+    private final AppStudyProps study;
     private final ObjectMapper mapper = new ObjectMapper();
     // matches @Column(length = 2000) on Material.errorMessage
     private static final int ERROR_MESSAGE_MAX = 2000;
     private static final String TRUNCATION_MARKER = " ...[truncated]";
 
     public IngestService(CourseRepo courseRepo, MaterialRepo materialRepo, ConceptRepo conceptRepo,
-                         QuestionRepo questionRepo, ReviewStateRepo reviewStateRepo, AiClient ai, Clock clock) {
+                         QuestionRepo questionRepo, ReviewStateRepo reviewStateRepo, AiClient ai, Clock clock,
+                         AppStudyProps study) {
         this.courseRepo = courseRepo;
         this.materialRepo = materialRepo;
         this.conceptRepo = conceptRepo;
@@ -42,6 +47,7 @@ public class IngestService {
         this.reviewStateRepo = reviewStateRepo;
         this.ai = ai;
         this.clock = clock;
+        this.study = study;
     }
 
     @Transactional
@@ -80,6 +86,8 @@ public class IngestService {
         }
 
         LocalDate today = LocalDate.now(clock);
+        Map<LocalDate, Long> scheduled = scheduledPerDayFrom(courseId, today);
+        LocalDate dueDate = today;
         for (ConceptPayload cp : payload.concepts()) {
             Concept concept = new Concept();
             concept.course = course;
@@ -101,10 +109,28 @@ public class IngestService {
                     : qp.sourcePages().stream().map(String::valueOf).collect(Collectors.joining(","));
                 questionRepo.save(q);
             }
-            reviewStateRepo.save(ReviewState.initial(concept, today));
+            // spread the payload forward: a concept goes on the first day from today onwards
+            // that is still under the per-course daily cap, and then fills one of its slots
+            while (scheduled.getOrDefault(dueDate, 0L) >= study.newConceptsPerDay()) {
+                dueDate = dueDate.plusDays(1);
+            }
+            reviewStateRepo.save(ReviewState.initial(concept, dueDate));
+            scheduled.merge(dueDate, 1L, Long::sum);
         }
         material.status = MaterialStatus.INGESTED;
         return materialRepo.save(material);
+    }
+
+    // What the course already has booked on every day from `from` onwards, in one read. Days
+    // before `from` are left out on purpose: an overdue concept is not due on any future day,
+    // so it must not consume a slot the calendar still has free.
+    private Map<LocalDate, Long> scheduledPerDayFrom(Long courseId, LocalDate from) {
+        Map<LocalDate, Long> perDay = new HashMap<>();
+        for (var count : reviewStateRepo
+                .findDueDateCountsByConceptCourseIdAndDueDateGreaterThanEqual(courseId, from)) {
+            perDay.put(count.getDueDate(), count.getTotal());
+        }
+        return perDay;
     }
 
     // Material.errorMessage is a varchar(2000). save() on a managed entity only marks it, so an

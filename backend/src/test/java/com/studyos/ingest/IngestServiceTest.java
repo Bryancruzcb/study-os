@@ -9,11 +9,14 @@ import com.studyos.ai.ConceptPayload;
 import com.studyos.ai.FakeAiClient;
 import com.studyos.ai.IngestPayload;
 import com.studyos.ai.QuestionPayload;
+import com.studyos.config.AppStudyProps;
 import com.studyos.domain.*;
 import com.studyos.repo.*;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,6 +31,7 @@ class IngestServiceTest {
     ReviewStateRepo reviewStateRepo = mock(ReviewStateRepo.class);
     FakeAiClient ai = new FakeAiClient();
     Clock clock = Clock.fixed(Instant.parse("2026-09-01T12:00:00Z"), ZoneOffset.UTC);
+    static final LocalDate TODAY = LocalDate.of(2026, 9, 1);
     IngestService service;
     Course course = new Course();
 
@@ -40,7 +44,42 @@ class IngestServiceTest {
         when(conceptRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(questionRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(reviewStateRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        service = new IngestService(courseRepo, materialRepo, conceptRepo, questionRepo, reviewStateRepo, ai, clock);
+        service = serviceWithDailyLimit(8);
+    }
+
+    private IngestService serviceWithDailyLimit(int newConceptsPerDay) {
+        return new IngestService(courseRepo, materialRepo, conceptRepo, questionRepo, reviewStateRepo, ai, clock,
+            new AppStudyProps(newConceptsPerDay));
+    }
+
+    /** A valid payload of {@code n} distinct concepts, each carrying the sample question pair. */
+    private static IngestPayload payloadOf(int n) {
+        ConceptPayload sample = FakeAiClient.samplePayload().concepts().get(0);
+        List<ConceptPayload> concepts = new ArrayList<>();
+        for (int i = 0; i < n; i++) {
+            concepts.add(new ConceptPayload(
+                "concept " + i, sample.summary(), sample.sourcePages(), sample.questions()));
+        }
+        return new IngestPayload(concepts);
+    }
+
+    private static ReviewStateRepo.DueDateCount dueCount(LocalDate dueDate, long total) {
+        return new ReviewStateRepo.DueDateCount() {
+            @Override public LocalDate getDueDate() { return dueDate; }
+            @Override public long getTotal() { return total; }
+        };
+    }
+
+    private void alreadyScheduled(ReviewStateRepo.DueDateCount... counts) {
+        when(reviewStateRepo.findDueDateCountsByConceptCourseIdAndDueDateGreaterThanEqual(1L, TODAY))
+            .thenReturn(List.of(counts));
+    }
+
+    /** The due dates of every review state the ingest saved, in the order the concepts arrived. */
+    private List<LocalDate> savedDueDates() {
+        ArgumentCaptor<ReviewState> rs = ArgumentCaptor.forClass(ReviewState.class);
+        verify(reviewStateRepo, atLeastOnce()).save(rs.capture());
+        return rs.getAllValues().stream().map(x -> x.dueDate).toList();
     }
 
     @Test
@@ -191,5 +230,51 @@ class IngestServiceTest {
         assertTrue(m.errorMessage.endsWith("[truncated]"), "truncation must be visible in the message");
         // the initial PENDING save plus the FAILED save: the row is written, not rolled back
         verify(materialRepo, times(2)).save(m);
+    }
+
+    // --- new concepts are spread over the calendar instead of all landing today ---------
+
+    @Test
+    void newConceptsSpreadOverConsecutiveDaysUpToTheDailyLimit() {
+        service = serviceWithDailyLimit(3);
+        ai.nextExtract = payloadOf(7);
+
+        service.ingest(1L, "week1.pdf", new byte[] {1, 2, 3});
+
+        assertEquals(List.of(
+            TODAY, TODAY, TODAY,
+            TODAY.plusDays(1), TODAY.plusDays(1), TODAY.plusDays(1),
+            TODAY.plusDays(2)), savedDueDates());
+        assertTrue(savedDueDates().stream().noneMatch(d -> d.isBefore(TODAY)),
+            "nothing may be scheduled before today");
+    }
+
+    @Test
+    void partlyFullDaysAreToppedUpBeforeTheIngestMovesOn() {
+        service = serviceWithDailyLimit(3);
+        // today has one slot left, tomorrow is full, the day after is untouched
+        alreadyScheduled(dueCount(TODAY, 2L), dueCount(TODAY.plusDays(1), 3L));
+        ai.nextExtract = payloadOf(5);
+
+        service.ingest(1L, "week1.pdf", new byte[] {1, 2, 3});
+
+        assertEquals(List.of(
+            TODAY,
+            TODAY.plusDays(2), TODAY.plusDays(2), TODAY.plusDays(2),
+            TODAY.plusDays(3)), savedDueDates());
+    }
+
+    @Test
+    void theDailyLimitComesFromConfiguration() {
+        service = serviceWithDailyLimit(2);
+        ai.nextExtract = payloadOf(7);
+
+        service.ingest(1L, "week1.pdf", new byte[] {1, 2, 3});
+
+        assertEquals(List.of(
+            TODAY, TODAY,
+            TODAY.plusDays(1), TODAY.plusDays(1),
+            TODAY.plusDays(2), TODAY.plusDays(2),
+            TODAY.plusDays(3)), savedDueDates());
     }
 }
