@@ -10,4 +10,6 @@ public interface QuestionRepo extends JpaRepository<Question, Long> {
     // the bank list is a long sequential labeling pass, so it must not reshuffle when a
     // question is retired or labelled: Postgres returns physical order without an ORDER BY
     List<Question> findByConceptIdOrderByIdAsc(Long conceptId);
+    // the overview counts what can still be asked, so retired questions stay out of it
+    long countByConceptCourseIdAndStatus(Long courseId, QuestionStatus status);
 }
