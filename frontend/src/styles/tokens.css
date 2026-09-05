@@ -1,91 +1,55 @@
-/* Ported from the CreatorFlow token set, then pushed for contrast. The first pass
-   kept CreatorFlow's near-achromatic ramp (18-41% lightness, chroma .004-.012) and
-   an accent at chroma .069, and the result read washed out: it had drifted into the
-   one antipattern the restyle existed to avoid, low-contrast dark mode. The ground
-   is now darker, the ink brighter, and the accent and the three state colours carry
-   real chroma. Dark only: one :root, no prefers-color-scheme block. */
+/* The landing page's palette (site/index.html), value for value. Light only: one :root,
+   no prefers-color-scheme block. The four tokens marked (new) are the ones the app needs
+   that a marketing page does not: a correct/incorrect pair and the hover glow. */
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 
-  /* Neutral ramp, dark to light. Warm-green, still never neutral grey, but the
-     ground drops to 10.5% so a hairline and a mark both have somewhere to stand. */
-  --desk: oklch(10.5% 0.004 128.73);
-  --graphite: oklch(13.5% 0.005 128);
-  --raised: oklch(17% 0.006 128);
-  --raised-strong: oklch(20.5% 0.007 120);
-  --hairline: oklch(30% 0.012 114);
-  --hairline-strong: oklch(40% 0.014 112);
+  --page: oklch(99% 0.002 250);
+  --card: oklch(100% 0 0);
+  --sunken: oklch(97.5% 0.006 250);
+  --line: oklch(91% 0.006 250);
+  --line-dashed: oklch(82% 0.008 250);
 
-  /* All three lifted. --ink-dim carried most secondary text at 66% on an 18% ground,
-     which is where "pale" came from; on a 10.5% ground it can sit at 72% instead. */
-  --ink-dim: oklch(72% 0.01 102);
-  --ink-muted: oklch(80% 0.01 100);
-  --ink: oklch(98% 0.005 98);
+  --ink: oklch(22% 0.012 250);
+  --ink-fill: oklch(20% 0.012 250);
+  --ink-fill-hover: oklch(28% 0.012 250);
+  --ink-soft: oklch(38% 0.012 250);
+  --ink-dim: oklch(46% 0.012 250);
 
-  /* Still one hue split in two, moved to 232 and taken from chroma .069 to .13/.15.
-     At .069 the accent was close enough to grey that it read as another neutral. */
-  --blue-solid: oklch(42% 0.13 232);
-  --blue-hover: oklch(48% 0.13 232);
-  --blue-down: oklch(37% 0.13 232);
-  --blue-accent: oklch(76% 0.15 232);
+  --accent: oklch(50% 0.14 232);
+  --accent-strong: oklch(40% 0.14 232);
+  --flag: oklch(52% 0.16 28);
+  --flag-wash: oklch(95% 0.045 28); /* (new) */
+  --ok: oklch(50% 0.14 152); /* (new) */
+  --ok-wash: oklch(95% 0.06 152); /* (new) */
 
-  /* State colour has to signal at a glance, so the cap goes to .19 and each one is
-     lighter than the ground by a wide margin. --focus is the focus ring only. */
-  --clear: oklch(84% 0.14 152);
-  --review: oklch(80% 0.15 85);
-  --blocked: oklch(70% 0.19 28);
-  --focus: oklch(76% 0.15 232);
+  /* (new) the AWS Startups card hover: a soft cyan-blue halo, never a fade */
+  --glow-line: oklch(78% 0.11 230);
+  --glow: 0 0 0 1px oklch(78% 0.11 230 / 0.7), 0 0 30px 6px oklch(84% 0.10 228 / 0.55);
+
+  --shadow-nav: 0 1px 2px oklch(22% 0.012 250 / 0.06), 0 8px 24px oklch(22% 0.012 250 / 0.06);
+
+  /* one wash, one band, home page only */
+  --band: linear-gradient(118deg, oklch(93% 0.055 218) 0%, oklch(95% 0.035 265) 42%, oklch(94% 0.05 12) 100%);
+
+  /* course tile washes, keyed by course id modulo five, drawn from the band's own hues */
+  --wash-0: linear-gradient(135deg, oklch(93% 0.055 218), oklch(95% 0.035 265));
+  --wash-1: linear-gradient(135deg, oklch(95% 0.035 265), oklch(94% 0.05 12));
+  --wash-2: linear-gradient(135deg, oklch(94% 0.05 152), oklch(93% 0.055 218));
+  --wash-3: linear-gradient(135deg, oklch(94% 0.05 12), oklch(95% 0.05 80));
+  --wash-4: linear-gradient(135deg, oklch(95% 0.05 80), oklch(94% 0.05 152));
 
   --font-sans: 'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Consolas, monospace;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
 
-  /* 11px floor: --text-3xs is the smallest type that ships. */
-  --text-3xs: 0.6875rem;
-  --text-2xs: 0.75rem;
-  --text-xs: 0.8125rem;
-  --text-sm: 0.875rem;
-  --text-md: 1rem;
-  --text-lg: 1.125rem;
-  --text-xl: 1.5rem;
-  --text-2xl: 2rem;
-  --text-display: clamp(2.5rem, 1.6rem + 3.4vw, 4rem);
+  --radius: 14px;
+  --radius-panel: 18px;
+  --radius-nav: 12px;
+  --radius-pill: 999px;
 
-  --weight-normal: 400;
-  --weight-medium: 500;
-  --weight-strong: 600;
+  --wrap: 1180px;
+  --gutter: clamp(20px, 4vw, 56px);
 
-  --leading-tight: 1.15;
-  --leading-snug: 1.35;
-  --leading-normal: 1.5;
-  --leading-relaxed: 1.6;
-
-  --track-label: 0.14em;
-  --track-mono: 0.02em;
-  --track-normal: 0;
-  --track-tight: -0.02em;
-  --track-tighter: -0.035em;
-
-  --space-1: 0.25rem;
-  --space-2: 0.5rem;
-  --space-3: 0.75rem;
-  --space-4: 1rem;
-  --space-5: 1.25rem;
-  --space-6: 1.5rem;
-  --space-8: 2rem;
-  --space-12: 3rem;
-  --space-16: 4rem;
-  --space-24: 6rem;
-
-  --motion-instant: 90ms;
-  --motion-control: 190ms;
-  --motion-panel: 420ms;
-  --motion-story: 680ms;
-  --ease-state: cubic-bezier(0.25, 1, 0.5, 1);
-  --ease-artifact: cubic-bezier(0.16, 1, 0.3, 1);
-
-  --depth-hairline: 0 1px 0 oklch(100% 0 0 / 0.035);
-  --depth-raised:
-    0 18px 48px oklch(0% 0 0 / 0.3),
-    0 1px 0 oklch(100% 0 0 / 0.035) inset;
-  --depth-focus: 0 0 0 2px var(--focus);
+  --motion: 160ms;
+  --ease: ease;
 }
