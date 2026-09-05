@@ -1,9 +1,9 @@
 # Study OS UI: the landing page's language, Canvas-style course tiles
 
 Date: 2026-09-04
-Status: Approved in brainstorming (mockup approved, Study A + Bank A chosen)
+Status: Approved in brainstorming (mockup approved, Study A + Bank B chosen)
 Mockup: https://claude.ai/code/artifact/c65985f6-ced4-442d-810e-3a59fd0ae7b1
-(page "Directions"; the boards named Home, Study A: Focus, Bank A: Concept tiles are the ones to build)
+(page "Directions"; the boards named Home, Study A: Focus, Bank B: Split view are the ones to build)
 
 ## Problem
 
@@ -12,8 +12,8 @@ while its own project page (`site/index.html`) is light, rounded and airy. Bryan
 look like its landing page, and wants course selection to work like Canvas: a home screen of
 course tiles, each carrying the course name and its numbers, instead of a `<select>` repeated on
 three pages. His review of the first mockup pass: the Study and Bank surfaces had "too much text
-that's little"; the second pass (one centered question card; concept tiles that open into
-question cards) was chosen.
+that's little"; the second pass (one centered question card; a concept list beside the open
+concept's question cards) was chosen.
 
 ## Decisions
 
@@ -21,10 +21,10 @@ question cards) was chosen.
 |---|---|
 | Theme | Light only, the landing page's tokens verbatim. No dark mode, no `prefers-color-scheme` block. |
 | Home | Canvas-style course tiles: tinted top block with the course code and term, a due-today figure, concept and question counts. Whole tile is a link. |
-| Tile hover | The AWS Startups card glow Bryan screenshotted (2026-09-03): a soft cyan-blue halo, `box-shadow: 0 0 0 1px oklch(78% 0.11 230 / 0.7), 0 0 30px 6px oklch(84% 0.10 228 / 0.55)`, plus the border taking `oklch(78% 0.11 230)`. Same glow on concept tiles and on answer options. |
+| Tile hover | The AWS Startups card glow Bryan screenshotted (2026-09-03): a soft cyan-blue halo, `box-shadow: 0 0 0 1px oklch(78% 0.11 230 / 0.7), 0 0 30px 6px oklch(84% 0.10 228 / 0.55)`, plus the border taking `oklch(78% 0.11 230)`. Same glow on the answer options. |
 | Navigation | Course-scoped routes. `/` is the course grid; Study, Bank and Dashboard live under `/courses/:courseId/...` as tabs inside a course shell; Evaluation stays global. |
 | Study | Direction A "Focus": one centered column, one question card, 28px prompt, lettered 60px options, a coloured verdict band after answering, a progress figure and bar in the course head. |
-| Bank | Direction A "Concept tiles": the bank opens as a grid of concept tiles; a tile opens the concept at its own route, showing its questions as cards with pill-toggle labels, a quiet retire link, and greyed retired cards with Restore. |
+| Bank | Direction B "Split view": a concept list on the left (name and active-question count, the open row filled dark) and the open concept's questions on the right as cards with pill-toggle labels, a quiet retire link, and greyed retired cards with Restore. The open concept is in the URL; `/bank` alone opens the first one. |
 | New course | A dashed "+ New course" tile on the home grid opens the inline name/term form in its place. Creating navigates into the new course's Bank, where the only useful next step (upload) is. |
 | Eval readout | Stays in the top nav, right-aligned, mono: `31 labeled · 1 graded · 100% agreement`. Hidden when the report fails to load. |
 | Type floor | 12px (the landing's smallest size, the mono eyebrow). The CreatorFlow 11px floor rule is retired with the rest of that language. |
@@ -55,7 +55,7 @@ Colour (oklch):
 | `--ok` (new) | `oklch(50% 0.14 152)` | correct verdict mark |
 | `--ok-wash` (new) | `oklch(95% 0.06 152)` | correct verdict band |
 | `--flag-wash` (new) | `oklch(95% 0.045 28)` | incorrect verdict band |
-| `--glow` (new) | the two-shadow value in Decisions | hover on tiles and options |
+| `--glow` (new) | the two-shadow value in Decisions | hover on course tiles and answer options |
 
 Course washes for the tile's top block, keyed by `course.id % 5`, each a two-stop
 `linear-gradient(135deg, a, b)` drawn from the band's own hues:
@@ -107,8 +107,8 @@ affordance that adds light rather than fading anything.
 | `/` | Home: band, nav pill, hero figure, course grid |
 | `/courses/:courseId` | redirects to `/courses/:courseId/study` |
 | `/courses/:courseId/study` | Study |
-| `/courses/:courseId/bank` | Bank: concept tiles |
-| `/courses/:courseId/bank/:conceptId` | Bank: one concept's question cards |
+| `/courses/:courseId/bank` | Bank: redirects to the first concept (`bank/<first id>`); the empty state when the bank is empty |
+| `/courses/:courseId/bank/:conceptId` | Bank: the concept list beside that concept's question cards |
 | `/courses/:courseId/dashboard` | Dashboard |
 | `/eval` | Evaluation |
 | `/study`, `/dashboard`, `/bank`, anything else | redirect to `/` |
@@ -176,21 +176,22 @@ through outlet context; `refresh()` refetches the overview so the due figure upd
 - The single-flight guard, the submit guard, the alert region, and "attempt cleared only after the
   next question loads" all stay exactly as they are; only the markup and classes change.
 
-### Bank (`/courses/:courseId/bank`)
+### Bank (`/courses/:courseId/bank` and `/courses/:courseId/bank/:conceptId`)
 
 - Head slot: `Upload a lecture PDF` (primary pill wrapping the file input, `accept=".pdf"`) and
   the `PDF only` hint. While uploading: the button reads `Ingesting…` and is disabled; a FAILED
-  material shows its message in the alert. After any upload the bank refetches.
-- Caption line in mono: `248 concepts · 844 questions · 12 retired`.
-- Grid `repeat(auto-fill, minmax(300px, 1fr))`, gap 20px, of concept tiles (`<a>` to
-  `bank/:conceptId`): h3 name, summary clamped to two lines (`-webkit-line-clamp: 2`), a footer
-  rule with `3 questions · 1 retired` in mono and the pages chip. Glow on hover.
-- Empty: one card, `No concepts yet. Upload a lecture PDF to build the bank.`
-
-### Bank, one concept (`/courses/:courseId/bank/:conceptId`)
-
-- `← All concepts` link, h2 name, summary 17px, pages chip.
-- Question cards (max 900px): chips (type, pages, `Retired` in `--flag` when retired); prompt
+  material shows its message in the alert. After any upload the bank refetches and the course
+  head's counts refresh.
+- A split: `340px minmax(0, 1fr)`, gap 28px. Left, a sticky card holding the concept list: a
+  mono caption `248 concepts`, then one row per concept (`NavLink` to `bank/:conceptId`) with the
+  name and its active-question count in mono; the open row is filled dark with white text; hover
+  is `--sunken`. Right, the open concept.
+- `/bank` on its own redirects to the first concept in the list, so the right pane is never
+  blank while there is something to show. With an empty bank the right pane is one card,
+  `No concepts yet. Upload a lecture PDF to build the bank.`, and the caption reads `0 concepts`.
+- Right pane, top: a chips row with the pages chip and `3 questions · 1 retired` in mono, then
+  the h2 name and the summary at 17px.
+- Question cards (right pane): chips (type, pages, `Retired` in `--flag` when retired); prompt
   18px/500; footer: the three label toggles (`Answerable`, `Correct`, `Unambiguous`) followed by
   `Save labels` (secondary micro) or the word `labeled` in mono once saved; on the right `Retire`
   as a `--flag` text button. Clicking Retire arms the card: the right slot becomes
@@ -199,8 +200,11 @@ through outlet context; `refresh()` refetches the overview so the due figure upd
   through, no toggles, `Restore` (secondary micro) in the right slot. Focus hand-back after
   retire, cancel and restore, and the label seeding rules (null defaults to checked, never over
   a stored false), are unchanged from today.
-- The bank list is fetched once per course visit and kept in the Bank route's state, so opening
-  a concept does not refetch; retire, restore and upload refetch it.
+- A `conceptId` not in the bank renders an alert (`No concept has id N.`) in the right pane;
+  the list stays, so no back link is needed.
+- The bank list is fetched once per course visit and kept in the Bank route's state, so picking
+  a concept does not refetch; retire, restore and upload refetch it. Under 720px the list stacks
+  above the pane.
 
 ### Dashboard (`/courses/:courseId/dashboard`)
 
@@ -250,8 +254,9 @@ src/
   shell/courses.ts        useCourses(): overview fetch + refresh, shared by Home and the layout
   pages/HomePage.tsx      hero + tile grid + new-course tile/form
   pages/StudyPage.tsx     as today, reading course from useOutletContext
-  pages/BankPage.tsx      concept grid; BankConceptPage.tsx for one concept; both under a
-                          BankRoute that owns the bank state
+  pages/BankRoute.tsx     owns the bank state, the upload control and the split (list + outlet)
+  pages/BankPage.tsx      the bank's index: redirect to the first concept, or the empty state
+  pages/BankConceptPage.tsx  the right pane: one concept's question cards
   pages/DashboardPage.tsx
   pages/EvalPage.tsx
   styles/tokens.css       the table above
@@ -259,7 +264,7 @@ src/
   styles/shell.css        band, nav pill, course head, page layout
   styles/home.css         hero, tile grid, new-course tile
   styles/study.css        question card, options, verdict band
-  styles/bank.css         concept grid, concept view, question cards
+  styles/bank.css         split, concept list, concept pane, question cards
   styles/dashboard.css    figures, ledger
   styles/eval.css         panel, figures
 ```
@@ -285,9 +290,10 @@ Frontend (vitest + Testing Library, all existing 50 tests kept or migrated, not 
   form and creating navigates to the new bank; a failed overview shows the alert.
 - New: the course shell renders tabs for a known id, not-found for an unknown or non-numeric id;
   `/courses/2` redirects to `/courses/2/study`; `/study`, `/bank`, `/dashboard` redirect to `/`.
-- New: the bank grid links to `bank/:conceptId`; the concept page renders the cards; retire arms,
-  confirm and cancel and restore behave and hand focus back (the existing tests, re-pointed at the
-  cards); labels save with the toggle values; the concept-not-found state.
+- New: the concept list links to `bank/:conceptId` and marks the open row; `/bank` alone lands on
+  the first concept; the concept pane renders the cards; retire arms, confirm and cancel and
+  restore behave and hand focus back (the existing tests, re-pointed at the cards); labels save
+  with the toggle values; the concept-not-found state beside the list.
 - New: the Study progress figure comes from the overview and `refresh` is called after an answer.
 - New: the eval grader tile carries `n=` and the flag below 30.
 - A type-floor test: after rendering each page, no computed `font-size` under 12px (jsdom
