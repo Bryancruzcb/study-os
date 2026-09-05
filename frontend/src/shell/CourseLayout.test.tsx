@@ -1,8 +1,10 @@
+import { useState, type ReactNode } from 'react'
 import { render, screen } from '@testing-library/react'
-import { MemoryRouter, Navigate, Route, Routes } from 'react-router-dom'
+import userEvent from '@testing-library/user-event'
+import { Link, MemoryRouter, Navigate, Route, Routes, useOutletContext } from 'react-router-dom'
 import { vi } from 'vitest'
 import { api } from '../api'
-import CourseLayout from './CourseLayout'
+import CourseLayout, { type CourseContext } from './CourseLayout'
 
 vi.mock('../api', () => ({
   api: {
@@ -12,13 +14,13 @@ vi.mock('../api', () => ({
   },
 }))
 
-function renderAt(path: string) {
+function renderAt(path: string, study: ReactNode = <p>study page</p>) {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
         <Route path="/courses/:courseId" element={<CourseLayout />}>
           <Route index element={<Navigate to="study" replace />} />
-          <Route path="study" element={<p>study page</p>} />
+          <Route path="study" element={study} />
           <Route path="bank" element={<p>bank page</p>} />
         </Route>
         <Route path="/" element={<p>home page</p>} />
@@ -61,4 +63,30 @@ test('a failed overview shows the alert instead of the tabs', async () => {
   renderAt('/courses/2/study')
   expect(await screen.findByRole('alert')).toHaveTextContent('500 /api/courses/overview')
   expect(screen.queryByRole('link', { name: 'Study' })).not.toBeInTheDocument()
+})
+
+/* Keeps the course it mounted with, the way the Study page keeps its start-of-visit
+   figure; a stale name here means the page outlived a course switch. */
+function Probe() {
+  const { course } = useOutletContext<CourseContext>()
+  const [startedOn] = useState(course.name)
+  return (
+    <>
+      <p>started on {startedOn}</p>
+      <Link to="/courses/3/study">switch to CS 158A</Link>
+    </>
+  )
+}
+
+test('a course switch starts the page over', async () => {
+  vi.mocked(api.overview).mockResolvedValueOnce([
+    { id: 2, name: 'CS 149', term: 'Fall 2026', concepts: 248, questions: 844, dueToday: 16 },
+    { id: 3, name: 'CS 158A', term: 'Fall 2026', concepts: 39, questions: 139, dueToday: 16 },
+  ])
+  renderAt('/courses/2/study', <Probe />)
+  expect(await screen.findByText('started on CS 149')).toBeInTheDocument()
+  await userEvent.click(screen.getByRole('link', { name: 'switch to CS 158A' }))
+  // the head follows the route on its own; only a keyed outlet makes the page start over
+  expect(await screen.findByRole('heading', { level: 1, name: 'CS 158A' })).toBeInTheDocument()
+  expect(screen.getByText('started on CS 158A')).toBeInTheDocument()
 })

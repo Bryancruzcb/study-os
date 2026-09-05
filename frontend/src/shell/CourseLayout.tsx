@@ -60,7 +60,8 @@ export default function CourseLayout() {
         </div>
         <div className="course-head-slot" ref={setSlot} />
       </header>
-      <Outlet context={{ course, refresh, slot } satisfies CourseContext} />
+      {/* a course switch is a new visit, so every page starts over instead of keeping the last course's state */}
+      <Outlet key={course.id} context={{ course, refresh, slot } satisfies CourseContext} />
     </div>
   )
 }

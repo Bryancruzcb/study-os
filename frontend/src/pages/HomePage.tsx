@@ -1,18 +1,11 @@
 import { useLayoutEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { api, type CourseOverview } from '../api'
+import { api } from '../api'
 import Nav from '../shell/Nav'
-import { useCourses } from '../shell/courses'
+import { dueSplit, useCourses } from '../shell/courses'
 
 /* five washes cycle by id, so courses made one after the other never share one */
 const WASHES = 5
-
-/* "11 in CS 47, 16 in CS 149 and 16 in CS 158A" */
-export function dueSplit(courses: CourseOverview[]): string {
-  const parts = courses.map(c => `${c.dueToday} in ${c.name}`)
-  if (parts.length <= 1) return parts.join('')
-  return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`
-}
 
 export default function HomePage() {
   const { courses, error } = useCourses()
