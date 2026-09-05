@@ -1742,7 +1742,7 @@ export default function HomePage() {
           <header className="hero">
             {courses && courses.length > 0 && (
               <>
-                <p className="eyebrow">{newest.term} · {courses.length} {courses.length === 1 ? 'course' : 'courses'}</p>
+                <p className="eyebrow">{newest?.term} · {courses.length} {courses.length === 1 ? 'course' : 'courses'}</p>
                 <h1>{due} due today.</h1>
                 <p className="lede">{dueSplit(courses)}. Pick a class to start the queue.</p>
               </>
