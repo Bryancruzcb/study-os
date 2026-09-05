@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 public interface ReviewStateRepo extends JpaRepository<ReviewState, Long> {
     Optional<ReviewState> findByConceptId(Long conceptId);
     List<ReviewState> findByConceptCourseIdAndDueDateLessThanEqualOrderByDueDateAsc(Long courseId, LocalDate date);
+    long countByConceptCourseIdAndDueDateLessThanEqual(Long courseId, LocalDate date);
 
     // One row per day from `from` onwards that already has something scheduled. Ingest places a
     // whole payload from this single read; asking per candidate day would be a query per day.

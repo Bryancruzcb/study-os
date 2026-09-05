@@ -260,4 +260,30 @@ class PersistenceTest {
                 reviewStates.findByConceptCourseIdAndDueDateLessThanEqualOrderByDueDateAsc(c.id, today);
         assertThat(due).extracting(x -> x.id).containsExactly(a.id, b.id);
     }
+
+    // --- the counts behind the course overview ---------------------------------------
+
+    @Test
+    void theOverviewCountsSeeOnlyTheirCourseAndOnlyActiveQuestions() {
+        Course mine = course("CS 149");
+        Course other = course("CS 158A");
+        Material m = material(mine, "hash-overview");
+        Material om = material(other, "hash-overview-other");
+        Concept a = concept(mine, m, "kernel mode");
+        Concept b = concept(mine, m, "process control block");
+        Concept elsewhere = concept(other, om, "tcp handshake");
+        question(a, QuestionType.MC, QuestionStatus.ACTIVE);
+        question(a, QuestionType.SHORT_ANSWER, QuestionStatus.RETIRED);
+        question(b, QuestionType.MC, QuestionStatus.ACTIVE);
+        question(elsewhere, QuestionType.MC, QuestionStatus.ACTIVE);
+        LocalDate today = LocalDate.of(2026, 9, 4);
+        reviewStates.save(ReviewState.initial(a, today.minusDays(1)));
+        reviewStates.save(ReviewState.initial(b, today.plusDays(3)));
+        reviewStates.save(ReviewState.initial(elsewhere, today));
+
+        // two of the three concepts, two of the three ACTIVE questions, one of the two due states
+        assertThat(concepts.countByCourseId(mine.id)).isEqualTo(2);
+        assertThat(questions.countByConceptCourseIdAndStatus(mine.id, QuestionStatus.ACTIVE)).isEqualTo(2);
+        assertThat(reviewStates.countByConceptCourseIdAndDueDateLessThanEqual(mine.id, today)).isEqualTo(1);
+    }
 }

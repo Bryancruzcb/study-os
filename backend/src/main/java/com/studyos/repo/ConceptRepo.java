@@ -8,4 +8,5 @@ public interface ConceptRepo extends JpaRepository<Concept, Long> {
     // ordered for the same reason as QuestionRepo.findByConceptIdOrderByIdAsc
     List<Concept> findByCourseIdOrderByIdAsc(Long courseId);
     List<Concept> findByMaterialId(Long materialId);
+    long countByCourseId(Long courseId);
 }
