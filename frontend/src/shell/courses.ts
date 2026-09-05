@@ -25,3 +25,10 @@ export function useCourses(): CoursesState {
 
   return { courses, error, refresh }
 }
+
+/* "11 in CS 47, 16 in CS 149 and 16 in CS 158A" */
+export function dueSplit(courses: CourseOverview[]): string {
+  const parts = courses.map(c => `${c.dueToday} in ${c.name}`)
+  if (parts.length <= 1) return parts.join('')
+  return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`
+}

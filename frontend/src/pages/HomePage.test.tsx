@@ -3,7 +3,8 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { vi } from 'vitest'
 import { api, type Course } from '../api'
-import HomePage, { dueSplit } from './HomePage'
+import { dueSplit } from '../shell/courses'
+import HomePage from './HomePage'
 
 const overview = [
   { id: 1, name: 'CS 47', term: 'Spring 2026', concepts: 18, questions: 55, dueToday: 11 },
