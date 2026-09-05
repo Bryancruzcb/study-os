@@ -1,0 +1,199 @@
+/* the bank: the concept list on the left, the open concept on the right */
+.split {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+
+.clist {
+  position: sticky;
+  top: 22px;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 44px);
+  padding: 10px;
+  overflow-y: auto;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.clist-head {
+  padding: 10px 14px 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+/* a concept row: the name and how many questions it can still ask */
+.crow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 500;
+  text-decoration: none;
+  transition:
+    background-color var(--motion) var(--ease),
+    color var(--motion) var(--ease);
+}
+
+.crow:hover {
+  background: var(--sunken);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.crow.is-current {
+  background: var(--ink-fill);
+  color: oklch(99% 0 0);
+}
+
+.crow.is-current .count {
+  color: oklch(85% 0.01 250);
+}
+
+.crow-name {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.detail {
+  min-width: 0;
+}
+
+.bank-empty {
+  padding: 40px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+/* the upload control is a primary pill wrapping the real file input */
+.upload:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.upload:has(input:disabled) {
+  cursor: not-allowed;
+  border-color: var(--line);
+  background: var(--sunken);
+  color: var(--ink-dim);
+}
+
+.concept {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.concept-top {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.concept-summary {
+  max-width: 70ch;
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.qcards {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.qcard {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px 26px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.qcard-prompt {
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+}
+
+.qcard-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.qcard-labels {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+/* the only destructive control on the card, pinned to its right edge */
+.qcard-danger {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.ghost-danger {
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--flag);
+  cursor: pointer;
+}
+
+.ghost-danger:hover {
+  text-decoration: underline;
+}
+
+/* a retired question is de-emphasised by ground, by ink, and by a rule through the
+   prompt, never by colour alone */
+.qcard--retired {
+  background: var(--sunken);
+}
+
+.qcard--retired .qcard-prompt {
+  color: var(--ink-dim);
+  text-decoration: line-through;
+  text-decoration-color: var(--line-dashed);
+}
+
+@media (max-width: 720px) {
+  .split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .clist {
+    position: static;
+    max-height: none;
+  }
+}

@@ -1,7 +1,9 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import CourseLayout from './shell/CourseLayout'
 import Frame from './shell/Frame'
+import BankConceptPage from './pages/BankConceptPage'
 import BankPage from './pages/BankPage'
+import BankRoute from './pages/BankRoute'
 import DashboardPage from './pages/DashboardPage'
 import EvalPage from './pages/EvalPage'
 import HomePage from './pages/HomePage'
@@ -16,7 +18,10 @@ export default function App() {
           <Route path="/courses/:courseId" element={<CourseLayout />}>
             <Route index element={<Navigate to="study" replace />} />
             <Route path="study" element={<StudyPage />} />
-            <Route path="bank" element={<BankPage />} />
+            <Route path="bank" element={<BankRoute />}>
+              <Route index element={<BankPage />} />
+              <Route path=":conceptId" element={<BankConceptPage />} />
+            </Route>
             <Route path="dashboard" element={<DashboardPage />} />
           </Route>
           <Route path="/eval" element={<EvalPage />} />
