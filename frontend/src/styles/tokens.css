@@ -1,6 +1,7 @@
-/* The landing page's palette (site/index.html), value for value. Light only: one :root,
-   no prefers-color-scheme block. The four tokens marked (new) are the ones the app needs
-   that a marketing page does not: a correct/incorrect pair and the hover glow. */
+/* The landing page's :root (site/index.html), value for value: --page through --flag and
+   --radius. Light only: one :root, no prefers-color-scheme block. The rest is the app's
+   own: the ink on a filled control, a correct/incorrect pair and the hover glow (marked
+   (new)), the band and tile washes, the fonts, and the radius, wrap and motion scales. */
 :root {
   color-scheme: light;
 
@@ -15,6 +16,9 @@
   --ink-fill-hover: oklch(28% 0.012 250);
   --ink-soft: oklch(38% 0.012 250);
   --ink-dim: oklch(46% 0.012 250);
+  /* ink on a filled control: the button, the current tab, the current concept row */
+  --on-fill: oklch(99% 0 0);
+  --on-fill-dim: oklch(85% 0.01 250);
 
   --accent: oklch(50% 0.14 232);
   --accent-strong: oklch(40% 0.14 232);
