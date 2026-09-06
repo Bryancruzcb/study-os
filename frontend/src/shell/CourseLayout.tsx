@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, NavLink, Outlet, useParams } from 'react-router-dom'
 import type { CourseOverview } from '../api'
+import { plural } from '../plural'
 import { useCourses } from './courses'
 
 export interface CourseContext {
@@ -50,7 +51,7 @@ export default function CourseLayout() {
     <div className="page">
       <header className="course-head">
         <div>
-          <p className="eyebrow">{course.term} · {course.concepts} concepts · {course.questions} questions</p>
+          <p className="eyebrow">{course.term} · {plural(course.concepts, 'concept')} · {plural(course.questions, 'question')}</p>
           <h1>{course.name}</h1>
           <nav className="tabs" aria-label="Course">
             <NavLink to="study" className={tab}>Study</NavLink>

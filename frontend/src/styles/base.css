@@ -69,13 +69,16 @@ button {
   font-family: inherit;
 }
 
-:where(a, button, input, select, textarea):focus-visible {
+/* the two class names are the regions a script puts the caret on: the verdict band
+   after a grade, the open concept after the skip link */
+:where(a, button, input, select, textarea, .verdict, .detail):focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
 
 /* out of sight, still in the accessibility tree and the tab order */
-.visually-hidden {
+.visually-hidden,
+.skip:not(:focus) {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -85,6 +88,13 @@ button {
   clip-path: inset(50%);
   white-space: nowrap;
   border: 0;
+}
+
+/* the skip link, once the keyboard reaches it: a row at the top of its list */
+.skip:focus {
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 /* ---- type roles ---------------------------------------------------------- */

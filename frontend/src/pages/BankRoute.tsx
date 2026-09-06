@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { NavLink, Outlet, useOutletContext } from 'react-router-dom'
 import { api, type ConceptWithQuestions } from '../api'
@@ -22,6 +22,7 @@ export default function BankRoute() {
   const [bank, setBank] = useState<ConceptWithQuestions[] | null>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const detail = useRef<HTMLElement>(null)
 
   const reload = useCallback(async () => {
     try {
@@ -75,6 +76,10 @@ export default function BankRoute() {
       {error && <p className="alert" role="alert">{error}</p>}
       <div className="split">
         <nav className="clist" aria-label="Concepts">
+          {/* a real bank puts a few hundred rows between the head and the open concept; the
+              keyboard gets a way past them. The hash does the work without a script, the
+              handler makes sure the caret lands whatever the browser does with a fragment */}
+          <a className="skip" href="#concept" onClick={() => detail.current?.focus()}>Skip to the open concept</a>
           <p className="clist-head">{bank ? plural(bank.length, 'concept') : 'Loading…'}</p>
           {bank?.map(c => (
             <NavLink key={c.id} className={row} to={String(c.id)}>
@@ -83,7 +88,7 @@ export default function BankRoute() {
             </NavLink>
           ))}
         </nav>
-        <section className="detail">
+        <section className="detail" id="concept" tabIndex={-1} ref={detail}>
           <Outlet context={{ ...ctx, bank, reload, setError } satisfies BankContext} />
         </section>
       </div>

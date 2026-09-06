@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { vi } from 'vitest'
@@ -123,6 +123,9 @@ test('Create is disabled for as long as the create is in flight', async () => {
   await userEvent.type(screen.getByLabelText('Name'), 'CS 158A')
   await userEvent.click(screen.getByRole('button', { name: 'Create' }))
   expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled()
+  // Escape is ignored in flight, or the create would land on a form that is gone
+  fireEvent.keyDown(screen.getByLabelText('Name'), { key: 'Escape' })
+  expect(screen.getByLabelText('Name')).toBeInTheDocument()
   land({ id: 3, name: 'CS 158A', term: 'Fall 2026' })
   expect(await screen.findByText('at /courses/3/bank')).toBeInTheDocument()
 })
@@ -136,6 +139,9 @@ test('a failed create shows the alert and leaves the form open with what was typ
   expect(await screen.findByRole('alert')).toHaveTextContent('500 /api/courses')
   expect(screen.getByLabelText('Name')).toHaveValue('CS 158A')
   expect(screen.getByLabelText('Term')).toHaveValue('Fall 2026')
+  // the failure belonged to the form, so closing the form takes it off the page
+  await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
 })
 
 test('cancelling hands the caret back to the new-course tile', async () => {
@@ -144,4 +150,21 @@ test('cancelling hands the caret back to the new-course tile', async () => {
   await userEvent.click(open)
   await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
   expect(screen.getByRole('button', { name: 'New course' })).toHaveFocus()
+})
+
+test('says Loading until the overview lands, with no grid and no alert yet', () => {
+  vi.mocked(api.overview).mockReturnValueOnce(new Promise<never>(() => {}))
+  renderHome()
+  expect(screen.getByText('Loading…')).toBeInTheDocument()
+  expect(screen.queryByRole('heading', { name: 'Courses' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+})
+
+test('counts read as singular when there is one of a thing', async () => {
+  vi.mocked(api.overview).mockResolvedValueOnce([
+    { id: 3, name: 'CS 158A', term: 'Fall 2026', concepts: 1, questions: 1, dueToday: 1 },
+  ])
+  renderHome()
+  expect(await screen.findByText('Fall 2026 · 1 course')).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: /CS 158A/ })).toHaveTextContent('1 concept · 1 question')
 })
