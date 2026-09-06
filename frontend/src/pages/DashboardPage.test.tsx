@@ -7,7 +7,8 @@ import DashboardPage from './DashboardPage'
 vi.mock('../api', () => ({
   api: {
     overview: vi.fn().mockResolvedValue([
-      { id: 1, name: 'CS 158A', term: 'Fall 2026', concepts: 39, questions: 139, dueToday: 2 },
+      // deliberately not the schedule's own dueToday below: the tile reads the overview
+      { id: 1, name: 'CS 158A', term: 'Fall 2026', concepts: 39, questions: 139, dueToday: 7 },
     ]),
     dashboard: vi.fn().mockResolvedValue({
       dueToday: 2,
@@ -24,7 +25,7 @@ const figure = (label: string) => screen.getByText(label).closest('li')!
 test('renders the three figures from the course and the concept rows', async () => {
   renderInCourse(<DashboardPage />, 'dashboard')
   await waitFor(() => expect(screen.getByText('TCP')).toBeInTheDocument())
-  expect(figure('due today')).toHaveTextContent('2')
+  expect(figure('due today')).toHaveTextContent('7')
   expect(figure('concepts')).toHaveTextContent('39')
   expect(figure('questions')).toHaveTextContent('139')
   expect(screen.getByText('3/4')).toBeInTheDocument()

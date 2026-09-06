@@ -56,11 +56,28 @@ test('shows the question with its type and pages, submits an MC answer, shows th
 
 test('the head figure shows what is left and the overview is refetched after an answer', async () => {
   await renderWithQuestion()
+  const figure = screen.getByText('left today').closest('.figure')!
+  // the page portals its figure into the course head, beside the tabs
+  expect(figure.closest('.course-head-slot')).not.toBeNull()
   expect(screen.getByText('left today').previousElementSibling).toHaveTextContent('16')
+  const fill = () => figure.parentElement!.querySelector<HTMLElement>('.bar > span')!
+  expect(fill().style.width).toBe('0%')
   vi.mocked(api.overview).mockResolvedValueOnce([{ ...course, dueToday: 15 }])
   await userEvent.click(screen.getByRole('button', { name: '3' }))
   await waitFor(() => expect(api.overview).toHaveBeenCalledTimes(2))
   await waitFor(() => expect(screen.getByText('left today').previousElementSibling).toHaveTextContent('15'))
+  // one of sixteen done: the bar moves, the verdict stays, and no next question was fetched for it
+  expect(fill().style.width).toBe('6%')
+  expect(screen.getByText(/Correct/)).toBeInTheDocument()
+  expect(api.next).toHaveBeenCalledTimes(1)
+})
+
+test('with nothing due at the start of the visit there is no bar to fill', async () => {
+  vi.mocked(api.overview).mockResolvedValue([{ ...course, dueToday: 0 }])
+  await renderWithQuestion()
+  const figure = screen.getByText('left today').closest('.figure')!
+  expect(figure).toHaveTextContent('0')
+  expect(figure.parentElement!.querySelector('.bar')).toBeNull()
 })
 
 test('empty state when nothing due, with a way to the bank', async () => {

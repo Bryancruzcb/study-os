@@ -10,7 +10,10 @@ test('no stylesheet declares a font-size under 12px', () => {
   const sizes: { file: string; value: string; px: number }[] = []
   for (const file of readdirSync(here).filter(f => f.endsWith('.css'))) {
     const css = readFileSync(join(here, file), 'utf8')
-    for (const m of css.matchAll(/font-size:\s*([^;]+);/g)) {
+    // the shorthand would carry a size past the check below
+    expect(css, `${file} sets a size through the font shorthand`).not.toMatch(/\bfont:\s*[^;}]*\d(px|rem)/)
+    // a declaration that closes its block needs no semicolon, so the match ends on either
+    for (const m of css.matchAll(/font-size:\s*([^;}]+)/g)) {
       const value = m[1].trim()
       if (value === 'inherit') continue
       const px = value.endsWith('rem') ? parseFloat(value) * 16
@@ -27,7 +30,7 @@ test('no stylesheet declares a font-size under 12px', () => {
 test('the smallest declared size is exactly the 12px floor', () => {
   const all: number[] = []
   for (const file of readdirSync(here).filter(f => f.endsWith('.css'))) {
-    for (const m of readFileSync(join(here, file), 'utf8').matchAll(/font-size:\s*(\d+(?:\.\d+)?)px;/g)) {
+    for (const m of readFileSync(join(here, file), 'utf8').matchAll(/font-size:\s*(\d+(?:\.\d+)?)px\s*[;}]/g)) {
       all.push(parseFloat(m[1]))
     }
   }

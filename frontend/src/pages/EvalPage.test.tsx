@@ -62,7 +62,7 @@ test('the grader tile carries its n and is flagged while the sample is under thi
   render(<EvalPage />)
   const tile = (await screen.findByText('Grader agreement')).closest('li')!
   expect(tile).toHaveClass('figure-tile--flag')
-  expect(tile).toHaveTextContent('n=20')
+  expect(tile.querySelector('.figure-n')).toHaveTextContent('n=20')
   expect(screen.getByText(/The flag stays until there are 30/)).toBeInTheDocument()
 })
 
@@ -74,6 +74,6 @@ test('at thirty graded answers the flag comes off', async () => {
   render(<EvalPage />)
   const tile = (await screen.findByText('Grader agreement')).closest('li')!
   expect(tile).not.toHaveClass('figure-tile--flag')
-  expect(tile).toHaveTextContent('n=30')
+  expect(tile.querySelector('.figure-n')).toHaveTextContent('n=30')
   expect(screen.queryByText(/The flag stays/)).not.toBeInTheDocument()
 })
