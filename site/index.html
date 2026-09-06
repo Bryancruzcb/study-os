@@ -11,7 +11,7 @@
 <meta property="og:title" content="Study OS — an AI grader I can overrule, and count">
 <meta property="og:description" content="A lecture PDF becomes page-cited questions. Short answers are graded against a rubric. Every time I overrule the grader is recorded, and that rate is the number the app publishes about itself.">
 <meta property="og:url" content="https://bryancruzcb.github.io/study-os/">
-<meta property="og:image" content="https://bryancruzcb.github.io/study-os/screenshots/bank.jpg">
+<meta property="og:image" content="https://bryancruzcb.github.io/study-os/screenshots/courses.jpg">
 <meta name="twitter:card" content="summary_large_image">
 
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230f1417'/%3E%3Crect x='8' y='8' width='16' height='16' fill='%2338bdf8'/%3E%3C/svg%3E">
@@ -206,6 +206,7 @@
   }
 
   .gallery { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-top: 34px; }
+  .gallery .wide { grid-column: 1 / -1; }
   figure { margin: 0; }
   figcaption { margin-top: 12px; font-size: 14px; color: var(--ink-dim); }
 
@@ -271,8 +272,8 @@
         </div>
       </div>
       <div class="shot">
-        <img src="screenshots/bank.jpg" width="1400" height="850"
-             alt="The Study OS question bank. Concepts pulled from a lecture PDF, each question tagged with its type and the pages it came from, three label checkboxes per question, and one question struck through as retired.">
+        <img src="screenshots/courses.jpg" width="1400" height="850"
+             alt="The Study OS home: one tile per course with its due-today count and the size of its bank.">
       </div>
     </header>
   </div>
@@ -322,19 +323,26 @@
   <section id="screens">
     <h2>The rest of it</h2>
     <div class="gallery">
+      <figure class="wide">
+        <div class="shot">
+          <img src="screenshots/bank.jpg" width="1400" height="950" loading="lazy"
+               alt="The question bank: the course's concept list on the left with the open concept filled dark, and on the right that concept's question cards, each tagged with its type and source pages, with three pill-toggle labels and a retire link, and one retired question struck through with a restore button.">
+        </div>
+        <figcaption>The bank. The concept list beside the open concept's question cards, each with its source pages, three pill-toggle labels and a quiet retire link; a retired question is struck through, not deleted.</figcaption>
+      </figure>
       <figure>
         <div class="shot">
           <img src="screenshots/dashboard.jpg" width="1400" height="850" loading="lazy"
-               alt="The Study OS dashboard: a table of concepts with a streak count, a correct-out-of-attempted count, and the next due date for each.">
+               alt="The dashboard: three figure tiles for due today, concepts and questions, above a table of concepts with streak, correct-out-of-attempted, and next due date.">
         </div>
-        <figcaption>The schedule. New concepts are due today; the ones answered correctly have moved out several days.</figcaption>
+        <figcaption>The schedule for one course: its totals in tiles, then the concept table. New concepts are marked; the ones answered correctly have moved out to later dates.</figcaption>
       </figure>
       <figure>
         <div class="shot">
           <img src="screenshots/eval.jpg" width="1400" height="850" loading="lazy"
-               alt="The Study OS evaluation page showing 31 labeled questions at 100, 97 and 94 percent, and one graded short answer at 100 percent grader agreement.">
+               alt="The evaluation page: a sunken panel with four figure tiles, 31 labeled questions at 100, 97 and 94 percent, and grader agreement at 100 percent flagged with n=1.">
         </div>
-        <figcaption>The evaluation page in the app, reporting the same numbers and the same sample size.</figcaption>
+        <figcaption>The evaluation page in the app, reporting the same numbers and the same sample size; the grader tile wears a flag until there are 30 graded answers.</figcaption>
       </figure>
     </div>
   </section>
