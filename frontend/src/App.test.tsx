@@ -62,6 +62,7 @@ test('a bare course path opens that course on its study tab', async () => {
   render(<App />)
   await waitFor(() => expect(window.location.pathname).toBe('/courses/2/study'))
   expect(await screen.findByRole('heading', { level: 1, name: 'CS 149' })).toBeInTheDocument()
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
 })
 
 test('a course page renders inside one main landmark, with the nav outside it', async () => {

@@ -84,6 +84,8 @@ test('the upload control sits in the course head and refreshes the bank and the 
   const overviewCalls = vi.mocked(api.overview).mock.calls.length
   const input = container.querySelector<HTMLInputElement>('input[type="file"]')!
   expect(input.closest('label')).toHaveTextContent('Upload a lecture PDF')
+  // the control is portaled into the course head, beside the tabs
+  expect(input.closest('.course-head-slot')).not.toBeNull()
   await userEvent.upload(input, new File(['%PDF-1.4'], 'week1.pdf', { type: 'application/pdf' }))
   await waitFor(() => expect(api.upload).toHaveBeenCalledWith(1, expect.any(File)))
   await waitFor(() => expect(vi.mocked(api.bank).mock.calls.length).toBe(bankCalls + 1))
@@ -112,4 +114,19 @@ test('the list starts with a skip link that lands focus on the open concept', as
   const detail = document.getElementById('concept')!
   expect(detail).toHaveFocus()
   expect(detail).toContainElement(heading)
+})
+
+test('while the ingest runs the control says so and takes no second file', async () => {
+  type Upload = Awaited<ReturnType<typeof api.upload>>
+  let land!: (m: Upload) => void
+  vi.mocked(api.upload).mockReturnValueOnce(new Promise<Upload>(resolve => { land = resolve }))
+  const { container } = renderBank('/courses/1/bank')
+  await screen.findByRole('link', { name: /TCP handshake/ })
+  const input = container.querySelector<HTMLInputElement>('input[type="file"]')!
+  await userEvent.upload(input, new File(['%PDF-1.4'], 'week1.pdf', { type: 'application/pdf' }))
+  expect(input.closest('label')).toHaveTextContent('Ingesting…')
+  expect(input).toBeDisabled()
+  land({ id: 2, filename: 'week1.pdf', status: 'INGESTED', errorMessage: null })
+  await waitFor(() => expect(input.closest('label')).toHaveTextContent('Upload a lecture PDF'))
+  expect(input).toBeEnabled()
 })

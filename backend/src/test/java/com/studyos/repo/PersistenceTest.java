@@ -271,6 +271,7 @@ class PersistenceTest {
         Material om = material(other, "hash-overview-other");
         Concept a = concept(mine, m, "kernel mode");
         Concept b = concept(mine, m, "process control block");
+        Concept c = concept(mine, m, "context switch");
         Concept elsewhere = concept(other, om, "tcp handshake");
         question(a, QuestionType.MC, QuestionStatus.ACTIVE);
         question(a, QuestionType.SHORT_ANSWER, QuestionStatus.RETIRED);
@@ -279,11 +280,14 @@ class PersistenceTest {
         LocalDate today = LocalDate.of(2026, 9, 4);
         reviewStates.save(ReviewState.initial(a, today.minusDays(1)));
         reviewStates.save(ReviewState.initial(b, today.plusDays(3)));
+        // due today, not yesterday: the boundary the <= in the count has to include
+        reviewStates.save(ReviewState.initial(c, today));
         reviewStates.save(ReviewState.initial(elsewhere, today));
 
-        // two of the three concepts, two of the three ACTIVE questions, one of the two due states
-        assertThat(concepts.countByCourseId(mine.id)).isEqualTo(2);
+        // three of the four concepts, two of the three ACTIVE questions, and of this course's
+        // three states the overdue one and the one due today, not the one due in three days
+        assertThat(concepts.countByCourseId(mine.id)).isEqualTo(3);
         assertThat(questions.countByConceptCourseIdAndStatus(mine.id, QuestionStatus.ACTIVE)).isEqualTo(2);
-        assertThat(reviewStates.countByConceptCourseIdAndDueDateLessThanEqual(mine.id, today)).isEqualTo(1);
+        assertThat(reviewStates.countByConceptCourseIdAndDueDateLessThanEqual(mine.id, today)).isEqualTo(2);
     }
 }
