@@ -1,0 +1,20 @@
+/* the landing page's evaluation panel, in the app */
+.eval-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: clamp(28px, 4vw, 44px) clamp(24px, 4vw, 48px);
+  background: var(--sunken);
+  border-radius: var(--radius-panel);
+}
+
+.eval-line {
+  font-size: 15px;
+  color: var(--ink-soft);
+}
+
+.caveat {
+  max-width: 74ch;
+  font-size: 15px;
+  color: var(--ink-dim);
+}
