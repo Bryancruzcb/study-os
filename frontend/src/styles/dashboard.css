@@ -1,0 +1,94 @@
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.ledger-card {
+  overflow: hidden;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.ledger-card .empty {
+  padding: 24px;
+}
+
+.ledger {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.ledger th {
+  height: 44px;
+  padding-inline: 18px;
+  text-align: left;
+  background: var(--sunken);
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.ledger td {
+  height: 48px;
+  padding: 8px 18px;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--line);
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.ledger tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.ledger tbody tr:hover {
+  background: var(--sunken);
+}
+
+.ledger .num {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  color: var(--ink-soft);
+}
+
+.ledger th:nth-child(1) {
+  width: 46%;
+}
+
+.ledger th:nth-child(2) {
+  width: 14%;
+}
+
+.ledger th:nth-child(3) {
+  width: 16%;
+}
+
+/* a concept nobody has attempted: weight plus the word the row already carries */
+.ledger tr.is-new td {
+  font-weight: 600;
+}
+
+.row-mark {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent-strong);
+}
+
+@media (max-width: 720px) {
+  .ledger-card {
+    overflow-x: auto;
+  }
+
+  .ledger {
+    min-width: 40rem;
+  }
+}
