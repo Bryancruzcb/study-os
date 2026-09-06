@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { NavLink, useLocation } from 'react-router-dom'
+import { Link, NavLink, useLocation } from 'react-router-dom'
 import { api, type EvalReport } from '../api'
 
 /* The floating nav pill from the landing page. The readout is chrome: a failed load
@@ -13,14 +13,17 @@ export default function Nav() {
     api.evalReport().then(setReport).catch(() => setReport(null))
   }, [])
 
-  // "Courses" covers the grid and everything inside a course
+  // "Courses" covers the grid and everything inside a course. A NavLink to "/" would be
+  // current at "/" alone and would write its own aria-current over ours, so this one is
+  // a plain Link that says where it is current itself
   const inCourses = !pathname.startsWith('/eval')
 
   return (
     <nav className="nav" aria-label="Primary">
       <span className="wordmark">Study OS</span>
       <span className="nav-links">
-        <NavLink to="/" className={inCourses ? 'is-current' : undefined}>Courses</NavLink>
+        <Link to="/" className={inCourses ? 'is-current' : undefined}
+          aria-current={inCourses ? 'page' : undefined}>Courses</Link>
         <NavLink to="/eval" className={({ isActive }) => (isActive ? 'is-current' : undefined)}>Evaluation</NavLink>
       </span>
       {report && (

@@ -90,3 +90,11 @@ test('a course switch starts the page over', async () => {
   expect(await screen.findByRole('heading', { level: 1, name: 'CS 158A' })).toBeInTheDocument()
   expect(screen.getByText('started on CS 158A')).toBeInTheDocument()
 })
+
+test('the head reads a count of one as singular', async () => {
+  vi.mocked(api.overview).mockResolvedValueOnce([
+    { id: 2, name: 'CS 149', term: 'Fall 2026', concepts: 1, questions: 1, dueToday: 0 },
+  ])
+  renderAt('/courses/2/study')
+  expect(await screen.findByText('Fall 2026 · 1 concept · 1 question')).toBeInTheDocument()
+})

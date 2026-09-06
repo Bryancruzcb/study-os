@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import { api } from '../api'
@@ -99,4 +99,17 @@ test('shows a failed ingest in the alert and refreshes the bank', async () => {
   await userEvent.upload(input, new File(['%PDF-1.4'], 'week1.pdf', { type: 'application/pdf' }))
   expect(await screen.findByRole('alert')).toHaveTextContent('boom')
   await waitFor(() => expect(vi.mocked(api.bank).mock.calls.length).toBe(bankCalls + 1))
+})
+
+test('the list starts with a skip link that lands focus on the open concept', async () => {
+  renderBank('/courses/1/bank/5')
+  const heading = await screen.findByRole('heading', { level: 2, name: 'TCP handshake' })
+  const list = screen.getByRole('navigation', { name: 'Concepts' })
+  const skip = within(list).getAllByRole('link')[0]
+  expect(skip).toHaveTextContent('Skip to the open concept')
+  expect(skip).toHaveAttribute('href', '#concept')
+  await userEvent.click(skip)
+  const detail = document.getElementById('concept')!
+  expect(detail).toHaveFocus()
+  expect(detail).toContainElement(heading)
 })

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useOutletContext } from 'react-router-dom'
 import { api, type Attempt, type StudyQuestion } from '../api'
@@ -21,6 +21,29 @@ export default function StudyPage() {
   const inFlight = useRef(false)
   // what was due when the visit started, so the bar has a whole to fill against
   const [startOfVisit] = useState(course.dueToday)
+  // grading unmounts the control the caret sat on; the band takes it, so the next Tab
+  // reaches its buttons rather than starting over from the top of the page
+  const band = useRef<HTMLDivElement>(null)
+  // a ref, not state: a one-shot command to put the caret on the next question's first
+  // control once it renders. Next question sets it; the mount load never does
+  const wantFirst = useRef(false)
+  const firstControl = useRef<HTMLElement | null>(null)
+  const takeFirstControl = useCallback((el: HTMLElement | null) => { firstControl.current = el }, [])
+
+  useLayoutEffect(() => {
+    if (attempt) band.current?.focus()
+  }, [attempt])
+
+  // after every render: the first control is disabled until the load's finally lands,
+  // and a disabled control cannot take focus. A failed load leaves the command standing
+  // for the question that does arrive
+  useLayoutEffect(() => {
+    if (!wantFirst.current || submitting) return
+    const el = firstControl.current
+    if (!el) return
+    wantFirst.current = false
+    el.focus()
+  })
 
   // every call that talks to the API goes through here, so only one is ever in flight
   const run = useCallback(async (work: () => Promise<void>) => {
@@ -54,6 +77,11 @@ export default function StudyPage() {
     // oxlint-disable-next-line react/set-state-in-effect
     load()
   }, [load])
+
+  function next() {
+    wantFirst.current = true
+    return load()
+  }
 
   // every verdict moves the concept out of today's queue, so the head figure is stale after one
   function submit(call: () => Promise<Attempt>) {
@@ -98,7 +126,7 @@ export default function StudyPage() {
       {done && (
         <div className="qcard-big">
           <p className="empty">Nothing due. Come back tomorrow.</p>
-          <Link className="btn btn--ghost" to="../bank">Open the bank</Link>
+          <Link ref={takeFirstControl} className="btn btn--ghost" to="../bank">Open the bank</Link>
         </div>
       )}
       {question && (
@@ -111,7 +139,8 @@ export default function StudyPage() {
           {question.type === 'MC' && !attempt && (
             <div className="opts">
               {question.options.map((o, i) => (
-                <button className="opt" key={i} disabled={submitting} onClick={() => answerMc(i)}>
+                <button className="opt" key={i} ref={i === 0 ? takeFirstControl : undefined}
+                  disabled={submitting} onClick={() => answerMc(i)}>
                   <span className="letter" aria-hidden="true">{letter(i)}</span>{o}
                 </button>
               ))}
@@ -119,8 +148,8 @@ export default function StudyPage() {
           )}
           {question.type === 'SHORT_ANSWER' && !attempt && (
             <div className="short-answer">
-              <textarea className="textarea" aria-label="Your answer" value={text} disabled={submitting}
-                onChange={e => setText(e.target.value)} />
+              <textarea ref={takeFirstControl} className="textarea" aria-label="Your answer" value={text}
+                disabled={submitting} onChange={e => setText(e.target.value)} />
               {/* a blank or whitespace-only answer still buys a real grader call and banks an attempt that drags the schedule */}
               <button className="btn" disabled={submitting || !text.trim()} onClick={answerShort}>Submit</button>
             </div>
@@ -129,7 +158,7 @@ export default function StudyPage() {
             <>
               {submitted && <p className="your-answer">{submitted}</p>}
               {attempt.verdict === 'PENDING' ? (
-                <div className="verdict verdict--pending">
+                <div ref={band} tabIndex={-1} className="verdict verdict--pending">
                   <p className="verdict-line">
                     <span className="bracket" aria-hidden="true" />
                     Grader unavailable. Self-grade this one:
@@ -139,11 +168,12 @@ export default function StudyPage() {
                       onClick={() => submit(() => api.selfGrade(attempt.id, true))}>I got it right</button>
                     <button className="btn btn--secondary" disabled={submitting}
                       onClick={() => submit(() => api.selfGrade(attempt.id, false))}>I got it wrong</button>
-                    <button className="btn" disabled={submitting} onClick={load}>Next question</button>
+                    <button className="btn" disabled={submitting} onClick={next}>Next question</button>
                   </div>
                 </div>
               ) : (
-                <div className={`verdict ${attempt.verdict === 'CORRECT' ? 'verdict--ok' : 'verdict--bad'}`}>
+                <div ref={band} tabIndex={-1}
+                  className={`verdict ${attempt.verdict === 'CORRECT' ? 'verdict--ok' : 'verdict--bad'}`}>
                   <p className="verdict-line">
                     <span className="bracket" aria-hidden="true" />
                     {attempt.verdict === 'CORRECT' ? 'Correct' : 'Incorrect'}
@@ -158,7 +188,7 @@ export default function StudyPage() {
                       onClick={() => submit(() => api.override(attempt.id))}>
                       {attempt.verdict === 'INCORRECT' ? 'I was actually right' : 'I was actually wrong'}
                     </button>
-                    <button className="btn" disabled={submitting} onClick={load}>Next question</button>
+                    <button className="btn" disabled={submitting} onClick={next}>Next question</button>
                   </div>
                 </div>
               )}

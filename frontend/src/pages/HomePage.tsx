@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api'
+import { plural } from '../plural'
 import Nav from '../shell/Nav'
 import { dueSplit, useCourses } from '../shell/courses'
 
@@ -47,6 +48,8 @@ export default function HomePage() {
     setCreating(false)
     setName('')
     setTerm('')
+    // the failure belonged to the form, so it goes with it
+    setCreateError(null)
   }
 
   async function onCreate(e: FormEvent<HTMLFormElement>) {
@@ -78,7 +81,7 @@ export default function HomePage() {
           <header className="hero">
             {courses && courses.length > 0 && (
               <>
-                <p className="eyebrow">{newest?.term} · {courses.length} {courses.length === 1 ? 'course' : 'courses'}</p>
+                <p className="eyebrow">{newest?.term} · {plural(courses.length, 'course')}</p>
                 <h1>{due} due today.</h1>
                 <p className="lede">{dueSplit(courses)}. Pick a class to start the queue.</p>
               </>
@@ -94,6 +97,7 @@ export default function HomePage() {
       </div>
       <main className="wrap home">
         {shown && <p className="alert" role="alert">{shown}</p>}
+        {!courses && !error && <p className="empty">Loading…</p>}
         {courses && (
           <section className="courses">
             <h2>Courses</h2>
@@ -106,13 +110,14 @@ export default function HomePage() {
                   </span>
                   <span className="tile-body">
                     <span className="figure"><b>{c.dueToday}</b><span>due today</span></span>
-                    <span className="tile-counts">{c.concepts} concepts · {c.questions} questions</span>
+                    <span className="tile-counts">{plural(c.concepts, 'concept')} · {plural(c.questions, 'question')}</span>
                   </span>
                 </Link>
               ))}
               {creating ? (
+                /* in flight, Escape would tear down the form the create is about to land on */
                 <form className="tile tile--form" onSubmit={onCreate}
-                  onKeyDown={e => { if (e.key === 'Escape') closeForm() }}>
+                  onKeyDown={e => { if (e.key === 'Escape' && !saving) closeForm() }}>
                   <label className="field">
                     <span className="field-label">Name</span>
                     <input className="input" ref={nameField} value={name} disabled={saving}

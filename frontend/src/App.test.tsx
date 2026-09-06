@@ -63,3 +63,24 @@ test('a bare course path opens that course on its study tab', async () => {
   await waitFor(() => expect(window.location.pathname).toBe('/courses/2/study'))
   expect(await screen.findByRole('heading', { level: 1, name: 'CS 149' })).toBeInTheDocument()
 })
+
+test('a course page renders inside one main landmark, with the nav outside it', async () => {
+  window.history.pushState({}, '', '/courses/2/study')
+  render(<App />)
+  const main = await screen.findByRole('main')
+  expect(main).toContainElement(await screen.findByRole('heading', { level: 1, name: 'CS 149' }))
+  expect(main).not.toContainElement(screen.getByRole('navigation', { name: 'Primary' }))
+})
+
+test('the evaluation page renders inside one main landmark', async () => {
+  window.history.pushState({}, '', '/eval')
+  render(<App />)
+  const main = await screen.findByRole('main')
+  expect(main).toContainElement(await screen.findByRole('heading', { level: 1, name: 'Evaluation' }))
+})
+
+test('home keeps its own single main landmark', async () => {
+  render(<App />)
+  await screen.findByRole('heading', { name: 'Courses' })
+  expect(screen.getAllByRole('main')).toHaveLength(1)
+})

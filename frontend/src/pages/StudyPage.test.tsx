@@ -190,3 +190,44 @@ test('shows no page chip for a question with no source pages', async () => {
   await waitFor(() => expect(screen.getByText('Steps in the TCP handshake?')).toBeInTheDocument())
   expect(screen.queryByText(/pp\./)).not.toBeInTheDocument()
 })
+
+test('grading hands focus to the verdict band, so the next Tab reaches its buttons', async () => {
+  await renderWithQuestion()
+  await userEvent.click(screen.getByRole('button', { name: '3' }))
+  const band = (await screen.findByText(/Correct/)).closest('.verdict')!
+  await waitFor(() => expect(band).toHaveFocus())
+})
+
+test('a self-grade hands focus to the verdict that replaces the pending band', async () => {
+  vi.mocked(api.selfGrade).mockResolvedValueOnce({ id: 2, verdict: 'CORRECT', score: 1, feedback: null })
+  await renderShortAnswer({ id: 2, verdict: 'PENDING', score: null, feedback: null })
+  await userEvent.click(await screen.findByRole('button', { name: /I got it right/i }))
+  const band = (await screen.findByText(/Correct/)).closest('.verdict')!
+  await waitFor(() => expect(band).toHaveFocus())
+})
+
+test('Next question puts focus on the first option', async () => {
+  await renderWithQuestion()
+  await userEvent.click(screen.getByRole('button', { name: '3' }))
+  await waitFor(() => expect(screen.getByText(/Correct/)).toBeInTheDocument())
+  await userEvent.click(screen.getByRole('button', { name: 'Next question' }))
+  await waitFor(() => expect(screen.getByRole('button', { name: '1' })).toHaveFocus())
+})
+
+test('Next question puts focus in the textarea when a short answer comes up', async () => {
+  await renderWithQuestion()
+  await userEvent.click(screen.getByRole('button', { name: '3' }))
+  await waitFor(() => expect(screen.getByText(/Correct/)).toBeInTheDocument())
+  vi.mocked(api.next).mockResolvedValueOnce(shortAnswer)
+  await userEvent.click(screen.getByRole('button', { name: 'Next question' }))
+  await waitFor(() => expect(screen.getByRole('textbox')).toHaveFocus())
+})
+
+test('when the queue runs out after Next question, focus lands on the way to the bank', async () => {
+  await renderWithQuestion()
+  await userEvent.click(screen.getByRole('button', { name: '3' }))
+  await waitFor(() => expect(screen.getByText(/Correct/)).toBeInTheDocument())
+  vi.mocked(api.next).mockResolvedValueOnce(null)
+  await userEvent.click(screen.getByRole('button', { name: 'Next question' }))
+  await waitFor(() => expect(screen.getByRole('link', { name: 'Open the bank' })).toHaveFocus())
+})

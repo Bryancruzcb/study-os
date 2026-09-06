@@ -11,18 +11,19 @@ const labelled = (q: Question) =>
 
 export default function BankConceptPage() {
   const { conceptId } = useParams()
-  const { bank, reload, setError } = useOutletContext<BankContext>()
+  const { bank, reload, refresh, setError } = useOutletContext<BankContext>()
   if (!bank) return <p className="empty">Loading…</p>
   const concept = bank.find(c => c.id === Number(conceptId))
   // the list is right there, so a bad id needs no way back, only the word
   if (!concept) return <p className="alert" role="alert">No concept has id {conceptId}.</p>
   // keyed, so the arming and the focus bookkeeping start over when the concept changes
-  return <ConceptCards key={concept.id} concept={concept} reload={reload} setError={setError} />
+  return <ConceptCards key={concept.id} concept={concept} reload={reload} refresh={refresh} setError={setError} />
 }
 
-function ConceptCards({ concept, reload, setError }: {
+function ConceptCards({ concept, reload, refresh, setError }: {
   concept: ConceptWithQuestions
   reload: () => Promise<void>
+  refresh: () => Promise<void>
   setError: (e: string | null) => void
 }) {
   // the question whose retire is armed, or null. one at a time, so arming a card takes
@@ -59,6 +60,8 @@ function ConceptCards({ concept, reload, setError }: {
       await api.retire(qid)
       await reload()
       pendingFocus.current = qid
+      // the head counts ACTIVE questions, so it just moved too
+      await refresh()
     } catch (e) {
       setError(String(e))
     }
@@ -70,6 +73,7 @@ function ConceptCards({ concept, reload, setError }: {
       await api.restore(qid)
       await reload()
       pendingFocus.current = qid
+      await refresh()
     } catch (e) {
       setError(String(e))
     }

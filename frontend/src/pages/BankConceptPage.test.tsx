@@ -209,3 +209,19 @@ test('confirming leaves the caret on the Restore that takes the card over', asyn
   const restore = await screen.findByRole('button', { name: 'Restore' })
   await waitFor(() => expect(restore).toHaveFocus())
 })
+
+test('confirming a retire refetches the overview, so the head count follows', async () => {
+  at()
+  await userEvent.click(await screen.findByRole('button', { name: 'Retire' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Confirm retire' }))
+  await waitFor(() => expect(api.retire).toHaveBeenLastCalledWith(9))
+  await waitFor(() => expect(api.overview).toHaveBeenCalledTimes(2))
+})
+
+test('Restore refetches the overview too', async () => {
+  vi.mocked(api.bank).mockResolvedValueOnce(concept([question({ status: 'RETIRED' })]))
+  at()
+  await userEvent.click(await screen.findByRole('button', { name: 'Restore' }))
+  await waitFor(() => expect(api.restore).toHaveBeenLastCalledWith(9))
+  await waitFor(() => expect(api.overview).toHaveBeenCalledTimes(2))
+})
