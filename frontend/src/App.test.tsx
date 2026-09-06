@@ -10,6 +10,8 @@ vi.mock('./api', () => ({
     overview: vi.fn().mockResolvedValue([
       { id: 2, name: 'CS 149', term: 'Fall 2026', concepts: 248, questions: 844, dueToday: 16 },
     ]),
+    // the bare-course-path test renders the study tab, whose queue call must resolve, not throw
+    next: vi.fn().mockResolvedValue(null),
     createCourse: vi.fn(),
     evalReport: vi.fn().mockResolvedValue({
       labeled: 31, pctAnswerable: 1, pctCorrectAnswer: 0.97, pctUnambiguous: 0.94,
