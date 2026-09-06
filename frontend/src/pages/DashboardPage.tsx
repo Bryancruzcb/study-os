@@ -1,37 +1,32 @@
 import { useEffect, useState } from 'react'
-import { api, type Course, type Dashboard } from '../api'
+import { useOutletContext } from 'react-router-dom'
+import { api, type Dashboard } from '../api'
+import type { CourseContext } from '../shell/CourseLayout'
 
 export default function DashboardPage() {
-  const [courses, setCourses] = useState<Course[]>([])
-  const [courseId, setCourseId] = useState<number | null>(null)
+  const { course } = useOutletContext<CourseContext>()
   const [dash, setDash] = useState<Dashboard | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    api.courses().then(cs => {
-      setCourses(cs)
-      if (cs.length > 0) setCourseId(cs[0].id)
-    }).catch(e => setError(String(e)))
-  }, [])
-
-  useEffect(() => {
-    if (courseId != null) api.dashboard(courseId).then(setDash).catch(e => setError(String(e)))
-  }, [courseId])
+    api.dashboard(course.id).then(setDash).catch(e => setError(String(e)))
+  }, [course.id])
 
   return (
-    <div className="page">
-      <header className="page-head">
-        <h2 className="page-title">Dashboard</h2>
-        <div className="toolbar">
-          <select className="select" value={courseId ?? ''} onChange={e => setCourseId(Number(e.target.value))}>
-            {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-        </div>
-      </header>
+    <div className="dashboard">
+      <ul className="figures">
+        <li className="figure-tile"><b>{course.dueToday}</b><span>due today</span></li>
+        <li className="figure-tile"><b>{course.concepts}</b><span>concepts</span></li>
+        <li className="figure-tile"><b>{course.questions}</b><span>questions</span></li>
+      </ul>
       {error && <p className="alert" role="alert">{error}</p>}
-      {dash && (
-        <div className="stack">
-          <p className="due-line">{dash.dueToday} due today</p>
+      {dash && dash.concepts.length === 0 && (
+        <div className="ledger-card">
+          <p className="empty">No concepts yet.</p>
+        </div>
+      )}
+      {dash && dash.concepts.length > 0 && (
+        <div className="ledger-card">
           <table className="ledger">
             <thead><tr><th>Concept</th><th>Streak</th><th>Correct</th><th>Due</th></tr></thead>
             <tbody>
