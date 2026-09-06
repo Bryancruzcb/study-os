@@ -4,10 +4,6 @@
   box-sizing: border-box;
 }
 
-html {
-  scroll-behavior: smooth;
-}
-
 body {
   margin: 0;
   background: var(--page);
@@ -115,32 +111,16 @@ button {
   color: var(--ink-dim);
 }
 
-.caption {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--ink-dim);
-}
-
-.caption::before {
-  content: '';
-  width: 24px;
-  height: 1px;
-  background: var(--ink-dim);
-}
-
-/* a measured number with its label: the landing page's .figure */
+/* a measured number with its label: the landing page's .figure, inline, and the tile
+   that stacks one inside a card */
 .figure {
   display: flex;
   align-items: baseline;
   gap: 10px;
 }
 
-.figure > b {
+.figure > b,
+.figure-tile > b {
   font-family: var(--font-mono);
   font-size: 32px;
   font-weight: 600;
@@ -148,7 +128,8 @@ button {
   letter-spacing: -0.04em;
 }
 
-.figure > span {
+.figure > span,
+.figure-tile > span {
   font-size: 12px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -171,22 +152,11 @@ button {
   border-radius: var(--radius);
 }
 
+/* the tile's number is a row of its own, so the grader tile's n sits on its baseline */
 .figure-tile > b {
   display: flex;
   align-items: baseline;
   gap: 9px;
-  font-family: var(--font-mono);
-  font-size: 32px;
-  font-weight: 600;
-  line-height: 1;
-  letter-spacing: -0.04em;
-}
-
-.figure-tile > span {
-  font-size: 12px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--ink-dim);
 }
 
 /* a sample too small to trust wears the flag colour on its border and its n */
@@ -231,7 +201,7 @@ button {
   border: 1px solid var(--ink-fill);
   border-radius: var(--radius-pill);
   background: var(--ink-fill);
-  color: oklch(99% 0 0);
+  color: var(--on-fill);
   font-size: 15px;
   font-weight: 600;
   text-decoration: none;
@@ -245,7 +215,7 @@ button {
 .btn:hover:not(:disabled) {
   border-color: var(--ink-fill-hover);
   background: var(--ink-fill-hover);
-  color: oklch(99% 0 0);
+  color: var(--on-fill);
   text-decoration: none;
 }
 
@@ -292,7 +262,7 @@ button {
 .btn--danger:hover:not(:disabled) {
   border-color: var(--flag);
   background: var(--flag);
-  color: oklch(99% 0 0);
+  color: var(--on-fill);
 }
 
 .btn--micro {
@@ -351,14 +321,15 @@ button {
     color var(--motion) var(--ease);
 }
 
-.toggle:hover {
+/* a disabled toggle does not answer the pointer, so its border stays put */
+.toggle:not(:has(input:disabled)):hover {
   border-color: var(--ink-soft);
 }
 
 .toggle:has(input:checked) {
   border-color: var(--ink-fill);
   background: var(--ink-fill);
-  color: oklch(99% 0 0);
+  color: var(--on-fill);
 }
 
 .toggle:has(input:focus-visible) {
@@ -369,6 +340,11 @@ button {
 .toggle:has(input:disabled) {
   cursor: not-allowed;
   color: var(--ink-dim);
+}
+
+/* dim ink on the filled pill, not the page's dim ink, which the fill would swallow */
+.toggle:has(input:checked):has(input:disabled) {
+  color: var(--on-fill-dim);
 }
 
 .toggle-check {
@@ -414,7 +390,7 @@ button {
 .tab.is-current {
   border-color: var(--ink-fill);
   background: var(--ink-fill);
-  color: oklch(99% 0 0);
+  color: var(--on-fill);
   font-weight: 600;
 }
 
@@ -511,10 +487,6 @@ button {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html {
-    scroll-behavior: auto;
-  }
-
   *,
   *::before,
   *::after {

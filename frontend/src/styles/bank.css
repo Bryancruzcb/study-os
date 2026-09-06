@@ -54,11 +54,11 @@
 
 .crow.is-current {
   background: var(--ink-fill);
-  color: oklch(99% 0 0);
+  color: var(--on-fill);
 }
 
 .crow.is-current .count {
-  color: oklch(85% 0.01 250);
+  color: var(--on-fill-dim);
 }
 
 .crow-name {
