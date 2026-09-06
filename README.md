@@ -9,28 +9,38 @@ the number it publishes about its own grader is one I can check.
 Around that: I upload a lecture PDF, get back concepts and questions cited to their
 source pages, then study them daily with spaced repetition.
 
-![The question bank: concepts and questions extracted from a lecture PDF, each with its
-source page and the three label checkboxes, retire in a column of its own at the right,
-and a retired question struck through with a restore button](docs/screenshots/bank.jpg)
+![The Study OS home: one tile per course with its due-today count and the size of its
+bank](docs/screenshots/courses.jpg)
 
-*The bank after an ingest. Every question carries the pages it came from, and the three
-label checkboxes are how I judge the generator. Retire sits in its own column behind a
-hairline and asks for a confirm, because when it sat next to the label button I retired
-two questions by misclicking. A question I decided was bad is struck through rather than
-deleted, and I can put it back.*
+*Home. Each class is a tile; the number is what the schedule wants from me today.*
 
-![The dashboard: a table of concepts with streak, correct-out-of-attempted, and next
-due date](docs/screenshots/dashboard.jpg)
+![The question bank: the course's concept list on the left with the open concept filled
+dark, and on the right that concept's question cards, each tagged with its type and
+source pages, with three pill-toggle labels and a retire link, and one retired question
+struck through with a restore button](docs/screenshots/bank.jpg)
 
-*The schedule. New concepts are due today; the ones I answered correctly have moved out
-to the sixth.*
+*The bank. The list on the left is every concept the course's lectures produced; the open
+one shows its questions as cards, each carrying the pages it came from. The three pill
+toggles are how I judge the generator. Retire is a quiet link that asks for a confirm,
+because when it sat next to the label button I retired two questions by misclicking. A
+question I decided was bad is struck through rather than deleted, and I can put it back.*
 
-![The evaluation page: 31 labeled questions at 100, 97 and 94 percent, and one graded
-short answer at 100 percent grader agreement](docs/screenshots/eval.jpg)
+![The dashboard: three figure tiles for due today, concepts and questions, above a table
+of concepts with streak, correct-out-of-attempted, and next due
+date](docs/screenshots/dashboard.jpg)
+
+*The schedule for one course. The tiles are its totals; in the table, concepts I have
+never attempted are marked new, and the ones I answered correctly have moved out to
+later dates.*
+
+![The evaluation page: a sunken panel with four figure tiles, 31 labeled questions at
+100, 97 and 94 percent, and grader agreement at 100 percent flagged with
+n=1](docs/screenshots/eval.jpg)
 
 *The evaluation page, and the honest state of it. The label rates are worth reading at
-31 questions. The grader agreement line is not: it is one graded short answer, so 100%
-there means "no disagreement yet", not "the grader is right".*
+31 questions. The grader agreement tile is not, and it says so: it wears a flag until
+there are 30 graded short answers, because one graded answer at 100% means "no
+disagreement yet", not "the grader is right".*
 
 ## How it works
 

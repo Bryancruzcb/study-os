@@ -219,7 +219,7 @@ through outlet context; `refresh()` refetches the overview so the due figure upd
 
 The landing page's panel, in the app: h1 `Evaluation`, then a `--sunken` 18px panel with the
 lede sentence (`31 labeled questions`), a four-figure grid (`Answerable from source`, `Correct
-answer`, `Unambiguous`, `Grader agreement`), each a `--card` 12px tile with the mono figure and
+answer`, `Unambiguous`, `Grader agreement`), each a `--card` 14px tile (the Dashboard's tile, shared) with the mono figure and
 the uppercase label. The grader tile carries `n=<graded>` in mono beside its figure and takes
 a `--flag` border while `graded < 30`, with the caveat sentence under the grid saying what that
 means. With nothing labeled the three label tiles are replaced by `No labeled questions yet.`;
