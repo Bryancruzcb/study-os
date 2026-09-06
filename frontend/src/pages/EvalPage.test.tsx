@@ -57,3 +57,23 @@ test('counts read as singular when there is exactly one of a thing', async () =>
   await waitFor(() => expect(screen.getByText('1 labeled question')).toBeInTheDocument())
   expect(screen.getByText(/^1 graded short answer,/)).toBeInTheDocument()
 })
+
+test('the grader tile carries its n and is flagged while the sample is under thirty', async () => {
+  render(<EvalPage />)
+  const tile = (await screen.findByText('Grader agreement')).closest('li')!
+  expect(tile).toHaveClass('figure-tile--flag')
+  expect(tile).toHaveTextContent('n=20')
+  expect(screen.getByText(/The flag stays until there are 30/)).toBeInTheDocument()
+})
+
+test('at thirty graded answers the flag comes off', async () => {
+  vi.mocked(api.evalReport).mockResolvedValueOnce({
+    labeled: 40, pctAnswerable: 0.95, pctCorrectAnswer: 0.9, pctUnambiguous: 0.85,
+    gradedShortAnswers: 30, graderAgreement: 0.9,
+  })
+  render(<EvalPage />)
+  const tile = (await screen.findByText('Grader agreement')).closest('li')!
+  expect(tile).not.toHaveClass('figure-tile--flag')
+  expect(tile).toHaveTextContent('n=30')
+  expect(screen.queryByText(/The flag stays/)).not.toBeInTheDocument()
+})
