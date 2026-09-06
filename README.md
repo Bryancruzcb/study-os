@@ -47,11 +47,12 @@ there means "no disagreement yet", not "the grader is right".*
 - Grading: multiple choice is checked against the stored answer index. A short answer
   gets one grader call against the question's rubric. If that call fails the attempt
   stays PENDING and I grade it myself, so studying never blocks on the API.
-- Four pages: Bank (upload a PDF, read the questions, retire bad ones behind a confirm
-  step and restore them when I misclick, label them), Study (answer, override a verdict,
-  self-grade a PENDING one), Dashboard (how many concepts are due, and per concept the
-  streak, the correct-out-of-attempted count and the next due date), Eval (the report
-  below).
+- Home is a grid of course tiles, one per class, each showing what is due today and how
+  much is in the bank. Inside a course there are three tabs: Study (answer, override a
+  verdict, self-grade a PENDING one), Bank (upload a PDF, open a concept, label its
+  questions, retire bad ones behind a confirm step and restore them when I misclick), and
+  Dashboard (how many concepts are due, and per concept the streak, the correct-out-of-
+  attempted count and the next due date). Eval (the report below) is global.
 
 ## Evaluation
 

@@ -10,10 +10,6 @@ vi.mock('./api', () => ({
     overview: vi.fn().mockResolvedValue([
       { id: 2, name: 'CS 149', term: 'Fall 2026', concepts: 248, questions: 844, dueToday: 16 },
     ]),
-    courses: vi.fn().mockResolvedValue([{ id: 2, name: 'CS 149', term: 'Fall 2026' }]),
-    next: vi.fn().mockResolvedValue(null),
-    bank: vi.fn().mockResolvedValue([]),
-    dashboard: vi.fn().mockResolvedValue({ dueToday: 0, concepts: [] }),
     createCourse: vi.fn(),
     evalReport: vi.fn().mockResolvedValue({
       labeled: 31, pctAnswerable: 1, pctCorrectAnswer: 0.97, pctUnambiguous: 0.94,

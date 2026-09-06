@@ -77,7 +77,6 @@ async function uploadFile<T = unknown>(url: string, file: File): Promise<T> {
 }
 
 export const api = {
-  courses: () => get<Course[]>('/api/courses'),
   overview: () => get<CourseOverview[]>('/api/courses/overview'),
   createCourse: (name: string, term: string) => post<Course>('/api/courses', { name, term }),
   bank: (courseId: number) => get<ConceptWithQuestions[]>(`/api/courses/${courseId}/bank`),
