@@ -110,9 +110,14 @@ and judged justified. There are no other suppressions in the frontend.
   confirm, `Retire` after a restore. `ConceptCards` keeps a `pendingFocus` ref for this,
   and is keyed by concept id so the bookkeeping cannot leak between concepts.
 - Study focuses the verdict band once an attempt lands (`useLayoutEffect` on `[attempt]`,
-  `tabIndex={-1}` on the band), then focuses the first option, the textarea or the empty
-  queue's "Open the bank" link after `Next question`. Before this, the caret fell to
-  `body` twice per question and a keyboard user paid about a dozen Tabs per card.
+  `tabIndex={-1}` on the band), then the new question's prompt, or the empty queue's
+  sentence, after `Next question`; one Tab from there reaches the first option, the
+  textarea or the "Open the bank" link. Before this, the caret fell to `body` twice per
+  question and a keyboard user paid about a dozen Tabs per card. The fix batch first put
+  the caret on the first option itself; that answered A on a held or stuttered Enter
+  (Enter activates a button on keydown and repeats while held, and the next question loads
+  in tens of milliseconds) and read to a screen reader as "1, button" with no question, so
+  the prompt took over.
 - The home form focuses the name field when it opens and the "New course" tile when it
   closes.
 

@@ -223,28 +223,48 @@ test('a self-grade hands focus to the verdict that replaces the pending band', a
   await waitFor(() => expect(band).toHaveFocus())
 })
 
-test('Next question puts focus on the first option', async () => {
+test('Next question puts focus on the new prompt, one Tab from the first option', async () => {
   await renderWithQuestion()
   await userEvent.click(screen.getByRole('button', { name: '3' }))
   await waitFor(() => expect(screen.getByText(/Correct/)).toBeInTheDocument())
   await userEvent.click(screen.getByRole('button', { name: 'Next question' }))
-  await waitFor(() => expect(screen.getByRole('button', { name: '1' })).toHaveFocus())
+  await waitFor(() => expect(screen.getByText('Steps in the TCP handshake?')).toHaveFocus())
+  await userEvent.tab()
+  expect(screen.getByRole('button', { name: '1' })).toHaveFocus()
 })
 
-test('Next question puts focus in the textarea when a short answer comes up', async () => {
+test('a second Enter on the heels of Next question answers nothing', async () => {
+  await renderWithQuestion()
+  await userEvent.click(screen.getByRole('button', { name: '3' }))
+  await waitFor(() => expect(screen.getByText(/Correct/)).toBeInTheDocument())
+  screen.getByRole('button', { name: 'Next question' }).focus()
+  await userEvent.keyboard('{Enter}')
+  await waitFor(() => expect(screen.getByText('Steps in the TCP handshake?')).toHaveFocus())
+  // the repeat of a held key, or a stuttered second press, lands on the prompt
+  await userEvent.keyboard('{Enter}')
+  expect(api.answer).toHaveBeenCalledTimes(1)
+  expect(screen.getByRole('button', { name: '1' })).toBeInTheDocument()
+  expect(screen.queryByText(/Correct/)).not.toBeInTheDocument()
+})
+
+test('Next question puts focus on a short answer prompt, one Tab from the textarea', async () => {
   await renderWithQuestion()
   await userEvent.click(screen.getByRole('button', { name: '3' }))
   await waitFor(() => expect(screen.getByText(/Correct/)).toBeInTheDocument())
   vi.mocked(api.next).mockResolvedValueOnce(shortAnswer)
   await userEvent.click(screen.getByRole('button', { name: 'Next question' }))
-  await waitFor(() => expect(screen.getByRole('textbox')).toHaveFocus())
+  await waitFor(() => expect(screen.getByText('Describe the handshake.')).toHaveFocus())
+  await userEvent.tab()
+  expect(screen.getByRole('textbox')).toHaveFocus()
 })
 
-test('when the queue runs out after Next question, focus lands on the way to the bank', async () => {
+test('when the queue runs out after Next question, focus lands on the empty state, one Tab from the bank', async () => {
   await renderWithQuestion()
   await userEvent.click(screen.getByRole('button', { name: '3' }))
   await waitFor(() => expect(screen.getByText(/Correct/)).toBeInTheDocument())
   vi.mocked(api.next).mockResolvedValueOnce(null)
   await userEvent.click(screen.getByRole('button', { name: 'Next question' }))
-  await waitFor(() => expect(screen.getByRole('link', { name: 'Open the bank' })).toHaveFocus())
+  await waitFor(() => expect(screen.getByText('Nothing due. Come back tomorrow.')).toHaveFocus())
+  await userEvent.tab()
+  expect(screen.getByRole('link', { name: 'Open the bank' })).toHaveFocus()
 })
