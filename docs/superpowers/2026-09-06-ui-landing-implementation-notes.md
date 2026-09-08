@@ -146,6 +146,17 @@ sticky list sits at its top, and on a real bank the filled row can be thousands 
 down. After the bank loads and whenever the path changes, the list scrolls the current row
 into view with `block: 'nearest'`, so a row the user just clicked never moves.
 
+The ingest lives in `CourseLayout`, not in `BankRoute`. `BankRoute` unmounts on a tab
+switch, and an upload that landed while Study was open used to reload a dead instance and
+then refresh the head, so the eyebrow moved while the list did not; coming back showed an
+enabled control with nothing to say an ingest was running, and a second pick of the same
+file then hit the unique file hash and alerted a 500. The course context now carries the
+upload, its `uploading` flag, its last error and a `finished` counter, tagged with the
+course so a switch mid-ingest reads as idle on the next course. The bank's control reads
+the flag, its one alert shows the bank's own error or the ingest's (clearing one clears
+both), and its mount effect also depends on the counter, so the list reloads whenever an
+ingest finishes, on this tab or while another was open.
+
 ### The bank has two `role="alert"` regions
 
 One in `BankRoute` above the split for load, upload and action failures, and one in
