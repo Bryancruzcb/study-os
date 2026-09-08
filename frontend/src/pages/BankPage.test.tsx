@@ -185,3 +185,14 @@ test('re-clicking the Bank tab from inside the bank does not grow the history', 
   await screen.findByRole('heading', { level: 2, name: 'TCP handshake' })
   expect(window.history.length).toBe(before)
 })
+
+test('opening a row from the keyboard puts the caret on the open concept, its cards one Tab away', async () => {
+  renderBank('/courses/1/bank/5')
+  const row = await screen.findByRole('link', { name: /Sockets/ })
+  row.focus()
+  await userEvent.keyboard('{Enter}')
+  await screen.findByRole('heading', { level: 2, name: 'Sockets' })
+  expect(document.getElementById('concept')).toHaveFocus()
+  await userEvent.tab()
+  expect(screen.getByLabelText('Answerable')).toHaveFocus()
+})
