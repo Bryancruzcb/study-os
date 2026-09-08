@@ -99,7 +99,7 @@ The two models are set in `backend/src/main/resources/application.yml` under
     mvn -f backend/pom.xml test
     cd frontend && npm install && npm test
 
-75 backend tests and 93 frontend tests. Neither suite calls the Claude API or needs a
+75 backend tests and 97 frontend tests. Neither suite calls the Claude API or needs a
 database, so no key is needed to run them.
 
 One suite is deliberately not in that number. `PersistenceTest` runs against a real
