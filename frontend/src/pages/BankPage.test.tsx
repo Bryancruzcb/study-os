@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { Route } from 'react-router-dom'
 import { vi } from 'vitest'
 import { api } from '../api'
-import { renderBank } from '../test/render'
+import { renderBank, renderBankInBrowser } from '../test/render'
 
 const course = { id: 1, name: 'CS 158A', term: 'Fall 2026', concepts: 2, questions: 3, dueToday: 2 }
 
@@ -173,4 +173,15 @@ test('an ingest in flight survives leaving the bank tab, and the list follows wh
   expect(vi.mocked(api.overview).mock.calls.length).toBe(overviewCalls + 1)
   expect(file().closest('label')).toHaveTextContent('Upload a lecture PDF')
   expect(file()).toBeEnabled()
+})
+
+test('re-clicking the Bank tab from inside the bank does not grow the history', async () => {
+  // a MemoryRouter has no observable length, so this one runs under the real history
+  renderBankInBrowser('/courses/1/bank/5')
+  await screen.findByRole('heading', { level: 2, name: 'TCP handshake' })
+  const before = window.history.length
+  await userEvent.click(screen.getByRole('link', { name: 'Bank' }))
+  await waitFor(() => expect(window.location.pathname).toBe('/courses/1/bank/5'))
+  await screen.findByRole('heading', { level: 2, name: 'TCP handshake' })
+  expect(window.history.length).toBe(before)
 })

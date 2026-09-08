@@ -1,6 +1,6 @@
 import { render } from '@testing-library/react'
 import type { ReactElement, ReactNode } from 'react'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, MemoryRouter, Route, Routes } from 'react-router-dom'
 import BankConceptPage from '../pages/BankConceptPage'
 import BankPage from '../pages/BankPage'
 import BankRoute from '../pages/BankRoute'
@@ -20,20 +20,28 @@ export function renderInCourse(page: ReactElement, tab: string, courseId = 1) {
   )
 }
 
+function bankRoutes(otherTabs?: ReactNode) {
+  return (
+    <Routes>
+      <Route path="/courses/:courseId" element={<CourseLayout />}>
+        {otherTabs}
+        <Route path="bank" element={<BankRoute />}>
+          <Route index element={<BankPage />} />
+          <Route path=":conceptId" element={<BankConceptPage />} />
+        </Route>
+      </Route>
+    </Routes>
+  )
+}
+
 /* the bank's split view under the course shell, at the given path; otherTabs adds sibling
    routes for a test that leaves the bank and comes back */
 export function renderBank(path: string, otherTabs?: ReactNode) {
-  return render(
-    <MemoryRouter initialEntries={[path]}>
-      <Routes>
-        <Route path="/courses/:courseId" element={<CourseLayout />}>
-          {otherTabs}
-          <Route path="bank" element={<BankRoute />}>
-            <Route index element={<BankPage />} />
-            <Route path=":conceptId" element={<BankConceptPage />} />
-          </Route>
-        </Route>
-      </Routes>
-    </MemoryRouter>,
-  )
+  return render(<MemoryRouter initialEntries={[path]}>{bankRoutes(otherTabs)}</MemoryRouter>)
+}
+
+/* the same split view under the real history, for a test that counts its entries */
+export function renderBankInBrowser(path: string) {
+  window.history.replaceState(null, '', path)
+  return render(<BrowserRouter>{bankRoutes()}</BrowserRouter>)
 }

@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { Link, NavLink, Outlet, useParams } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation, useParams } from 'react-router-dom'
 import { api, type CourseOverview } from '../api'
 import { plural } from '../plural'
 import { useCourses } from './courses'
@@ -40,6 +40,7 @@ const tab = ({ isActive }: { isActive: boolean }) => `tab${isActive ? ' is-curre
    /courses/:courseId renders inside this. */
 export default function CourseLayout() {
   const { courseId } = useParams()
+  const { pathname } = useLocation()
   const { courses, error, refresh } = useCourses()
   const [slot, setSlot] = useState<HTMLDivElement | null>(null)
   // tagged with its course: this layout stays mounted across a course switch, and an
@@ -103,7 +104,9 @@ export default function CourseLayout() {
           <h1>{course.name}</h1>
           <nav className="tabs" aria-label="Course">
             <NavLink to="study" className={tab}>Study</NavLink>
-            <NavLink to="bank" className={tab}>Bank</NavLink>
+            {/* the bank's index redirects to its first concept, so a push from inside the bank
+                would leave a second entry with the same URL and one dead Back: replace instead */}
+            <NavLink to="bank" replace={pathname.startsWith(`/courses/${course.id}/bank`)} className={tab}>Bank</NavLink>
             <NavLink to="dashboard" className={tab}>Dashboard</NavLink>
           </nav>
         </div>
