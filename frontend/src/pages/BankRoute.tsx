@@ -88,8 +88,12 @@ export default function BankRoute() {
               handler makes sure the caret lands whatever the browser does with a fragment */}
           <a className="skip" href="#concept" onClick={() => detail.current?.focus()}>Skip to the open concept</a>
           <p className="clist-head">{bank ? plural(bank.length, 'concept') : 'Loading…'}</p>
+          {/* opening a row hands the caret to the open concept, so its cards are one Tab away
+              instead of the rest of the list. preventScroll keeps a mouse click from jumping
+              the page, and a pointer-started focus draws no ring */}
           {bank?.map(c => (
-            <NavLink key={c.id} className={row} to={String(c.id)}>
+            <NavLink key={c.id} className={row} to={String(c.id)}
+              onClick={() => detail.current?.focus({ preventScroll: true })}>
               <span className="crow-name">{c.name}</span>
               <span className="count">{c.questions.filter(q => q.status === 'ACTIVE').length}</span>
             </NavLink>
