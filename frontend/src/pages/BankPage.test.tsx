@@ -127,9 +127,12 @@ test('while the ingest runs the control says so and takes no second file', async
   await userEvent.upload(input, new File(['%PDF-1.4'], 'week1.pdf', { type: 'application/pdf' }))
   expect(input.closest('label')).toHaveTextContent('Ingesting…')
   expect(input).toBeDisabled()
+  // the text lives in a live region, so a screen reader hears the start and the end
+  expect(screen.getByRole('status')).toHaveTextContent('Ingesting…')
   land({ id: 2, filename: 'week1.pdf', status: 'INGESTED', errorMessage: null })
   await waitFor(() => expect(input.closest('label')).toHaveTextContent('Upload a lecture PDF'))
   expect(input).toBeEnabled()
+  expect(screen.getByRole('status')).toHaveTextContent('Upload a lecture PDF')
 })
 
 test('a deep link scrolls the open concept into view in the list', async () => {
