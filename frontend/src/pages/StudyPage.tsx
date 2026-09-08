@@ -24,22 +24,26 @@ export default function StudyPage() {
   // grading unmounts the control the caret sat on; the band takes it, so the next Tab
   // reaches its buttons rather than starting over from the top of the page
   const band = useRef<HTMLDivElement>(null)
-  // a ref, not state: a one-shot command to put the caret on the next question's first
-  // control once it renders. Next question sets it; the mount load never does
+  // a ref, not state: a one-shot command to put the caret on the next question once it
+  // renders. Next question sets it; the mount load never does. The caret lands on the prompt,
+  // not on the first option: Enter activates a button on keydown and repeats while held, so
+  // a held or stuttered Enter on Next question would answer A the moment the card arrived,
+  // and a screen reader would hear "1, button" with no question. From the prompt one Tab
+  // reaches the first option, the textarea, or the empty queue's way to the bank
   const wantFirst = useRef(false)
-  const firstControl = useRef<HTMLElement | null>(null)
-  const takeFirstControl = useCallback((el: HTMLElement | null) => { firstControl.current = el }, [])
+  const landing = useRef<HTMLElement | null>(null)
+  const takeLanding = useCallback((el: HTMLElement | null) => { landing.current = el }, [])
 
   useLayoutEffect(() => {
     if (attempt) band.current?.focus()
   }, [attempt])
 
-  // after every render: the first control is disabled until the load's finally lands,
-  // and a disabled control cannot take focus. A failed load leaves the command standing
-  // for the question that does arrive
+  // after every render: waits for the load's finally so the caret lands on the card that
+  // arrived, not on the one on its way out. A failed load leaves the command standing for
+  // the question that does arrive
   useLayoutEffect(() => {
     if (!wantFirst.current || submitting) return
-    const el = firstControl.current
+    const el = landing.current
     if (!el) return
     wantFirst.current = false
     el.focus()
@@ -125,8 +129,8 @@ export default function StudyPage() {
       {error && <p className="alert" role="alert">{error}</p>}
       {done && (
         <div className="qcard-big">
-          <p className="empty">Nothing due. Come back tomorrow.</p>
-          <Link ref={takeFirstControl} className="btn btn--ghost" to="../bank">Open the bank</Link>
+          <p className="empty" tabIndex={-1} ref={takeLanding}>Nothing due. Come back tomorrow.</p>
+          <Link className="btn btn--ghost" to="../bank">Open the bank</Link>
         </div>
       )}
       {question && (
@@ -135,12 +139,11 @@ export default function StudyPage() {
             <span className="chip">{question.type === 'MC' ? 'Multiple choice' : 'Short answer'}</span>
             {question.sourcePages && <span className="chip chip--mono">pp. {question.sourcePages}</span>}
           </div>
-          <p className="prompt">{question.prompt}</p>
+          <p className="prompt" tabIndex={-1} ref={takeLanding}>{question.prompt}</p>
           {question.type === 'MC' && !attempt && (
             <div className="opts">
               {question.options.map((o, i) => (
-                <button className="opt" key={i} ref={i === 0 ? takeFirstControl : undefined}
-                  disabled={submitting} onClick={() => answerMc(i)}>
+                <button className="opt" key={i} disabled={submitting} onClick={() => answerMc(i)}>
                   <span className="letter" aria-hidden="true">{letter(i)}</span>{o}
                 </button>
               ))}
@@ -148,7 +151,7 @@ export default function StudyPage() {
           )}
           {question.type === 'SHORT_ANSWER' && !attempt && (
             <div className="short-answer">
-              <textarea ref={takeFirstControl} className="textarea" aria-label="Your answer" value={text}
+              <textarea className="textarea" aria-label="Your answer" value={text}
                 disabled={submitting} onChange={e => setText(e.target.value)} />
               {/* a blank or whitespace-only answer still buys a real grader call and banks an attempt that drags the schedule */}
               <button className="btn" disabled={submitting || !text.trim()} onClick={answerShort}>Submit</button>
