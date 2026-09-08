@@ -130,3 +130,19 @@ test('while the ingest runs the control says so and takes no second file', async
   await waitFor(() => expect(input.closest('label')).toHaveTextContent('Upload a lecture PDF'))
   expect(input).toBeEnabled()
 })
+
+test('a deep link scrolls the open concept into view in the list', async () => {
+  // jsdom has no layout and no scrollIntoView, so the call is the whole assertion
+  const scroll = vi.fn()
+  const proto = HTMLElement.prototype as unknown as { scrollIntoView?: (arg?: unknown) => void }
+  const before = proto.scrollIntoView
+  proto.scrollIntoView = scroll
+  try {
+    renderBank('/courses/1/bank/6')
+    await screen.findByRole('heading', { level: 2, name: 'Sockets' })
+    await waitFor(() => expect(scroll).toHaveBeenCalledWith({ block: 'nearest' }))
+    expect(scroll.mock.contexts.at(-1)).toBe(screen.getByRole('link', { name: /Sockets/ }))
+  } finally {
+    proto.scrollIntoView = before
+  }
+})

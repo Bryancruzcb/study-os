@@ -131,6 +131,11 @@ is a no-op. React Router matches on pathname only, and a fragment navigation lea
 unchanged (the browser fires `popstate` and then `hashchange`, and the router's handler
 re-reads the same location), so the catch-all route cannot fire on it.
 
+A deep link, a reload or a cross-document Back opens the concept on the right while the
+sticky list sits at its top, and on a real bank the filled row can be thousands of pixels
+down. After the bank loads and whenever the path changes, the list scrolls the current row
+into view with `block: 'nearest'`, so a row the user just clicked never moves.
+
 ### The bank has two `role="alert"` regions
 
 One in `BankRoute` above the split for load, upload and action failures, and one in
@@ -215,7 +220,7 @@ a due concept with only retired questions is left out.
 | Course head, not-found, failed overview, current tab, remount on switch | `shell/CourseLayout.test.tsx` |
 | Tiles, create form, escape and cancel, loading, plurals | `pages/HomePage.test.tsx` |
 | Options, verdict bands, PENDING self-grade, figure and bar, focus, no remount on refresh | `pages/StudyPage.test.tsx` |
-| First-concept redirect, empty bank, upload states, skip link | `pages/BankPage.test.tsx` |
+| First-concept redirect, empty bank, upload states, skip link, deep-link scroll | `pages/BankPage.test.tsx` |
 | Cards, toggles, label seeding, arm/confirm/cancel/restore, focus, overview refetch | `pages/BankConceptPage.test.tsx` |
 | Figure tiles from the course, ledger, empty card, alert | `pages/DashboardPage.test.tsx` |
 | Four panel states, `n=`, the flag under 30, the caveat | `pages/EvalPage.test.tsx` |
