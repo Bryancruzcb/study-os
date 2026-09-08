@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { NavLink, Outlet, useOutletContext } from 'react-router-dom'
+import { NavLink, Outlet, useLocation, useOutletContext } from 'react-router-dom'
 import { api, type ConceptWithQuestions } from '../api'
 import { plural } from '../plural'
 import type { CourseContext } from '../shell/CourseLayout'
@@ -23,6 +23,8 @@ export default function BankRoute() {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const detail = useRef<HTMLElement>(null)
+  const list = useRef<HTMLElement>(null)
+  const { pathname } = useLocation()
 
   const reload = useCallback(async () => {
     try {
@@ -37,6 +39,13 @@ export default function BankRoute() {
     // oxlint-disable-next-line react/set-state-in-effect
     reload()
   }, [reload])
+
+  // a deep link, a reload or a cross-document Back opens the concept on the right while the
+  // sticky list still sits at its top, so on a real bank the filled row can be thousands of
+  // pixels down. nearest: a row the user just clicked is already in view and nothing moves
+  useEffect(() => {
+    list.current?.querySelector<HTMLElement>('.crow.is-current')?.scrollIntoView?.({ block: 'nearest' })
+  }, [bank, pathname])
 
   async function onUpload(file: File) {
     setUploading(true)
@@ -75,7 +84,7 @@ export default function BankRoute() {
       )}
       {error && <p className="alert" role="alert">{error}</p>}
       <div className="split">
-        <nav className="clist" aria-label="Concepts">
+        <nav className="clist" aria-label="Concepts" ref={list}>
           {/* a real bank puts a few hundred rows between the head and the open concept; the
               keyboard gets a way past them. The hash does the work without a script, the
               handler makes sure the caret lands whatever the browser does with a fragment */}
