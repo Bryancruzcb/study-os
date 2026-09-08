@@ -180,6 +180,16 @@ function LabelControl({ question, onSave }: {
   const [unambiguous, setUnambiguous] = useState(question.labelUnambiguous ?? true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(labelled(question))
+  // a save swaps the button under the caret for the mark; hand the caret to the mark so it
+  // stays on the card, one Tab from Retire, instead of falling to body. Only after a save:
+  // a card that arrives already labelled must not take the caret on mount
+  const mark = useRef<HTMLSpanElement>(null)
+  const justSaved = useRef(false)
+  useLayoutEffect(() => {
+    if (!justSaved.current) return
+    justSaved.current = false
+    mark.current?.focus()
+  }, [saved])
 
   return (
     <div className="qcard-labels">
@@ -190,12 +200,13 @@ function LabelControl({ question, onSave }: {
       <Toggle label="Unambiguous" checked={unambiguous} disabled={saving}
         onChange={v => { setUnambiguous(v); setSaved(false) }} />
       {saved ? (
-        <span className="count">labeled</span>
+        <span className="count saved-mark" tabIndex={-1} ref={mark}>labeled</span>
       ) : (
         <button className="btn btn--secondary btn--micro" disabled={saving} onClick={async () => {
           setSaving(true)
           const ok = await onSave(question.id, { answerable, correctAnswer, unambiguous })
           setSaving(false)
+          justSaved.current = ok
           setSaved(ok)
         }}>Save labels</button>
       )}

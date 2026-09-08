@@ -67,8 +67,8 @@ button {
 
 /* the class names are the regions a script puts the caret on: the verdict band after a
    grade, the open concept after the skip link, the prompt or the empty state after Next
-   question */
-:where(a, button, input, select, textarea, .verdict, .detail, .prompt, .empty):focus-visible {
+   question, the labeled mark after a save */
+:where(a, button, input, select, textarea, .verdict, .detail, .prompt, .empty, .saved-mark):focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
