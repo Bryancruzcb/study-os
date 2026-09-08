@@ -1,5 +1,5 @@
 import { render } from '@testing-library/react'
-import type { ReactElement } from 'react'
+import type { ReactElement, ReactNode } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import BankConceptPage from '../pages/BankConceptPage'
 import BankPage from '../pages/BankPage'
@@ -20,12 +20,14 @@ export function renderInCourse(page: ReactElement, tab: string, courseId = 1) {
   )
 }
 
-/* the bank's split view under the course shell, at the given path */
-export function renderBank(path: string) {
+/* the bank's split view under the course shell, at the given path; otherTabs adds sibling
+   routes for a test that leaves the bank and comes back */
+export function renderBank(path: string, otherTabs?: ReactNode) {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
         <Route path="/courses/:courseId" element={<CourseLayout />}>
+          {otherTabs}
           <Route path="bank" element={<BankRoute />}>
             <Route index element={<BankPage />} />
             <Route path=":conceptId" element={<BankConceptPage />} />

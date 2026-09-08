@@ -1,5 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { Route } from 'react-router-dom'
 import { vi } from 'vitest'
 import { api } from '../api'
 import { renderBank } from '../test/render'
@@ -145,4 +146,31 @@ test('a deep link scrolls the open concept into view in the list', async () => {
   } finally {
     proto.scrollIntoView = before
   }
+})
+
+test('an ingest in flight survives leaving the bank tab, and the list follows when it lands', async () => {
+  type Upload = Awaited<ReturnType<typeof api.upload>>
+  let land!: (m: Upload) => void
+  vi.mocked(api.upload).mockReturnValueOnce(new Promise<Upload>(resolve => { land = resolve }))
+  const { container } = renderBank('/courses/1/bank/5', <Route path="study" element={<p>Study stub</p>} />)
+  await screen.findByRole('link', { name: /TCP handshake/ })
+  const overviewCalls = vi.mocked(api.overview).mock.calls.length
+  const file = () => container.querySelector<HTMLInputElement>('input[type="file"]')!
+  await userEvent.upload(file(), new File(['%PDF-1.4'], 'week1.pdf', { type: 'application/pdf' }))
+  expect(file().closest('label')).toHaveTextContent('Ingesting…')
+  await userEvent.click(screen.getByRole('link', { name: 'Study' }))
+  await screen.findByText('Study stub')
+  await userEvent.click(screen.getByRole('link', { name: 'Bank' }))
+  await screen.findByRole('link', { name: /TCP handshake/ })
+  // still running: the control says so and takes no second file
+  expect(file().closest('label')).toHaveTextContent('Ingesting…')
+  expect(file()).toBeDisabled()
+  vi.mocked(api.bank).mockResolvedValueOnce([...bank, { id: 7, name: 'Routing', summary: 'tables', sourcePages: null, questions: [] }])
+  land({ id: 2, filename: 'week1.pdf', status: 'INGESTED', errorMessage: null })
+  // the list, its caption and the head move together
+  await screen.findByRole('link', { name: /Routing/ })
+  expect(screen.getByText('3 concepts')).toBeInTheDocument()
+  expect(vi.mocked(api.overview).mock.calls.length).toBe(overviewCalls + 1)
+  expect(file().closest('label')).toHaveTextContent('Upload a lecture PDF')
+  expect(file()).toBeEnabled()
 })
