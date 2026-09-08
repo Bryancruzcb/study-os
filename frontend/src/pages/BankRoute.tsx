@@ -14,14 +14,22 @@ export interface BankContext extends CourseContext {
 const row = ({ isActive }: { isActive: boolean }) => `crow${isActive ? ' is-current' : ''}`
 
 /* Owns the bank for both panes, so picking a concept never refetches; retire, restore
-   and an upload do. Draws the concept list on the left and the open concept on the
-   right. The upload control lives in the course head's slot. */
+   and an ingest do. Draws the concept list on the left and the open concept on the
+   right. The upload control lives in the course head's slot; the ingest it starts lives
+   in the course context, so it outlives this tab. */
 export default function BankRoute() {
   const ctx = useOutletContext<CourseContext>()
-  const { course, refresh, slot } = ctx
+  const { course, slot, ingest } = ctx
   const [bank, setBank] = useState<ConceptWithQuestions[] | null>(null)
-  const [uploading, setUploading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [ownError, setOwnError] = useState<string | null>(null)
+  // one alert for the bank's own failures and the ingest's; an action's fresh start
+  // clears both, the way it did when one state held them
+  const { clearError } = ingest
+  const setError = useCallback((e: string | null) => {
+    setOwnError(e)
+    if (e == null) clearError()
+  }, [clearError])
+  const error = ownError ?? ingest.error
   const detail = useRef<HTMLElement>(null)
   const list = useRef<HTMLElement>(null)
   const { pathname } = useLocation()
@@ -32,13 +40,14 @@ export default function BankRoute() {
     } catch (e) {
       setError(String(e))
     }
-  }, [course.id])
+  }, [course.id, setError])
 
+  // the mount load, and again whenever an ingest finishes, on this tab or while another was open
   useEffect(() => {
     // reload sets state only after its await; the rule cannot see through the callback
     // oxlint-disable-next-line react/set-state-in-effect
     reload()
-  }, [reload])
+  }, [reload, ingest.finished])
 
   // a deep link, a reload or a cross-document Back opens the concept on the right while the
   // sticky list still sits at its top, so on a real bank the filled row can be thousands of
@@ -47,20 +56,9 @@ export default function BankRoute() {
     list.current?.querySelector<HTMLElement>('.crow.is-current')?.scrollIntoView?.({ block: 'nearest' })
   }, [bank, pathname])
 
-  async function onUpload(file: File) {
-    setUploading(true)
-    setError(null)
-    try {
-      const m = await api.upload(course.id, file)
-      if (m.status === 'FAILED') setError(m.errorMessage ?? 'Ingest failed')
-      await reload()
-      // the course head's concept and question counts just moved
-      await refresh()
-    } catch (e) {
-      setError(String(e))
-    } finally {
-      setUploading(false)
-    }
+  function onUpload(file: File) {
+    setOwnError(null)
+    return ingest.upload(file)
   }
 
   return (
@@ -70,13 +68,13 @@ export default function BankRoute() {
           <label className="btn upload">
             {/* the extension keeps a .pptx out of the default picker; the mime type alone
                 does not, because the OS file dialog matches on either */}
-            <input className="visually-hidden" type="file" accept=".pdf,application/pdf" disabled={uploading}
+            <input className="visually-hidden" type="file" accept=".pdf,application/pdf" disabled={ingest.uploading}
               onChange={e => {
                 const file = e.target.files?.[0]
                 e.target.value = ''
                 if (file) onUpload(file)
               }} />
-            {uploading ? 'Ingesting…' : 'Upload a lecture PDF'}
+            {ingest.uploading ? 'Ingesting…' : 'Upload a lecture PDF'}
           </label>
           <small className="hint">PDF only</small>
         </>,
