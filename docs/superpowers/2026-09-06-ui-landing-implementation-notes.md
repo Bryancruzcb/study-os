@@ -5,8 +5,11 @@ Companion to the design spec (`specs/2026-09-04-ui-landing-restyle-design.md`) a
 implementation plan (`plans/2026-09-04-ui-landing-restyle.md`). The spec says what the app
 should be; the plan said how to get there; this file says what the code actually does and
 why it does it that way. Corrected 2026-09-07 after a claim-by-claim check against master
-`ea41b7a`: commit counts, the one SHA the rebase merge rewrote, and which test file pins
-what; nothing about the behaviour changed.
+`ea41b7a` (commit counts, the one SHA the rebase merge rewrote, which test file pins what),
+and amended the same day for the four fixes that pass produced: the due count leaves out a
+concept with no active question, the caret lands on the prompt after `Next question` and
+on the `labeled` mark after a save, and a deep link scrolls the open concept's row into
+view.
 
 **Read this before changing these surfaces, and before filing a defect against them.** A
 good deal of what looks odd here is deliberate, and the reason is usually one of: a lint
