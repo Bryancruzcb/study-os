@@ -200,14 +200,17 @@ test('cancelling puts the caret back on the card it was working', async () => {
   expect(screen.getByRole('button', { name: 'Retire' })).toHaveFocus()
 })
 
-test('confirming leaves the caret on the Restore that takes the card over', async () => {
+test('confirming leaves the caret on the struck card, one Tab from Restore', async () => {
   vi.mocked(api.bank).mockResolvedValueOnce(concept([question({})]))
   vi.mocked(api.bank).mockResolvedValueOnce(concept([question({ status: 'RETIRED' })]))
   at()
   await userEvent.click(await screen.findByRole('button', { name: 'Retire' }))
   await userEvent.click(screen.getByRole('button', { name: 'Confirm retire' }))
   const restore = await screen.findByRole('button', { name: 'Restore' })
-  await waitFor(() => expect(restore).toHaveFocus())
+  // not on Restore itself: a held Enter on Confirm would run on into it and undo the retire
+  await waitFor(() => expect(screen.getByText('not labeled')).toHaveFocus())
+  await userEvent.tab()
+  expect(restore).toHaveFocus()
 })
 
 test('confirming a retire refetches the overview, so the head count follows', async () => {

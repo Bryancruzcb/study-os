@@ -109,8 +109,9 @@ and judged justified. There are no other suppressions in the frontend.
 ### Focus is handed back on purpose, in three places
 
 - The bank arms a retire, moves the caret to `Cancel`, and hands it back to the control
-  that replaces the one the user was on: `Retire` after a cancel, `Restore` after a
-  confirm, `Retire` after a restore. `ConceptCards` keeps a `pendingFocus` ref for this,
+  that replaces the one the user was on: `Retire` after a cancel, the struck card's mark
+  after a confirm (one Tab from `Restore`; landing on `Restore` itself let a held Enter on
+  Confirm run on and undo the retire), `Retire` after a restore. `ConceptCards` keeps a `pendingFocus` ref for this,
   and is keyed by concept id so the bookkeeping cannot leak between concepts. A saved
   label swaps `Save labels` for the `labeled` mark, and the mark takes the caret (one Tab
   from `Retire`); the button used to unmount under the caret and drop it to `body`.

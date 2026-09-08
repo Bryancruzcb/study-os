@@ -31,10 +31,14 @@ function ConceptCards({ concept, reload, refresh, setError }: {
   const [armed, setArmed] = useState<number | null>(null)
   const cancelButton = useRef<HTMLButtonElement>(null)
   // the danger cell's button per question, so the caret can be put back on the card it
-  // was working when confirm, cancel or restore unmounts the control it was sitting on
+  // was working when cancel or restore unmounts the control it was sitting on
   const dangerButtons = useRef(new Map<number, HTMLButtonElement | null>())
+  // the struck card's mark per question: where the caret lands after a confirm. Not on
+  // Restore, which takes Retire's place: a held Enter on Confirm would run on into it and
+  // undo the retire. From the mark, Restore is one Tab away
+  const marks = useRef(new Map<number, HTMLSpanElement | null>())
   // a ref, not state: this is a one-shot command to the DOM after the next render
-  const pendingFocus = useRef<number | null>(null)
+  const pendingFocus = useRef<{ id: number; mark?: boolean } | null>(null)
 
   // an armed card holds focus on Cancel rather than on the confirm that took Retire's
   // place, so the repeat of a held Enter, or a stuttered second press, disarms the card
@@ -45,10 +49,11 @@ function ConceptCards({ concept, reload, refresh, setError }: {
   // runs after whichever render the handler queued, so the caret lands on whatever the
   // cell now holds rather than on document.body
   useLayoutEffect(() => {
-    const id = pendingFocus.current
-    if (id == null) return
+    const p = pendingFocus.current
+    if (p == null) return
     pendingFocus.current = null
-    dangerButtons.current.get(id)?.focus()
+    const target = p.mark ? marks.current.get(p.id) : dangerButtons.current.get(p.id)
+    target?.focus()
   })
 
   async function onRetire(qid: number) {
@@ -59,7 +64,7 @@ function ConceptCards({ concept, reload, refresh, setError }: {
     try {
       await api.retire(qid)
       await reload()
-      pendingFocus.current = qid
+      pendingFocus.current = { id: qid, mark: true }
       // the head counts ACTIVE questions, so it just moved too
       await refresh()
     } catch (e) {
@@ -72,7 +77,7 @@ function ConceptCards({ concept, reload, refresh, setError }: {
     try {
       await api.restore(qid)
       await reload()
-      pendingFocus.current = qid
+      pendingFocus.current = { id: qid }
       await refresh()
     } catch (e) {
       setError(String(e))
@@ -115,7 +120,9 @@ function ConceptCards({ concept, reload, refresh, setError }: {
             <div className="qcard-foot">
               {q.status === 'RETIRED' ? (
                 <>
-                  <span className="count">{labelled(q) ? 'labeled' : 'not labeled'}</span>
+                  <span className="count mark" tabIndex={-1} ref={el => { marks.current.set(q.id, el) }}>
+                    {labelled(q) ? 'labeled' : 'not labeled'}
+                  </span>
                   <button key="restore" ref={el => { dangerButtons.current.set(q.id, el) }}
                     className="btn btn--secondary btn--micro" onClick={() => onRestore(q.id)}>Restore</button>
                 </>
@@ -135,7 +142,7 @@ function ConceptCards({ concept, reload, refresh, setError }: {
                         {/* Cancel goes last: it sits on the pixels Retire just gave up, so the
                             second click of an accidental double cancels rather than confirms */}
                         <button key="cancel" ref={cancelButton} className="btn btn--secondary btn--micro"
-                          onClick={() => { setArmed(null); pendingFocus.current = q.id }}>Cancel</button>
+                          onClick={() => { setArmed(null); pendingFocus.current = { id: q.id } }}>Cancel</button>
                       </>
                     ) : (
                       <button key="retire" ref={el => { dangerButtons.current.set(q.id, el) }}
@@ -200,7 +207,7 @@ function LabelControl({ question, onSave }: {
       <Toggle label="Unambiguous" checked={unambiguous} disabled={saving}
         onChange={v => { setUnambiguous(v); setSaved(false) }} />
       {saved ? (
-        <span className="count saved-mark" tabIndex={-1} ref={mark}>labeled</span>
+        <span className="count mark" tabIndex={-1} ref={mark}>labeled</span>
       ) : (
         <button className="btn btn--secondary btn--micro" disabled={saving} onClick={async () => {
           setSaving(true)
