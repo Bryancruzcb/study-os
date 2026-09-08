@@ -225,3 +225,20 @@ test('Restore refetches the overview too', async () => {
   await waitFor(() => expect(api.restore).toHaveBeenLastCalledWith(9))
   await waitFor(() => expect(api.overview).toHaveBeenCalledTimes(2))
 })
+
+test('saving labels keeps the caret on the card: the mark takes it, one Tab from Retire', async () => {
+  at()
+  await userEvent.click(await screen.findByRole('button', { name: 'Save labels' }))
+  const mark = await screen.findByText('labeled')
+  await waitFor(() => expect(mark).toHaveFocus())
+  await userEvent.tab()
+  expect(screen.getByRole('button', { name: 'Retire' })).toHaveFocus()
+})
+
+test('a card that arrives labelled leaves the caret alone', async () => {
+  vi.mocked(api.bank).mockResolvedValueOnce(
+    concept([question({ labelAnswerable: true, labelCorrectAnswer: true, labelUnambiguous: true })]))
+  at()
+  await screen.findByText('labeled')
+  expect(document.body).toHaveFocus()
+})
