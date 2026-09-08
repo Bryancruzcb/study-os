@@ -1,10 +1,11 @@
 /* Eleven values come from the landing page's :root (site/index.html) unchanged: --page,
    --card, --sunken, --line, --ink, --ink-soft, --ink-dim, --accent, --accent-strong,
-   --flag and --radius. Light only: one :root, no prefers-color-scheme block. Everything
-   else here is the app's own, because the landing page has no app to style: the dashed
-   line, the filled-control pair and the ink on it, a correct/incorrect pair and the
-   hover glow (marked (new)), the band and tile washes, the fonts, and the rest of the
-   radius, wrap and motion scales. */
+   --flag and --radius. Light only: one :root, no prefers-color-scheme block. The
+   filled-control pair and the ink on it, the band, the nav shadow, the fonts, and the
+   wrap, gutter, radius and motion scales are the landing page's component values lifted
+   into tokens. The rest is the app's own, because the landing page has no app to style:
+   the dashed line, a correct/incorrect pair and the hover glow (marked (new)), the tile
+   washes and the dim ink on fills. */
 :root {
   color-scheme: light;
 

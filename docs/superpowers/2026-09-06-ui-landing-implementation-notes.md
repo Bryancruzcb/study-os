@@ -4,7 +4,9 @@ Written 2026-09-06, at the end of the `ui-landing` branch, by the session that b
 Companion to the design spec (`specs/2026-09-04-ui-landing-restyle-design.md`) and the
 implementation plan (`plans/2026-09-04-ui-landing-restyle.md`). The spec says what the app
 should be; the plan said how to get there; this file says what the code actually does and
-why it does it that way.
+why it does it that way. Corrected 2026-09-07 after a claim-by-claim check against master
+`ea41b7a`: commit counts, the one SHA the rebase merge rewrote, and which test file pins
+what; nothing about the behaviour changed.
 
 **Read this before changing these surfaces, and before filing a defect against them.** A
 good deal of what looks odd here is deliberate, and the reason is usually one of: a lint
@@ -22,9 +24,11 @@ card) and, after seeing both, the Bank split view over concept tiles.
 
 ## What shipped
 
-Nineteen commits from `4cbc013`: three for the spec and plan, one per planned task, two
-controller fixes between tasks, three for the fix batch that came out of the whole-branch
-review, and one for the screenshots, the captions and this file.
+Twenty commits from `4cbc013` to `ea41b7a`: three for the spec and plan, one per planned
+task, one review fix for task 3, two controller fixes between tasks, three for the fix batch
+that came out of the whole-branch review, one for the token header after the delta
+re-review, one for the screenshots, the captions and this file, and one after these notes
+for the README's test counts.
 
 | Surface | Route | Lives in |
 | --- | --- | --- |
@@ -34,7 +38,8 @@ review, and one for the screenshots, the captions and this file.
 | Bank, split view | `/courses/:courseId/bank`, `.../bank/:conceptId` | `pages/BankRoute.tsx` + `BankPage.tsx` + `BankConceptPage.tsx`, `styles/bank.css` |
 | Dashboard | `/courses/:courseId/dashboard` | `pages/DashboardPage.tsx`, `styles/dashboard.css` |
 | Evaluation, global | `/eval` | `pages/EvalPage.tsx`, `styles/eval.css` |
-| Nav pill and frame | every page | `shell/Nav.tsx`, `shell/Frame.tsx` |
+| Nav pill | every page | `shell/Nav.tsx` |
+| Frame | every page but Home | `shell/Frame.tsx` |
 | Design tokens | every page | `styles/tokens.css`, `styles/base.css` |
 
 Anything else, including the old top-level `/study`, `/bank` and `/dashboard`, redirects
@@ -54,7 +59,8 @@ the plain page followed by `<main><Outlet /></main>` for everything else. Both p
 exactly one `<main>` per page, which is what the landmark tests assert.
 
 Do not "fix" this by moving Home under `Frame` or by swapping Home's `<main>` for a
-`<div>`: the first breaks the band, the second leaves Home with no landmark at all.
+`<div>`: the first breaks the band, the second leaves Home with no `main` landmark (the nav
+and the hero banner would remain) and fails the landmark test in `App.test.tsx`.
 
 The cost, accepted: `Nav` is a different instance on Home than under `Frame`, so moving
 between Home and a course remounts it and refetches the eval report. It is one small GET
@@ -66,8 +72,10 @@ Without the key, react-router keeps the same page instance when only `:courseId`
 so Study carried the previous course's `startOfVisit` figure and its in-flight guard into
 the new course. Keying the outlet makes a course switch a fresh visit. `refresh()` hands
 down new objects with the same ids and deliberately does *not* remount, which is what lets
-the head counts move without throwing away the page's state. `StudyPage.test.tsx` pins
-both halves: a course switch remounts, a refresh does not.
+the head counts move without throwing away the page's state. `shell/CourseLayout.test.tsx` pins
+the first half with a probe page that keeps the course it mounted with; `StudyPage.test.tsx`
+pins the second: after an answer the figure moves, the verdict stays on screen and `api.next`
+was called once.
 
 ### `refresh()` runs after every verdict, upload, retire and restore
 
@@ -79,16 +87,20 @@ per-task one, because each task only ever saw its own diff.
 
 ### `plural.ts` is its own module, and so is `shell/courses.ts`
 
-Both exist to satisfy oxlint's `react(only-export-components)`: a module that exports a
-component may not also export a plain function. `dueSplit` came out of `HomePage.tsx` into
+`plural.ts` exists to satisfy oxlint's `react(only-export-components)`, and `dueSplit` moved
+into `shell/courses.ts` (which already held `useCourses`) for the same rule: a module that
+exports a component may not also export a plain function. `dueSplit` came out of `HomePage.tsx` into
 `shell/courses.ts`, and `plural` came out of `BankRoute.tsx` into `plural.ts`. `plural` is
 generic and is now used by Home, the course head, the bank and Eval; do not fold it back
 into a page.
 
 ### Two `oxlint-disable-next-line react/set-state-in-effect` comments
 
-`StudyPage.tsx` and `BankRoute.tsx` set state in a mount effect after an `await`. The rule
-fires anyway. Both carry a one-line reason above the suppression. They were reviewed twice
+`BankRoute.tsx` sets state in a mount effect only after an `await`, and the rule fires
+anyway. `StudyPage.tsx` routes its mount load through `run()` to share the single-flight
+guard, which sets `submitting` synchronously first: one extra render before any control
+exists, which is all the rule is warning about. Both carry a reason comment above the
+suppression (one line in `BankRoute.tsx`, three in `StudyPage.tsx`). They were reviewed twice
 and judged justified. There are no other suppressions in the frontend.
 
 ### Focus is handed back on purpose, in three places
@@ -115,31 +127,37 @@ is now a "Skip to the open concept" link, hidden until focused, that moves the c
 `section#concept`. It keeps a real `href="#concept"` so it works without JavaScript and
 reads as a link, and also focuses in `onClick` because a fragment does not move focus in
 every browser. Known cost: it pushes one history entry, so the first Back after using it
-is a no-op. React Router matches on pathname only and a fragment fires `hashchange`, not
-`popstate`, so the catch-all route cannot fire on it.
+is a no-op. React Router matches on pathname only, and a fragment navigation leaves the pathname
+unchanged (the browser fires `popstate` and then `hashchange`, and the router's handler
+re-reads the same location), so the catch-all route cannot fire on it.
 
 ### The bank has two `role="alert"` regions
 
 One in `BankRoute` above the split for load, upload and action failures, and one in
-`BankConceptPage` for "No concept has id N." The spec asks for both, and they can only
-coexist when an upload fails while the URL carries a bad concept id.
+`BankConceptPage` for "No concept has id N." The spec asks for both, and they coexist
+only when `error` is set while the URL carries a bad concept id: an upload that fails on
+such a URL, or an earlier action failure still on screen when Back returns to one, since
+`error` clears at the start of the next action, not on navigation.
 
 ### Eval renders its figure grid even when both counts are zero
 
 The empty grid leaves the two empty-state sentences a little far apart. It is the spec's
-markup and the case is only reachable on a brand new database. The graded count appears
+markup and the case is only reachable before anything has been labeled or graded. The graded count appears
 three times in the panel (on the tile as `n=`, in the sentence, in the caveat) because the
-sentence predates the tile and two older tests pin it.
+sentence predates the tile and three older tests pin it.
 
 ### Colours are tokens, and a test says so
 
 `styles/tokens.test.ts` fails on a raw `oklch()`, hex, `rgb()` or `hsl()` in any stylesheet
 but `tokens.css`. `--on-fill` and `--on-fill-dim` were added during the fix batch for the
-ink on filled controls, which had been a hand-written `oklch(99% 0 0)` in five places.
+ink on filled controls, which had been a hand-written `oklch(99% 0 0)` in six places (five
+in `base.css`, one in `bank.css`), plus one `oklch(85% 0.01 250)` in `bank.css`.
 
 Eleven values in `tokens.css` come from the landing page's `:root` unchanged; the header
-comment names them. Everything else is the app's own, because the landing page has no app
-to style.
+comment names them. Most of the rest are the landing page's component values lifted into
+tokens (the filled-control pair and its ink, the band, the nav shadow, the fonts, and the
+wrap, gutter, radius and motion scales). Only the ones marked (new), the dashed line, the
+washes and `--on-fill-dim` are the app's own, because the landing page has no app to style.
 
 ### The 12px type floor is a test, not a convention
 
@@ -158,8 +176,9 @@ spec line was changed rather than the CSS.
 
 The plan removed the old stylesheet in task 8. It was imported last, so its dead rules won
 the cascade over every new page as it landed, and the live checks for tasks 6 and 7 would
-have been looking at the wrong thing. It went in `f6efc92`, right after the bank, and task
-8's step 1 became a no-op.
+have been looking at the wrong thing. It went in `6c91e4d` (`f6efc92` before the rebase merge), right after the bank, so the
+delete and the import removal in task 8's step 1 became no-ops; the step's third part,
+dropping the `surfaces.css` exclusion from `typeFloor.test.ts`, still landed in `f5c93ff`.
 
 ### `App.test.tsx` keeps a `next` mock
 
@@ -177,8 +196,8 @@ interface is still `createCourse`'s return type.
 ### The backend endpoint does 1+3N queries on purpose
 
 `GET /api/courses/overview` lists courses in id order, then counts concepts, ACTIVE
-questions and review states due today for each. Three courses, four queries, and the
-Javadoc says so. Today's date comes from the injected `Clock` bean, so the controller test
+questions and review states due today for each. One course costs four queries and three cost ten; the
+Javadoc says three count queries per course is fine at a handful of courses. Today's date comes from the injected `Clock` bean, so the controller test
 can fix it. A `@WebMvcTest` covers the shape and the ACTIVE-only rule; one JPA case proves
 the due-date boundary is `<=` today and that the count does not leak across courses.
 
@@ -188,9 +207,9 @@ the due-date boundary is `<=` today and that the count does not leak across cour
 | --- | --- |
 | Route tree, redirects, one `<main>`, nav readout | `App.test.tsx` |
 | `aria-current` on both nav links, both directions | `shell/Nav.test.tsx` |
-| Course head, not-found, remount on switch, no remount on refresh | `shell/CourseLayout.test.tsx` |
-| Tiles, washes, create form, escape and cancel, loading, plurals | `pages/HomePage.test.tsx` |
-| Options, verdict bands, PENDING self-grade, figure and bar, focus | `pages/StudyPage.test.tsx` |
+| Course head, not-found, failed overview, current tab, remount on switch | `shell/CourseLayout.test.tsx` |
+| Tiles, create form, escape and cancel, loading, plurals | `pages/HomePage.test.tsx` |
+| Options, verdict bands, PENDING self-grade, figure and bar, focus, no remount on refresh | `pages/StudyPage.test.tsx` |
 | First-concept redirect, empty bank, upload states, skip link | `pages/BankPage.test.tsx` |
 | Cards, toggles, label seeding, arm/confirm/cancel/restore, focus, overview refetch | `pages/BankConceptPage.test.tsx` |
 | Figure tiles from the course, ledger, empty card, alert | `pages/DashboardPage.test.tsx` |
@@ -199,8 +218,9 @@ the due-date boundary is `<=` today and that the count does not leak across cour
 | Endpoint shape, ACTIVE only, fixed clock | `backend/.../CourseControllerTest.java` |
 | Due-date boundary and course isolation against Postgres | `backend/.../PersistenceTest.java` (jpa group) |
 
-Pages are tested through the real router and the real `CourseLayout` via the helpers in
-`test/render.tsx`; only `api` is mocked.
+The four course-scoped pages are tested through the real router and the real
+`CourseLayout` via the helpers in `test/render.tsx`; Home renders under its own
+`MemoryRouter` and Eval with no router; only `api` is mocked.
 
 ## Deliberately not done
 
@@ -213,7 +233,7 @@ defects.
 - **Splitting `base.css`.** It is about 500 lines of reset, type roles and controls, with
   banners between the three. Split it when it grows past the next feature.
 - **`FixedClock` duplication.** The same `@TestConfiguration` sits in two backend tests and
-  the same instant is inlined in two more. A shared `TestClock` is a five-file mechanical
+  the same instant is inlined in three more. A shared `TestClock` is a five-file mechanical
   follow-up.
 - **Course endpoints in two packages.** `POST/GET /api/courses`, materials and bank live in
   `ingest`; the overview lives in `course`. The spec named the new package.
@@ -222,8 +242,8 @@ defects.
 - **Two "Loading…" under a failed first bank load.** The list caption and the pane both
   show it forever if the first fetch fails. A "could not load" caption would read better.
 - **`Number(courseId)` accepts `0x2`.** It opens course 2. Harmless.
-- **`node` types in the app tsconfig.** One test file needs them; isolating it needs a
-  separate test tsconfig.
+- **`node` types in the app tsconfig.** Two test files need them (`tokens.test.ts` and `typeFloor.test.ts`); isolating them
+  needs a separate test tsconfig.
 - **`index.css` is not scanned by the two stylesheet tests.** They read `src/styles`, and
   `index.css` is eight `@import` lines.
 - **Retired cards show `labeled` or `not labeled`.** Extra against the spec, and useful.
@@ -239,9 +259,9 @@ Subagent-driven: a fresh implementer per task, a review package built from the d
 task-scoped reviewer, a fix pass, then a ledger line. Tasks 1 through 8, all eight
 task reviews, the whole-branch review and the sixteen-item fix batch ran on **Fable 5.1**.
 Fable ran out of credits at the end, so the delta re-review of the fix batch, the live
-acceptance pass, the screenshots, the captions and these notes are **Opus 5**. Two Fable
-session limits killed agents mid-run (once with a half-written file), which is why the
-ledger carries STATE lines.
+acceptance pass, the screenshots, the captions and these notes are **Opus 5**. Three Fable
+session limits killed agents mid-run (the last one left half-written edits), which is why
+the ledger carries STATE lines.
 
 The process artifacts are untracked and live in `.superpowers/sdd/`: `progress.md` (the
 ledger), `ui-task-N-brief.md` and `-report.md`, `review-BASE..HEAD.diff` packages,
