@@ -47,8 +47,8 @@ class DashboardControllerTest {
         when(conceptRepo.findByCourseIdOrderByIdAsc(1L)).thenReturn(List.of(c));
         when(reviewStateRepo.findByConceptId(5L)).thenReturn(Optional.of(rs));
         when(attemptRepo.findByQuestionConceptId(5L)).thenReturn(List.of(good, bad));
-        when(reviewStateRepo.findByConceptCourseIdAndDueDateLessThanEqualOrderByDueDateAsc(eq(1L), any()))
-            .thenReturn(List.of(rs));
+        when(reviewStateRepo.countDueByConceptCourseIdWithQuestionStatus(eq(1L), any(), eq(QuestionStatus.ACTIVE)))
+            .thenReturn(1L);
         mvc.perform(get("/api/dashboard").param("courseId", "1"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.dueToday").value(1))
@@ -70,8 +70,8 @@ class DashboardControllerTest {
         when(conceptRepo.findByCourseIdOrderByIdAsc(1L)).thenReturn(List.of(c));
         when(reviewStateRepo.findByConceptId(5L)).thenReturn(Optional.of(rs));
         when(attemptRepo.findByQuestionConceptId(5L)).thenReturn(List.of(good, ungraded));
-        when(reviewStateRepo.findByConceptCourseIdAndDueDateLessThanEqualOrderByDueDateAsc(eq(1L), any()))
-            .thenReturn(List.of(rs));
+        when(reviewStateRepo.countDueByConceptCourseIdWithQuestionStatus(eq(1L), any(), eq(QuestionStatus.ACTIVE)))
+            .thenReturn(1L);
         mvc.perform(get("/api/dashboard").param("courseId", "1"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.concepts[0].attempts").value(1))
@@ -90,8 +90,8 @@ class DashboardControllerTest {
         when(conceptRepo.findByCourseIdOrderByIdAsc(1L)).thenReturn(List.of(c));
         when(reviewStateRepo.findByConceptId(5L)).thenReturn(Optional.of(rs));
         when(attemptRepo.findByQuestionConceptId(5L)).thenReturn(List.of(ungraded));
-        when(reviewStateRepo.findByConceptCourseIdAndDueDateLessThanEqualOrderByDueDateAsc(eq(1L), any()))
-            .thenReturn(List.of(rs));
+        when(reviewStateRepo.countDueByConceptCourseIdWithQuestionStatus(eq(1L), any(), eq(QuestionStatus.ACTIVE)))
+            .thenReturn(1L);
         mvc.perform(get("/api/dashboard").param("courseId", "1"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.concepts[0].attempts").value(0))

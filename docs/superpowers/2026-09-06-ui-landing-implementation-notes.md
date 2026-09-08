@@ -196,10 +196,15 @@ interface is still `createCourse`'s return type.
 ### The backend endpoint does 1+3N queries on purpose
 
 `GET /api/courses/overview` lists courses in id order, then counts concepts, ACTIVE
-questions and review states due today for each. One course costs four queries and three cost ten; the
+questions and review states due today for each. Due today means due today or earlier on
+a concept that still has an ACTIVE question, which is what the study queue will serve; a
+count that included a concept whose every question was retired sat at one for good, so
+the Study figure read "1 left today" beside "Nothing due". The dashboard's own `dueToday`
+uses the same count. One course costs four queries and three cost ten; the
 Javadoc says three count queries per course is fine at a handful of courses. Today's date comes from the injected `Clock` bean, so the controller test
 can fix it. A `@WebMvcTest` covers the shape and the ACTIVE-only rule; one JPA case proves
-the due-date boundary is `<=` today and that the count does not leak across courses.
+the due-date boundary is `<=` today, that the count does not leak across courses, and that
+a due concept with only retired questions is left out.
 
 ## Test map
 
@@ -216,7 +221,7 @@ the due-date boundary is `<=` today and that the count does not leak across cour
 | Four panel states, `n=`, the flag under 30, the caveat | `pages/EvalPage.test.tsx` |
 | 12px floor; no hand-written colours | `styles/typeFloor.test.ts`, `styles/tokens.test.ts` |
 | Endpoint shape, ACTIVE only, fixed clock | `backend/.../CourseControllerTest.java` |
-| Due-date boundary and course isolation against Postgres | `backend/.../PersistenceTest.java` (jpa group) |
+| Due-date boundary, course isolation, retired-only concepts left out, against Postgres | `backend/.../PersistenceTest.java` (jpa group) |
 
 The four course-scoped pages are tested through the real router and the real
 `CourseLayout` via the helpers in `test/render.tsx`; Home renders under its own
