@@ -10,7 +10,9 @@ and amended the same day for the seven fixes that pass produced: the due count l
 a concept with no active question; the caret lands on the prompt after `Next question`, on
 the `labeled` mark after a save and on the struck card after a confirmed retire; a deep
 link scrolls the open concept's row into view; a double-click on the Bank tab no longer
-strands the bare bank path; and an ingest outlives the bank tab.
+strands the bare bank path; and an ingest outlives the bank tab. Three smaller ones came
+after: the Bank tab replaces from inside the bank, an opened row hands the caret to the
+concept, and the upload control announces its state.
 
 **Read this before changing these surfaces, and before filing a defect against them.** A
 good deal of what looks odd here is deliberate, and the reason is usually one of: a lint
@@ -159,6 +161,14 @@ the flag, its one alert shows the bank's own error or the ingest's (clearing one
 both), and its mount effect also depends on the counter, so the list reloads whenever an
 ingest finishes, on this tab or while another was open.
 
+Three smaller things in the same area. Opening a row hands the caret to the open concept
+(`preventScroll`, so a mouse click neither jumps the page nor draws a ring), which puts a
+card's controls one Tab away instead of the rest of the list. The Bank tab in the course
+head replaces instead of pushing when the bank is already open, because its index redirect
+would otherwise leave a second entry with the same URL and one dead Back. And the upload
+control's text is a `role="status"` region, so the swap to "Ingesting…" and back is
+announced.
+
 ### The bank has two `role="alert"` regions
 
 One in `BankRoute` above the split for load, upload and action failures, and one in
@@ -243,7 +253,7 @@ a due concept with only retired questions is left out.
 | Course head, not-found, failed overview, current tab, remount on switch | `shell/CourseLayout.test.tsx` |
 | Tiles, create form, escape and cancel, loading, plurals | `pages/HomePage.test.tsx` |
 | Options, verdict bands, PENDING self-grade, figure and bar, focus, no remount on refresh | `pages/StudyPage.test.tsx` |
-| First-concept redirect, empty bank, upload states, skip link, deep-link scroll | `pages/BankPage.test.tsx` |
+| First-concept redirect, empty bank, upload states and status, skip link, deep-link scroll, ingest across tabs, row focus, Bank tab history | `pages/BankPage.test.tsx` |
 | Cards, toggles, label seeding, arm/confirm/cancel/restore, focus, overview refetch | `pages/BankConceptPage.test.tsx` |
 | Figure tiles from the course, ledger, empty card, alert | `pages/DashboardPage.test.tsx` |
 | Four panel states, `n=`, the flag under 30, the caveat | `pages/EvalPage.test.tsx` |
