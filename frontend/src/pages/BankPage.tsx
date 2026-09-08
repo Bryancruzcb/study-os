@@ -1,9 +1,13 @@
-import { Navigate, useOutletContext } from 'react-router-dom'
+import { Navigate, useLocation, useOutletContext } from 'react-router-dom'
 import type { BankContext } from './BankRoute'
 
 /* /bank on its own: open the first concept, or say what to do when there is none yet */
 export default function BankPage() {
   const { bank } = useOutletContext<BankContext>()
+  // keyed on the location: a second click on the Bank tab that lands before the redirect
+  // commits leaves this page mounted at the bare path under a new location, with the same
+  // Navigate, whose effect would never fire again. A new key remounts it, and it fires
+  const { key } = useLocation()
   if (!bank) return <p className="empty">Loading…</p>
   if (bank.length === 0) {
     return (
@@ -12,5 +16,5 @@ export default function BankPage() {
       </div>
     )
   }
-  return <Navigate to={String(bank[0].id)} replace />
+  return <Navigate key={key} to={String(bank[0].id)} replace />
 }
