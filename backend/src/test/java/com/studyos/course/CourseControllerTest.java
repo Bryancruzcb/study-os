@@ -55,9 +55,9 @@ class CourseControllerTest {
         when(conceptRepo.countByCourseId(2L)).thenReturn(248L);
         when(questionRepo.countByConceptCourseIdAndStatus(1L, QuestionStatus.ACTIVE)).thenReturn(55L);
         when(questionRepo.countByConceptCourseIdAndStatus(2L, QuestionStatus.ACTIVE)).thenReturn(844L);
-        when(reviewStateRepo.countByConceptCourseIdAndDueDateLessThanEqual(1L, LocalDate.of(2026, 9, 1)))
+        when(reviewStateRepo.countDueByConceptCourseIdWithQuestionStatus(1L, LocalDate.of(2026, 9, 1), QuestionStatus.ACTIVE))
             .thenReturn(11L);
-        when(reviewStateRepo.countByConceptCourseIdAndDueDateLessThanEqual(2L, LocalDate.of(2026, 9, 1)))
+        when(reviewStateRepo.countDueByConceptCourseIdWithQuestionStatus(2L, LocalDate.of(2026, 9, 1), QuestionStatus.ACTIVE))
             .thenReturn(16L);
 
         mvc.perform(get("/api/courses/overview"))
@@ -82,7 +82,7 @@ class CourseControllerTest {
         mvc.perform(get("/api/courses/overview")).andExpect(status().isOk());
 
         verify(questionRepo).countByConceptCourseIdAndStatus(3L, QuestionStatus.ACTIVE);
-        verify(reviewStateRepo).countByConceptCourseIdAndDueDateLessThanEqual(3L, LocalDate.of(2026, 9, 1));
+        verify(reviewStateRepo).countDueByConceptCourseIdWithQuestionStatus(3L, LocalDate.of(2026, 9, 1), QuestionStatus.ACTIVE);
     }
 
     @Test

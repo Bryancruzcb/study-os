@@ -1,5 +1,6 @@
 package com.studyos.dashboard;
 
+import com.studyos.domain.QuestionStatus;
 import com.studyos.domain.Attempt;
 import com.studyos.domain.Verdict;
 import com.studyos.repo.AttemptRepo;
@@ -34,8 +35,9 @@ public class DashboardController {
     @GetMapping("/api/dashboard")
     public Dashboard dashboard(@RequestParam Long courseId) {
         LocalDate today = LocalDate.now(clock);
-        int dueToday = reviewStateRepo
-            .findByConceptCourseIdAndDueDateLessThanEqualOrderByDueDateAsc(courseId, today).size();
+        // the figure the course head shows: due, and with a question the queue can still ask
+        int dueToday = (int) reviewStateRepo
+            .countDueByConceptCourseIdWithQuestionStatus(courseId, today, QuestionStatus.ACTIVE);
         List<ConceptStats> stats = conceptRepo.findByCourseIdOrderByIdAsc(courseId).stream().map(c -> {
             var rs = reviewStateRepo.findByConceptId(c.id).orElseThrow();
             // PENDING attempts were never judged, so they say nothing about accuracy
