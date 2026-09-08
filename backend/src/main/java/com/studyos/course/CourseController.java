@@ -13,9 +13,11 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * One row per course with the numbers the home tiles and the course head show. Three
- * count queries per course is fine at a handful of courses; a grouped query can replace
- * them when there are enough courses for it to matter.
+ * One row per course with the numbers the home tiles and the course head show. Due today
+ * is a review state due today or earlier on a concept that still has an ACTIVE question,
+ * which is exactly what the study queue will serve. Three count queries per course is fine
+ * at a handful of courses; a grouped query can replace them when there are enough courses
+ * for it to matter.
  */
 @RestController
 public class CourseController {
@@ -45,7 +47,7 @@ public class CourseController {
             .map(c -> new CourseOverview(c.id, c.name, c.term,
                 conceptRepo.countByCourseId(c.id),
                 questionRepo.countByConceptCourseIdAndStatus(c.id, QuestionStatus.ACTIVE),
-                reviewStateRepo.countByConceptCourseIdAndDueDateLessThanEqual(c.id, today)))
+                reviewStateRepo.countDueByConceptCourseIdWithQuestionStatus(c.id, today, QuestionStatus.ACTIVE)))
             .toList();
     }
 }

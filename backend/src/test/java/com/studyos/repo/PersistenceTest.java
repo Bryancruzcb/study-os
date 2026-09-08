@@ -264,7 +264,7 @@ class PersistenceTest {
     // --- the counts behind the course overview ---------------------------------------
 
     @Test
-    void theOverviewCountsSeeOnlyTheirCourseAndOnlyActiveQuestions() {
+    void theOverviewCountsSeeOnlyTheirCourseOnlyActiveQuestionsAndOnlyAskableDueConcepts() {
         Course mine = course("CS 149");
         Course other = course("CS 158A");
         Material m = material(mine, "hash-overview");
@@ -272,22 +272,29 @@ class PersistenceTest {
         Concept a = concept(mine, m, "kernel mode");
         Concept b = concept(mine, m, "process control block");
         Concept c = concept(mine, m, "context switch");
+        Concept d = concept(mine, m, "system calls");
         Concept elsewhere = concept(other, om, "tcp handshake");
         question(a, QuestionType.MC, QuestionStatus.ACTIVE);
         question(a, QuestionType.SHORT_ANSWER, QuestionStatus.RETIRED);
         question(b, QuestionType.MC, QuestionStatus.ACTIVE);
+        question(c, QuestionType.MC, QuestionStatus.ACTIVE);
+        // its only question retired: due, but the queue has nothing to ask about it
+        question(d, QuestionType.MC, QuestionStatus.RETIRED);
         question(elsewhere, QuestionType.MC, QuestionStatus.ACTIVE);
         LocalDate today = LocalDate.of(2026, 9, 4);
         reviewStates.save(ReviewState.initial(a, today.minusDays(1)));
         reviewStates.save(ReviewState.initial(b, today.plusDays(3)));
         // due today, not yesterday: the boundary the <= in the count has to include
         reviewStates.save(ReviewState.initial(c, today));
+        reviewStates.save(ReviewState.initial(d, today));
         reviewStates.save(ReviewState.initial(elsewhere, today));
 
-        // three of the four concepts, two of the three ACTIVE questions, and of this course's
-        // three states the overdue one and the one due today, not the one due in three days
-        assertThat(concepts.countByCourseId(mine.id)).isEqualTo(3);
-        assertThat(questions.countByConceptCourseIdAndStatus(mine.id, QuestionStatus.ACTIVE)).isEqualTo(2);
-        assertThat(reviewStates.countByConceptCourseIdAndDueDateLessThanEqual(mine.id, today)).isEqualTo(2);
+        // four of the five concepts, three of the five ACTIVE questions, and of this course's
+        // four states the overdue one and the one due today with a question left: not the one
+        // due in three days, and not the one whose only question is retired
+        assertThat(concepts.countByCourseId(mine.id)).isEqualTo(4);
+        assertThat(questions.countByConceptCourseIdAndStatus(mine.id, QuestionStatus.ACTIVE)).isEqualTo(3);
+        assertThat(reviewStates.countDueByConceptCourseIdWithQuestionStatus(mine.id, today, QuestionStatus.ACTIVE))
+            .isEqualTo(2);
     }
 }
