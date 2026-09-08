@@ -108,7 +108,9 @@ and judged justified. There are no other suppressions in the frontend.
 - The bank arms a retire, moves the caret to `Cancel`, and hands it back to the control
   that replaces the one the user was on: `Retire` after a cancel, `Restore` after a
   confirm, `Retire` after a restore. `ConceptCards` keeps a `pendingFocus` ref for this,
-  and is keyed by concept id so the bookkeeping cannot leak between concepts.
+  and is keyed by concept id so the bookkeeping cannot leak between concepts. A saved
+  label swaps `Save labels` for the `labeled` mark, and the mark takes the caret (one Tab
+  from `Retire`); the button used to unmount under the caret and drop it to `body`.
 - Study focuses the verdict band once an attempt lands (`useLayoutEffect` on `[attempt]`,
   `tabIndex={-1}` on the band), then the new question's prompt, or the empty queue's
   sentence, after `Next question`; one Tab from there reaches the first option, the
