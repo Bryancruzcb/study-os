@@ -17,6 +17,7 @@
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
 }
 
 .clist-head {
@@ -77,6 +78,7 @@
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
 }
 
 /* the upload control is a primary pill wrapping the real file input */
@@ -126,6 +128,7 @@
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
 }
 
 .qcard-prompt {
