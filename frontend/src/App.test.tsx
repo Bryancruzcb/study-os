@@ -77,7 +77,7 @@ test('the evaluation page renders inside one main landmark', async () => {
   window.history.pushState({}, '', '/eval')
   render(<App />)
   const main = await screen.findByRole('main')
-  expect(main).toContainElement(await screen.findByRole('heading', { level: 1, name: 'Evaluation' }))
+  expect(main).toContainElement(await screen.findByRole('heading', { level: 1, name: 'Question quality' }))
 })
 
 test('home keeps its own single main landmark', async () => {
