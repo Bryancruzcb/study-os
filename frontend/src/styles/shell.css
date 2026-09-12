@@ -161,6 +161,18 @@
   margin-top: 10px;
 }
 
+.course-back {
+  display: inline-flex;
+  margin-bottom: 12px;
+  color: var(--ink-soft);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.course-back:hover {
+  color: var(--ink);
+}
+
 /* the page fills this: the study figure, the upload control */
 .course-head-slot {
   display: flex;

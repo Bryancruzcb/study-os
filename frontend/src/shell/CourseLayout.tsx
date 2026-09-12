@@ -100,6 +100,7 @@ export default function CourseLayout() {
     <div className="page">
       <header className="course-head">
         <div>
+          <Link className="course-back" to="/">← All courses</Link>
           <p className="eyebrow">{course.term} · {plural(course.concepts, 'concept')} · {plural(course.questions, 'question')}</p>
           <h1>{course.name}</h1>
           <nav className="tabs" aria-label="Course">
