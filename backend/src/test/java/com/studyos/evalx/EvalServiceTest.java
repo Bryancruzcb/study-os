@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.studyos.domain.Attempt;
+import com.studyos.domain.Concept;
+import com.studyos.domain.Course;
 import com.studyos.domain.Question;
 import com.studyos.domain.Verdict;
 import com.studyos.repo.AttemptRepo;
@@ -46,6 +48,43 @@ class EvalServiceTest {
     }
 
     @Test
+    void listsEveryLabeledQuestionThatFailsACheckWithWhereItLives() {
+        Course course = new Course();
+        course.id = 2L;
+        course.name = "CS 149";
+        Concept concept = new Concept();
+        concept.id = 7L;
+        concept.name = "Program counter";
+        concept.course = course;
+        Question passes = labeled(true, true, true);
+        passes.id = 1L;
+        passes.concept = concept;
+        Question wrongKey = labeled(true, false, true);
+        wrongKey.id = 2L;
+        wrongKey.prompt = "The address of the next instruction is provided by the ______";
+        wrongKey.concept = concept;
+        Question unlabeled = new Question();
+        unlabeled.concept = concept;
+        when(questionRepo.findAll()).thenReturn(List.of(passes, wrongKey, unlabeled));
+        when(attemptRepo.findByGraderVerdictIsNotNull()).thenReturn(List.of());
+
+        var r = service.report();
+
+        // only a labeled question that fails something is listed; a pass and an unlabeled one are not
+        assertEquals(1, r.needsReview().size());
+        var item = r.needsReview().get(0);
+        assertEquals(2L, item.questionId());
+        assertEquals(2L, item.courseId());
+        assertEquals("CS 149", item.course());
+        assertEquals(7L, item.conceptId());
+        assertEquals("Program counter", item.concept());
+        assertEquals("The address of the next instruction is provided by the ______", item.prompt());
+        assertTrue(item.answerable());
+        assertFalse(item.correctAnswer());
+        assertTrue(item.unambiguous());
+    }
+
+    @Test
     void graderAgreementFromOverrides() {
         when(questionRepo.findAll()).thenReturn(List.of());
         Attempt agreed = judged(Verdict.CORRECT, false);
@@ -82,5 +121,6 @@ class EvalServiceTest {
         assertEquals(0.0, r.pctUnambiguous(), 1e-9);
         assertEquals(0, r.gradedShortAnswers());
         assertEquals(0.0, r.graderAgreement(), 1e-9);
+        assertEquals(List.of(), r.needsReview());
     }
 }

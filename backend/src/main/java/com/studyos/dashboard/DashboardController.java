@@ -28,8 +28,9 @@ public class DashboardController {
         this.clock = clock;
     }
 
-    public record ConceptStats(Long conceptId, String name, int streak, int attempts, long correct,
-                               LocalDate dueDate, boolean neverAttempted) {}
+    /** lecture and sourcePages say where the concept came from, so a weak one can be checked against its slides */
+    public record ConceptStats(Long conceptId, String name, String lecture, String sourcePages, int streak,
+                               int attempts, long correct, LocalDate dueDate, boolean neverAttempted) {}
     public record Dashboard(int dueToday, List<ConceptStats> concepts) {}
 
     @GetMapping("/api/dashboard")
@@ -44,7 +45,8 @@ public class DashboardController {
             List<Attempt> graded = attemptRepo.findByQuestionConceptId(c.id).stream()
                 .filter(a -> a.verdict != Verdict.PENDING).toList();
             long correct = graded.stream().filter(a -> a.verdict == Verdict.CORRECT).count();
-            return new ConceptStats(c.id, c.name, rs.streak, graded.size(), correct,
+            String lecture = c.material == null ? null : c.material.filename;
+            return new ConceptStats(c.id, c.name, lecture, c.sourcePages, rs.streak, graded.size(), correct,
                 rs.dueDate, graded.isEmpty());
         }).toList();
         return new Dashboard(dueToday, stats);

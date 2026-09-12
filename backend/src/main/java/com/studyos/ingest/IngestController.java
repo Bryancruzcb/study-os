@@ -26,7 +26,7 @@ public class IngestController {
 
     public record CourseRequest(String name, String term) {}
     public record ConceptWithQuestions(Long id, String name, String summary, String sourcePages,
-                                       List<Question> questions) {}
+                                       String lecture, List<Question> questions) {}
 
     @PostMapping("/courses")
     public Course createCourse(@RequestBody CourseRequest req) {
@@ -51,6 +51,7 @@ public class IngestController {
     public List<ConceptWithQuestions> bank(@PathVariable Long courseId) {
         return conceptRepo.findByCourseIdOrderByIdAsc(courseId).stream()
             .map(c -> new ConceptWithQuestions(c.id, c.name, c.summary, c.sourcePages,
+                c.material == null ? null : c.material.filename,
                 questionRepo.findByConceptIdOrderByIdAsc(c.id)))
             .toList();
     }

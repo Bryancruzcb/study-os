@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.studyos.domain.Question;
 import com.studyos.repo.QuestionRepo;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,12 +41,18 @@ class EvalControllerTest {
 
     @Test
     void reportIsServedAsJson() throws Exception {
-        when(evalService.report()).thenReturn(new EvalService.EvalReport(2, 1.0, 0.5, 0.5, 4, 0.75));
+        var wrongKey = new EvalService.ReviewItem(9L, 2L, "CS 149", 7L, "Program counter",
+            "The address of the next instruction is provided by the ______", true, false, true);
+        when(evalService.report()).thenReturn(new EvalService.EvalReport(2, 1.0, 0.5, 0.5, 4, 0.75, List.of(wrongKey)));
         mvc.perform(get("/api/eval/report"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.labeled").value(2))
             .andExpect(jsonPath("$.pctCorrectAnswer").value(0.5))
             .andExpect(jsonPath("$.gradedShortAnswers").value(4))
-            .andExpect(jsonPath("$.graderAgreement").value(0.75));
+            .andExpect(jsonPath("$.graderAgreement").value(0.75))
+            .andExpect(jsonPath("$.needsReview[0].questionId").value(9))
+            .andExpect(jsonPath("$.needsReview[0].courseId").value(2))
+            .andExpect(jsonPath("$.needsReview[0].conceptId").value(7))
+            .andExpect(jsonPath("$.needsReview[0].correctAnswer").value(false));
     }
 }

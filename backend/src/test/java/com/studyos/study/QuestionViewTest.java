@@ -3,6 +3,8 @@ package com.studyos.study;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.studyos.domain.Concept;
+import com.studyos.domain.Material;
 import com.studyos.domain.Question;
 import com.studyos.domain.QuestionType;
 import java.util.List;
@@ -19,6 +21,11 @@ class QuestionViewTest {
         q.optionsJson = optionsJson;
         q.correctIndex = 1;
         q.sourcePages = "3";
+        q.concept = new Concept();
+        q.concept.id = 4L;
+        q.concept.name = "TCP handshake";
+        q.concept.material = new Material();
+        q.concept.material.filename = "Lecture 3.pdf";
         return q;
     }
 
@@ -26,6 +33,9 @@ class QuestionViewTest {
     void parsesOptionsFromJson() {
         QuestionView v = QuestionView.from(mc("[\"a\",\"b\"]"), mapper);
         assertEquals(9L, v.id());
+        assertEquals(4L, v.conceptId());
+        assertEquals("TCP handshake", v.topic());
+        assertEquals("Lecture 3.pdf", v.lecture());
         assertEquals("MC", v.type());
         assertEquals("Steps in the TCP handshake?", v.prompt());
         assertEquals(List.of("a", "b"), v.options());

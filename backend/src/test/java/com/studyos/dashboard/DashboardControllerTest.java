@@ -38,6 +38,9 @@ class DashboardControllerTest {
         Concept c = new Concept();
         c.id = 5L;
         c.name = "TCP";
+        c.sourcePages = "3,4";
+        c.material = new Material();
+        c.material.filename = "Lecture 3.pdf";
         ReviewState rs = ReviewState.initial(c, LocalDate.of(2026, 9, 1));
         rs.streak = 1;
         Attempt good = new Attempt();
@@ -52,6 +55,8 @@ class DashboardControllerTest {
         mvc.perform(get("/api/dashboard").param("courseId", "1"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.dueToday").value(1))
+            .andExpect(jsonPath("$.concepts[0].lecture").value("Lecture 3.pdf"))
+            .andExpect(jsonPath("$.concepts[0].sourcePages").value("3,4"))
             .andExpect(jsonPath("$.concepts[0].attempts").value(2))
             .andExpect(jsonPath("$.concepts[0].correct").value(1))
             .andExpect(jsonPath("$.concepts[0].neverAttempted").value(false));

@@ -3,16 +3,25 @@ package com.studyos.study;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.studyos.domain.Concept;
 import com.studyos.domain.Question;
 import java.util.List;
 
-/** Wire shape for GET /api/study/next: prompt and choices only, never the answer key or eval labels. */
-public record QuestionView(Long id, String type, String prompt, List<String> options, String sourcePages) {
+/**
+ * Wire shape for GET /api/study/next: the prompt, the choices, and where the question comes from, never
+ * the answer key or eval labels. The topic, lecture and pages let the student check a question against
+ * the slides it was drawn from. The concept id is how the study page tells which earlier answers a later
+ * one has made final, since only a concept's most recent attempt can still be overridden or self-graded.
+ */
+public record QuestionView(Long id, Long conceptId, String topic, String lecture, String type, String prompt,
+                           List<String> options, String sourcePages) {
     private static final TypeReference<List<String>> STRING_LIST = new TypeReference<>() {};
 
     public static QuestionView from(Question q, ObjectMapper mapper) {
-        return new QuestionView(q.id, q.type == null ? null : q.type.name(), q.prompt,
-            parseOptions(q, mapper), q.sourcePages);
+        Concept c = q.concept;
+        return new QuestionView(q.id, c == null ? null : c.id, c == null ? null : c.name,
+            c == null || c.material == null ? null : c.material.filename,
+            q.type == null ? null : q.type.name(), q.prompt, parseOptions(q, mapper), q.sourcePages);
     }
 
     static List<String> parseOptions(Question q, ObjectMapper mapper) {

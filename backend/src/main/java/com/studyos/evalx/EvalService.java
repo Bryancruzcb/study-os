@@ -1,5 +1,7 @@
 package com.studyos.evalx;
 
+import com.studyos.domain.Concept;
+import com.studyos.domain.Course;
 import com.studyos.domain.Attempt;
 import com.studyos.domain.Question;
 import com.studyos.domain.Verdict;
@@ -19,7 +21,15 @@ public class EvalService {
     }
 
     public record EvalReport(int labeled, double pctAnswerable, double pctCorrectAnswer,
-                             double pctUnambiguous, int gradedShortAnswers, double graderAgreement) {}
+                             double pctUnambiguous, int gradedShortAnswers, double graderAgreement,
+                             List<ReviewItem> needsReview) {}
+
+    /**
+     * A labeled question that failed at least one check: which checks it failed, and enough of where it
+     * lives in a course for the page to link straight to its card in the bank.
+     */
+    public record ReviewItem(Long questionId, Long courseId, String course, Long conceptId, String concept,
+                             String prompt, boolean answerable, boolean correctAnswer, boolean unambiguous) {}
 
     public EvalReport report() {
         List<Question> labeled = questionRepo.findAll().stream()
@@ -34,6 +44,19 @@ public class EvalService {
             .filter(at -> at.graderVerdict != Verdict.PENDING).toList();
         int g = graded.size();
         double agreement = g == 0 ? 0 : graded.stream().filter(at -> !at.overridden).count() / (double) g;
-        return new EvalReport(n, a, c, u, g, agreement);
+        List<ReviewItem> needsReview = labeled.stream().map(EvalService::reviewItem)
+            .filter(item -> !item.answerable() || !item.correctAnswer() || !item.unambiguous())
+            .toList();
+        return new EvalReport(n, a, c, u, g, agreement, needsReview);
+    }
+
+    /* the same reading of the labels as the rates above: a missing label is not a pass */
+    private static ReviewItem reviewItem(Question q) {
+        Concept concept = q.concept;
+        Course course = concept == null ? null : concept.course;
+        return new ReviewItem(q.id, course == null ? null : course.id, course == null ? null : course.name,
+            concept == null ? null : concept.id, concept == null ? null : concept.name, q.prompt,
+            Boolean.TRUE.equals(q.labelAnswerable), Boolean.TRUE.equals(q.labelCorrectAnswer),
+            Boolean.TRUE.equals(q.labelUnambiguous));
     }
 }

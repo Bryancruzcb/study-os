@@ -49,6 +49,7 @@ class IngestControllerTest {
         course.name = "Networks";
         Material material = new Material();
         material.course = course;
+        material.filename = "Lecture 3.pdf";
         Concept c = new Concept();
         c.id = 5L;
         c.name = "TCP";
@@ -63,6 +64,7 @@ class IngestControllerTest {
         mvc.perform(get("/api/courses/1/bank"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[0].name").value("TCP"))
+            .andExpect(jsonPath("$[0].lecture").value("Lecture 3.pdf"))
             .andExpect(jsonPath("$[0].questions[0].id").value(9))
             .andExpect(jsonPath("$[0].questions[0].concept").doesNotExist());
     }
