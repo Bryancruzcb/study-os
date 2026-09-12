@@ -80,6 +80,16 @@ test('the evaluation page renders inside one main landmark', async () => {
   expect(main).toContainElement(await screen.findByRole('heading', { level: 1, name: 'Question quality' }))
 })
 
+/* the light belongs to the app root: mounted, the page has its glow; unmounted, nothing
+   of the light is left on the page */
+test('the app lights the page while it is mounted, and takes the light with it', async () => {
+  const { unmount } = render(<App />)
+  await screen.findByRole('heading', { name: 'Courses' })
+  expect(document.querySelector('.light-glow')).toBeInTheDocument()
+  unmount()
+  expect(document.querySelector('.light-glow')).not.toBeInTheDocument()
+})
+
 test('home keeps its own single main landmark', async () => {
   render(<App />)
   await screen.findByRole('heading', { name: 'Courses' })

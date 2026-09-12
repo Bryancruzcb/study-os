@@ -35,6 +35,21 @@
   --glow-line: oklch(78% 0.11 230);
   --glow: 0 0 0 1px oklch(78% 0.11 230 / 0.45), 0 18px 40px oklch(70% 0.08 240 / 0.12);
 
+  /* (new) the cursor's light. On a surface: the sheen it lays where it lands, the shade
+     it leaves opposite, and the glow gathering inside the edge nearest it. On the page:
+     the disc of light behind every surface, the band's cyan running out to its violet.
+     Each alpha is the most that light ever reaches; the sheen's is the low one because
+     that layer crosses the card's text, while the edge glow is spent inside the padding */
+  --sheen: oklch(99% 0.02 230 / 0.14);
+  --sheen-0: oklch(99% 0.02 230 / 0);
+  --shade: oklch(52% 0.05 255 / 0.1);
+  --shade-0: oklch(52% 0.05 255 / 0);
+  --edge: oklch(74% 0.13 225 / 0.7);
+  --edge-hot: oklch(90% 0.09 215 / 0.95);
+  --glow-core: oklch(84% 0.1 220 / 0.5);
+  --glow-edge: oklch(84% 0.09 285 / 0.2);
+  --glow-none: oklch(84% 0.09 285 / 0);
+
   --shadow-nav: 0 1px 0 oklch(100% 0 0 / 0.7) inset, 0 10px 30px oklch(30% 0.04 250 / 0.08);
   --shadow-card: 0 1px 0 oklch(100% 0 0 / 0.8) inset, 0 8px 24px oklch(30% 0.03 250 / 0.06);
   --shadow-lift: 0 1px 0 oklch(100% 0 0 / 0.9) inset, 0 18px 40px oklch(30% 0.04 250 / 0.12);
@@ -47,7 +62,7 @@
     oklch(93% 0.07 218) 0%,
     oklch(95% 0.05 250) 32%,
     oklch(96% 0.04 12) 58%,
-    oklch(99.2% 0.004 250) 100%);
+    oklch(99.2% 0.004 250 / 0) 100%);
   --blob-0: oklch(86% 0.11 218);
   --blob-1: oklch(88% 0.09 280);
   --blob-2: oklch(90% 0.08 12);

@@ -1,8 +1,11 @@
 import { useEffect, useRef } from 'react'
+import { lightOn, lightSource } from './light'
 
 /* Decorative header field: SVG blobs always, a soft WebGL wash when the GPU and
    motion preference allow it. Colours are read from tokens so the palette stays one
-   place. Pointer events stay off; this is paint, not chrome. */
+   place. The cursor's light reaches this too: the field leans toward it and takes a
+   soft specular from it, from the same light the cards are lit by. Pointer events stay
+   off; this is paint, not chrome. */
 export default function Atmosphere() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
@@ -37,19 +40,37 @@ export default function Atmosphere() {
       uniform vec3 uA;
       uniform vec3 uB;
       uniform vec3 uC;
+      // where the cursor's light sits in the same units as uv, and how much of it there is
+      uniform vec2 uLightAt;
+      uniform float uLight;
       void main() {
         vec2 uv = gl_FragCoord.xy / uRes;
         uv.x *= uRes.x / uRes.y;
         vec2 p1 = vec2(0.35 + 0.08 * sin(uTime * 0.21), 0.62 + 0.06 * cos(uTime * 0.17));
         vec2 p2 = vec2(1.05 + 0.07 * cos(uTime * 0.15), 0.38 + 0.08 * sin(uTime * 0.19));
         vec2 p3 = vec2(0.72 + 0.09 * sin(uTime * 0.13), 0.18 + 0.05 * cos(uTime * 0.23));
+        // each blob leans a little of the way toward the light, and none of them by the
+        // same amount, which is what keeps the lean liquid rather than a slide
+        p1 += (uLightAt - p1) * 0.07 * uLight;
+        p2 += (uLightAt - p2) * 0.05 * uLight;
+        p3 += (uLightAt - p3) * 0.09 * uLight;
         float d1 = 0.28 / (0.12 + dot(uv - p1, uv - p1));
         float d2 = 0.24 / (0.11 + dot(uv - p2, uv - p2));
         float d3 = 0.20 / (0.13 + dot(uv - p3, uv - p3));
         vec3 col = uA * d1 + uB * d2 + uC * d3;
         float a = clamp(d1 + d2 + d3, 0.0, 1.0) * 0.55;
         float fade = smoothstep(0.0, 0.22, uv.y) * (1.0 - smoothstep(0.55, 1.05, gl_FragCoord.y / uRes.y));
-        gl_FragColor = vec4(col / max(d1 + d2 + d3, 0.001), a * fade);
+        vec2 q = uv - uLightAt;
+        float sheen = uLight * exp(-dot(q, q) * 5.0);
+        // the shade the same light leaves, mirrored across the middle of the field
+        vec2 mid = vec2(0.5 * uRes.x / uRes.y, 0.5);
+        vec2 back = uv - (mid + mid - uLightAt);
+        float shade = uLight * exp(-dot(back, back) * 4.0);
+        // the band's own cyan run up toward white: the same light as the glow under the
+        // cards, so the header and the page read as lit from one place
+        vec3 tint = mix(vec3(1.0), uA, 0.45);
+        vec3 rgb = col / max(d1 + d2 + d3, 0.001) + sheen * tint * 0.3 - shade * 0.06;
+        gl_FragColor = vec4(rgb, clamp(a + sheen * 0.34, 0.0, 1.0) * fade);
       }
     `)
     gl.compileShader(vert)
@@ -75,6 +96,8 @@ export default function Atmosphere() {
     const uA = gl.getUniformLocation(program, 'uA')
     const uB = gl.getUniformLocation(program, 'uB')
     const uC = gl.getUniformLocation(program, 'uC')
+    const uLightAt = gl.getUniformLocation(program, 'uLightAt')
+    const uLight = gl.getUniformLocation(program, 'uLight')
 
     const rgb = (token: string): [number, number, number] => {
       const probe = document.createElement('span')
@@ -111,6 +134,14 @@ export default function Atmosphere() {
       gl.viewport(0, 0, canvas.width, canvas.height)
       gl.uniform2f(uRes, canvas.width, canvas.height)
       gl.uniform1f(uTime, (now - t0) / 1000)
+      // the light arrives in client coordinates; uv counts up from the bottom of the
+      // canvas and measures both axes in its height, so the aspect never distorts it
+      const light = lightSource()
+      const box = canvas.getBoundingClientRect()
+      gl.uniform2f(uLightAt, (light.x - box.left) / h, (box.bottom - light.y) / h)
+      // the field is wide, so its light reaches further than a card's before it dies;
+      // scrolled past the header, the cursor stops moving the blobs at all
+      gl.uniform1f(uLight, lightOn(box, 460))
       gl.clearColor(0, 0, 0, 0)
       gl.clear(gl.COLOR_BUFFER_BIT)
       gl.drawArrays(gl.TRIANGLES, 0, 3)

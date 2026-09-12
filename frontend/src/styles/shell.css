@@ -14,11 +14,17 @@
   overflow: hidden;
 }
 
+/* the blobs are blurred past the band's box and the band clips them, which drew a hard
+   edge straight across the page above Courses. The mask dissolves the whole field before
+   it gets there, so the band ends on the page white it already fades into. (black and
+   transparent are the mask's alpha, not colours) */
 .atmosphere {
   position: absolute;
   inset: 0;
   z-index: 0;
   pointer-events: none;
+  -webkit-mask-image: linear-gradient(to bottom, black 45%, transparent 96%);
+  mask-image: linear-gradient(to bottom, black 45%, transparent 96%);
 }
 
 .atmosphere-gl,

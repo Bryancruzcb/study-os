@@ -8,8 +8,11 @@ import DashboardPage from './pages/DashboardPage'
 import EvalPage from './pages/EvalPage'
 import HomePage from './pages/HomePage'
 import StudyPage from './pages/StudyPage'
+import { useLightField } from './shell/light'
 
 export default function App() {
+  // one light for the whole app, so a surface is lit the same on every route
+  useLightField()
   return (
     <BrowserRouter>
       <Routes>

@@ -1,0 +1,95 @@
+/* What the cursor's light does to the page.
+
+   shell/light.ts writes where the light falls on each lit surface (--lit-x, --lit-y)
+   and how much of it arrives (--lit-near), and moves one glow behind the whole page.
+   This file paints both. On a surface the light is three layers: a soft glow gathering
+   inside the edge it reaches, a sheen where it lands, and the shade mirrored across
+   from it. None of it is a line; every edge in this file is a blur.
+
+   Every var() carries its fallback, and --lit-near falls back to 0, so a surface the
+   script never touches — reduced motion, a touchscreen, a test, the first paint before
+   the cursor has moved — draws its layers at nothing and looks as it always did.
+
+   The selector list is shell/light.ts's LIT written out, and a test holds the two
+   together. :where() keeps it at zero specificity, so no component rule has to fight
+   it for position or anything else. */
+
+:where(.nav, .nav-links a, .tile, .figure-tile, .qcard-big, .opt, .qcard, .ledger-card,
+  .eval-panel, .bank-empty, .btn, .tab, .toggle) {
+  position: relative;
+}
+
+:where(.nav, .nav-links a, .tile, .figure-tile, .qcard-big, .opt, .qcard, .ledger-card,
+  .eval-panel, .bank-empty, .btn, .tab, .toggle)::before,
+:where(.nav, .nav-links a, .tile, .figure-tile, .qcard-big, .opt, .qcard, .ledger-card,
+  .eval-panel, .bank-empty, .btn, .tab, .toggle)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: var(--lit-near, 0);
+  pointer-events: none;
+}
+
+/* the lit edge: light gathering inside the border nearest the cursor, which is the part
+   of a glass surface that reads as glass. A wide blur in the glow's colour and a tight
+   bright one at the rim, masked to the cursor's reach so the glow travels round the
+   edge with it. The blur is spent inside a card's padding, so it never reaches text;
+   on a button it fills the pill, which is what makes the button glow */
+:where(.nav, .nav-links a, .tile, .figure-tile, .qcard-big, .opt, .qcard, .ledger-card,
+  .eval-panel, .bank-empty, .btn, .tab, .toggle)::before {
+  box-shadow: inset 0 0 18px 1px var(--edge), inset 0 0 4px var(--edge-hot);
+  -webkit-mask-image: radial-gradient(circle 260px at var(--lit-x, 50%) var(--lit-y, 50%), black, transparent);
+  mask-image: radial-gradient(circle 260px at var(--lit-x, 50%) var(--lit-y, 50%), black, transparent);
+}
+
+/* the light on the face of the surface: the sheen under the cursor and, opposite it, the
+   shade the same light leaves behind. Both stay faint on purpose — this layer crosses
+   the card's own text, and the text is the reason the card is there */
+:where(.nav, .nav-links a, .tile, .figure-tile, .qcard-big, .opt, .qcard, .ledger-card,
+  .eval-panel, .bank-empty, .btn, .tab, .toggle)::after {
+  background:
+    radial-gradient(120% 110% at var(--lit-x, 50%) var(--lit-y, 50%),
+      var(--sheen), var(--sheen-0) 62%),
+    radial-gradient(130% 120% at calc(100% - var(--lit-x, 50%)) calc(100% - var(--lit-y, 50%)),
+      var(--shade), var(--shade-0) 58%);
+}
+
+/* a control that cannot be used does not answer the light either */
+:where(.btn, .opt):disabled::before,
+:where(.btn, .opt):disabled::after,
+.toggle:has(input:disabled)::before,
+.toggle:has(input:disabled)::after,
+.upload:has(input:disabled)::before,
+.upload:has(input:disabled)::after {
+  display: none;
+}
+
+/* the page's glow: one soft disc of the band's cool light behind every surface, moved to
+   the cursor by transform so following it never repaints the page. It shows in the gaps
+   between cards and around buttons, which is where the eye reads it as light moving */
+.light-glow {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: -1;
+  width: 760px;
+  height: 760px;
+  margin: -380px 0 0 -380px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--glow-core), var(--glow-edge) 50%, var(--glow-none));
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+/* the field is motion, and a page that asked for less of it keeps the plain surfaces */
+@media (prefers-reduced-motion: reduce) {
+  :where(.nav, .nav-links a, .tile, .figure-tile, .qcard-big, .opt, .qcard, .ledger-card,
+    .eval-panel, .bank-empty, .btn, .tab, .toggle)::before,
+  :where(.nav, .nav-links a, .tile, .figure-tile, .qcard-big, .opt, .qcard, .ledger-card,
+    .eval-panel, .bank-empty, .btn, .tab, .toggle)::after,
+  .light-glow {
+    display: none;
+  }
+}
