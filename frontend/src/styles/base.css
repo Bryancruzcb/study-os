@@ -27,6 +27,7 @@ h3 {
 h1 {
   font-size: 40px;
   font-weight: 700;
+  letter-spacing: -0.04em;
 }
 
 h2 {
@@ -151,6 +152,7 @@ button {
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
 }
 
 /* the tile's number is a row of its own, so the grader tile's n sits on its baseline */
@@ -358,41 +360,45 @@ button {
 }
 
 .tabs {
-  display: flex;
+  display: inline-flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 22px;
+  gap: 4px;
+  margin-top: 20px;
+  padding: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--sunken);
 }
 
 .tab {
   display: inline-flex;
   align-items: center;
-  min-height: 40px;
-  padding: 8px 18px;
-  border: 1px solid var(--line);
+  min-height: 36px;
+  padding: 6px 16px;
+  border: 1px solid transparent;
   border-radius: var(--radius-pill);
-  background: var(--card);
+  background: transparent;
   color: var(--ink-soft);
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 500;
   text-decoration: none;
   transition:
     background-color var(--motion) var(--ease),
     border-color var(--motion) var(--ease),
-    color var(--motion) var(--ease);
+    color var(--motion) var(--ease),
+    box-shadow var(--motion) var(--ease);
 }
 
 .tab:hover {
-  border-color: var(--ink-soft);
   color: var(--ink);
   text-decoration: none;
 }
 
 .tab.is-current {
-  border-color: var(--ink-fill);
-  background: var(--ink-fill);
-  color: var(--on-fill);
+  border-color: var(--glass-line);
+  background: var(--card);
+  color: var(--ink);
   font-weight: 600;
+  box-shadow: var(--shadow-card);
 }
 
 .field {
