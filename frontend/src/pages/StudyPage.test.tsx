@@ -21,13 +21,13 @@ beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(api.overview).mockResolvedValue([course])
   vi.mocked(api.next).mockResolvedValue({
-    id: 9, type: 'MC', prompt: 'Steps in the TCP handshake?', options: ['1', '2', '3', '4'], sourcePages: '3',
+    id: 9, conceptId: 1, topic: 'TCP handshake', lecture: 'Lecture 3.pdf', type: 'MC', prompt: 'Steps in the TCP handshake?', options: ['1', '2', '3', '4'], sourcePages: '3',
   })
   vi.mocked(api.answer).mockResolvedValue({ id: 1, verdict: 'CORRECT', score: 1, feedback: null, answerKey: '3' })
 })
 
 const shortAnswer: StudyQuestion = {
-  id: 10, type: 'SHORT_ANSWER', prompt: 'Describe the handshake.', options: [], sourcePages: '3,4',
+  id: 10, conceptId: 2, topic: 'Connection setup', lecture: 'Lecture 3.pdf', type: 'SHORT_ANSWER', prompt: 'Describe the handshake.', options: [], sourcePages: '3,4',
 }
 
 async function renderWithQuestion() {
@@ -44,10 +44,11 @@ async function renderShortAnswer(attempt: Attempt) {
   await userEvent.click(screen.getByRole('button', { name: /submit/i }))
 }
 
-test('shows the question with its type and pages, submits an MC answer, shows the verdict', async () => {
+test('shows the question with its type, concept, lecture and slide, submits an MC answer, shows the verdict', async () => {
   await renderWithQuestion()
   expect(screen.getByText('Multiple choice')).toBeInTheDocument()
-  expect(screen.getByText('pp. 3')).toBeInTheDocument()
+  expect(screen.getByText('TCP handshake')).toBeInTheDocument()
+  expect(screen.getByText('Lecture 3.pdf · slide 3')).toBeInTheDocument()
   await userEvent.click(screen.getByRole('button', { name: '3' }))
   await waitFor(() => expect(screen.getByText(/Correct/)).toBeInTheDocument())
   expect(screen.getByText('You picked C: 3')).toBeInTheDocument()
@@ -218,13 +219,13 @@ test('will not send a blank or whitespace-only short answer to the grader', asyn
   expect(api.answer).toHaveBeenCalledWith({ questionId: 10, answerText: 'SYN then SYN-ACK' })
 })
 
-test('shows no page chip for a question with no source pages', async () => {
+test('shows no citation for a question with no lecture and no source pages', async () => {
   vi.mocked(api.next).mockResolvedValueOnce({
-    id: 11, type: 'MC', prompt: 'Steps in the TCP handshake?', options: ['1', '2', '3', '4'], sourcePages: null,
+    id: 11, conceptId: 1, topic: 'TCP handshake', lecture: null, type: 'MC', prompt: 'Steps in the TCP handshake?', options: ['1', '2', '3', '4'], sourcePages: null,
   })
   renderInCourse(<StudyPage />, 'study')
   await waitFor(() => expect(screen.getByText('Steps in the TCP handshake?')).toBeInTheDocument())
-  expect(screen.queryByText(/pp\./)).not.toBeInTheDocument()
+  expect(screen.queryByText(/slide|Lecture/)).not.toBeInTheDocument()
 })
 
 test('grading hands focus to the verdict band, so the next Tab reaches its buttons', async () => {
@@ -291,10 +292,10 @@ test('when the queue runs out after Next question, focus lands on the empty stat
 /* ---- looking back through the visit ---------------------------------------------------- */
 
 const secondMc: StudyQuestion = {
-  id: 12, type: 'MC', prompt: 'Which flag closes a connection?', options: ['1', '2', '3', '4'], sourcePages: '9',
+  id: 12, conceptId: 3, topic: 'Connection teardown', lecture: 'Lecture 4.pdf', type: 'MC', prompt: 'Which flag closes a connection?', options: ['1', '2', '3', '4'], sourcePages: '9',
 }
 
-/* answers the MC question on the table with option 3 and takes Next question to `next` */
+/* answers the MC question on the table with option 3 and takes Next question to the given one */
 async function answerAndMoveOn(next: StudyQuestion) {
   await userEvent.click(screen.getByRole('button', { name: '3' }))
   await screen.findByRole('button', { name: 'Next question' })
@@ -342,9 +343,8 @@ test('a half-typed answer is still there after a look back', async () => {
   expect(screen.getByRole('textbox')).toHaveValue('SYN first')
 })
 
-/* the override counts disagreements noticed in the moment, and the backend only moves a
-   concept's latest attempt, so a card looked back on is for reading */
-test('a question looked back on offers no second answer, override or self-grade', async () => {
+test('a question looked back on can be self-graded there, and its new band takes the caret', async () => {
+  vi.mocked(api.selfGrade).mockResolvedValueOnce({ id: 2, verdict: 'CORRECT', score: 1, feedback: null })
   await renderShortAnswer({ id: 2, verdict: 'PENDING', score: null, feedback: null })
   await screen.findByRole('button', { name: /I got it right/i })
   vi.mocked(api.next).mockResolvedValueOnce(secondMc)
@@ -352,12 +352,37 @@ test('a question looked back on offers no second answer, override or self-grade'
   await screen.findByText('Which flag closes a connection?')
 
   await userEvent.click(screen.getByRole('button', { name: 'Previous' }))
-  expect(screen.getByText('Describe the handshake.')).toBeInTheDocument()
-  expect(screen.getByText('SYN then SYN-ACK')).toBeInTheDocument()
-  expect(screen.getByText('Grader unavailable, and never self-graded.')).toBeInTheDocument()
-  expect(screen.queryByRole('button', { name: /I got it/i })).not.toBeInTheDocument()
-  expect(screen.queryByRole('button', { name: 'Next question' })).not.toBeInTheDocument()
+  expect(screen.getByText('Grader unavailable. Self-grade this one:')).toBeInTheDocument()
+  // looking back changes a verdict; it never answers again or moves the queue on
   expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Next question' })).not.toBeInTheDocument()
+
+  await userEvent.click(screen.getByRole('button', { name: /I got it right/i }))
+  const band = (await screen.findByText('Correct')).closest('.verdict')!
+  await waitFor(() => expect(band).toHaveFocus())
+  expect(api.selfGrade).toHaveBeenCalledWith(2, true)
+  expect(screen.getByText('1 of 2')).toBeInTheDocument()
+})
+
+test('an override made while looking back is recorded on that attempt, and it sticks', async () => {
+  await renderShortAnswer({ id: 2, verdict: 'INCORRECT', score: 0.4, feedback: 'Missed ACK.' })
+  await screen.findByRole('button', { name: /I was actually right/i })
+  vi.mocked(api.next).mockResolvedValueOnce(secondMc)
+  await userEvent.click(screen.getByRole('button', { name: 'Next question' }))
+  await screen.findByText('Which flag closes a connection?')
+
+  vi.mocked(api.override).mockResolvedValueOnce({ id: 2, verdict: 'CORRECT', score: 1, feedback: 'Missed ACK.' })
+  await userEvent.click(screen.getByRole('button', { name: 'Previous' }))
+  await userEvent.click(screen.getByRole('button', { name: /I was actually right/i }))
+  await screen.findByText('Correct')
+  expect(api.override).toHaveBeenCalledWith(2)
+  // a changed verdict moves the schedule, so the head figure is refetched as after any answer
+  await waitFor(() => expect(api.overview).toHaveBeenCalledTimes(3))
+
+  await userEvent.click(screen.getByRole('button', { name: 'Next' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Previous' }))
+  expect(screen.getByText('Correct')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: /I was actually wrong/i })).toBeInTheDocument()
 })
 
 test('looking back shows the verdict as it stood when the question was left, override included', async () => {
@@ -372,6 +397,25 @@ test('looking back shows the verdict as it stood when the question was left, ove
   await userEvent.click(screen.getByRole('button', { name: 'Previous' }))
   expect(screen.getByText('Correct')).toBeInTheDocument()
   expect(screen.queryByText('Incorrect')).not.toBeInTheDocument()
+})
+
+/* the backend only changes a concept's most recent attempt, so the page offers no control
+   it would refuse */
+test('a later answer on the same concept makes the earlier verdict final', async () => {
+  await renderWithQuestion()
+  await answerAndMoveOn({ ...secondMc, conceptId: 1 })
+  await answerAndMoveOn(shortAnswer)
+  expect(screen.getByText('3 of 3')).toBeInTheDocument()
+
+  await userEvent.click(screen.getByRole('button', { name: 'Previous' }))
+  // the second question is still its concept's latest answer, so its verdict can change
+  expect(screen.getByText('Which flag closes a connection?')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: /I was actually wrong/i })).toBeInTheDocument()
+
+  await userEvent.click(screen.getByRole('button', { name: 'Previous' }))
+  expect(screen.getByText('Steps in the TCP handshake?')).toBeInTheDocument()
+  expect(screen.getByText('You answered this concept again later in the visit, so this verdict is final.')).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: /I was actually/i })).not.toBeInTheDocument()
 })
 
 test('a step to either end of the visit hands the caret to the card that arrived', async () => {

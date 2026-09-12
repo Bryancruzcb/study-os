@@ -24,6 +24,8 @@ export interface ConceptWithQuestions {
   name: string
   summary: string
   sourcePages: string | null
+  // the lecture file the concept was drawn from
+  lecture: string | null
   questions: Question[]
 }
 export interface Material {
@@ -32,12 +34,14 @@ export interface Material {
   status: 'PENDING' | 'INGESTED' | 'FAILED'
   errorMessage: string | null
 }
-export interface StudyQuestion { id: number; type: 'MC' | 'SHORT_ANSWER'; prompt: string; options: string[]; sourcePages: string | null }
+export interface StudyQuestion { id: number; conceptId: number; topic: string | null; lecture: string | null; type: 'MC' | 'SHORT_ANSWER'; prompt: string; options: string[]; sourcePages: string | null }
 export interface Attempt { id: number; verdict: 'CORRECT' | 'INCORRECT' | 'PENDING'; score: number | null; feedback: string | null }
 export interface AnsweredAttempt extends Attempt { answerKey: string | null }
-export interface ConceptStats { conceptId: number; name: string; streak: number; attempts: number; correct: number; dueDate: string; neverAttempted: boolean }
+export interface ConceptStats { conceptId: number; name: string; lecture: string | null; sourcePages: string | null; streak: number; attempts: number; correct: number; dueDate: string; neverAttempted: boolean }
 export interface Dashboard { dueToday: number; concepts: ConceptStats[] }
-export interface EvalReport { labeled: number; pctAnswerable: number; pctCorrectAnswer: number; pctUnambiguous: number; gradedShortAnswers: number; graderAgreement: number }
+/* a labeled question that failed at least one check, with where it lives so the page can link to its card */
+export interface ReviewItem { questionId: number; courseId: number; course: string; conceptId: number; concept: string; prompt: string; answerable: boolean; correctAnswer: boolean; unambiguous: boolean }
+export interface EvalReport { labeled: number; pctAnswerable: number; pctCorrectAnswer: number; pctUnambiguous: number; gradedShortAnswers: number; graderAgreement: number; needsReview: ReviewItem[] }
 
 // A 200 that is not JSON means the request never reached the backend: the vite dev
 // server answers an unproxied /api path with index.html. res.json() would report that

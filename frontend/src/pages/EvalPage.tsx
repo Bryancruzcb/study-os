@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { api, type EvalReport } from '../api'
+import { Link } from 'react-router-dom'
+import { api, type EvalReport, type ReviewItem } from '../api'
 import { plural } from '../plural'
 
 const REAL_SAMPLE = 30
@@ -39,11 +40,14 @@ export default function EvalPage() {
             ) : (
               <ul className="quality-list">
                 <QualityCheck title="Answerable from the source" detail="Can the cited source pages support the answer?"
-                  rate={report.pctAnswerable} total={report.labeled} pct={pct} passed={passed} />
+                  rate={report.pctAnswerable} total={report.labeled} pct={pct} passed={passed}
+                  failing={report.needsReview.filter(q => !q.answerable)} />
                 <QualityCheck title="Answer key is correct" detail="Does the saved answer key match the source?"
-                  rate={report.pctCorrectAnswer} total={report.labeled} pct={pct} passed={passed} />
+                  rate={report.pctCorrectAnswer} total={report.labeled} pct={pct} passed={passed}
+                  failing={report.needsReview.filter(q => !q.correctAnswer)} />
                 <QualityCheck title="One clear best answer" detail="Is the wording specific enough to avoid multiple reasonable answers?"
-                  rate={report.pctUnambiguous} total={report.labeled} pct={pct} passed={passed} />
+                  rate={report.pctUnambiguous} total={report.labeled} pct={pct} passed={passed}
+                  failing={report.needsReview.filter(q => !q.unambiguous)} />
               </ul>
             )}
           </section>
@@ -75,9 +79,11 @@ interface QualityCheckProps {
   total: number
   pct: (rate: number) => string
   passed: (rate: number, total: number) => number
+  // the labeled questions this check failed, so the count comes with the questions behind it
+  failing: ReviewItem[]
 }
 
-function QualityCheck({ title, detail, rate, total, pct, passed }: QualityCheckProps) {
+function QualityCheck({ title, detail, rate, total, pct, passed, failing }: QualityCheckProps) {
   const ready = passed(rate, total)
   const needsReview = total - ready
   return (
@@ -86,7 +92,21 @@ function QualityCheck({ title, detail, rate, total, pct, passed }: QualityCheckP
         <h3>{title}</h3>
         <p>{detail}</p>
       </div>
-      <p className="quality-score"><b>{ready} of {total}</b><span>{pct(rate)} pass · {plural(needsReview, 'question')} need review</span></p>
+      <p className="quality-score"><b>{ready} of {total}</b><span>{pct(rate)} pass · {plural(needsReview, 'question')} {needsReview === 1 ? 'needs' : 'need'} review</span></p>
+      {failing.length > 0 && (
+        <details className="review-list">
+          <summary>{failing.length === 1 ? 'Review the question' : `Review the ${failing.length} questions`}</summary>
+          <ul className="review-items">
+            {failing.map(q => (
+              <li key={q.questionId}>
+                {/* the bank opens on the question's concept and brings its card into view */}
+                <Link to={`/courses/${q.courseId}/bank/${q.conceptId}#question-${q.questionId}`}>{q.prompt}</Link>
+                <span>{q.course} · {q.concept}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
     </li>
   )
 }

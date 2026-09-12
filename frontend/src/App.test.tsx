@@ -15,7 +15,7 @@ vi.mock('./api', () => ({
     createCourse: vi.fn(),
     evalReport: vi.fn().mockResolvedValue({
       labeled: 31, pctAnswerable: 1, pctCorrectAnswer: 0.97, pctUnambiguous: 0.94,
-      gradedShortAnswers: 1, graderAgreement: 1,
+      gradedShortAnswers: 1, graderAgreement: 1, needsReview: [],
     }),
   },
 }))

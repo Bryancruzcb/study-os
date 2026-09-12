@@ -14,14 +14,14 @@
    together. :where() keeps it at zero specificity, so no component rule has to fight
    it for position or anything else. */
 
-:where(.nav, .nav-links a, .tile, .figure-tile, .qcard-big, .opt, .qcard, .ledger-card,
+:where(.nav, .nav-links a, .tile, .figure-tile, .qcard-big, .opt, .qcard, .dash-card,
   .eval-panel, .bank-empty, .btn, .tab, .toggle) {
   position: relative;
 }
 
-:where(.nav, .nav-links a, .tile, .figure-tile, .qcard-big, .opt, .qcard, .ledger-card,
+:where(.nav, .nav-links a, .tile, .figure-tile, .qcard-big, .opt, .qcard, .dash-card,
   .eval-panel, .bank-empty, .btn, .tab, .toggle)::before,
-:where(.nav, .nav-links a, .tile, .figure-tile, .qcard-big, .opt, .qcard, .ledger-card,
+:where(.nav, .nav-links a, .tile, .figure-tile, .qcard-big, .opt, .qcard, .dash-card,
   .eval-panel, .bank-empty, .btn, .tab, .toggle)::after {
   content: '';
   position: absolute;
@@ -36,7 +36,7 @@
    bright one at the rim, masked to the cursor's reach so the glow travels round the
    edge with it. The blur is spent inside a card's padding, so it never reaches text;
    on a button it fills the pill, which is what makes the button glow */
-:where(.nav, .nav-links a, .tile, .figure-tile, .qcard-big, .opt, .qcard, .ledger-card,
+:where(.nav, .nav-links a, .tile, .figure-tile, .qcard-big, .opt, .qcard, .dash-card,
   .eval-panel, .bank-empty, .btn, .tab, .toggle)::before {
   box-shadow: inset 0 0 18px 1px var(--edge), inset 0 0 4px var(--edge-hot);
   -webkit-mask-image: radial-gradient(circle 260px at var(--lit-x, 50%) var(--lit-y, 50%), black, transparent);
@@ -46,7 +46,7 @@
 /* the light on the face of the surface: the sheen under the cursor and, opposite it, the
    shade the same light leaves behind. Both stay faint on purpose — this layer crosses
    the card's own text, and the text is the reason the card is there */
-:where(.nav, .nav-links a, .tile, .figure-tile, .qcard-big, .opt, .qcard, .ledger-card,
+:where(.nav, .nav-links a, .tile, .figure-tile, .qcard-big, .opt, .qcard, .dash-card,
   .eval-panel, .bank-empty, .btn, .tab, .toggle)::after {
   background:
     radial-gradient(120% 110% at var(--lit-x, 50%) var(--lit-y, 50%),
@@ -85,9 +85,9 @@
 
 /* the field is motion, and a page that asked for less of it keeps the plain surfaces */
 @media (prefers-reduced-motion: reduce) {
-  :where(.nav, .nav-links a, .tile, .figure-tile, .qcard-big, .opt, .qcard, .ledger-card,
+  :where(.nav, .nav-links a, .tile, .figure-tile, .qcard-big, .opt, .qcard, .dash-card,
     .eval-panel, .bank-empty, .btn, .tab, .toggle)::before,
-  :where(.nav, .nav-links a, .tile, .figure-tile, .qcard-big, .opt, .qcard, .ledger-card,
+  :where(.nav, .nav-links a, .tile, .figure-tile, .qcard-big, .opt, .qcard, .dash-card,
     .eval-panel, .bank-empty, .btn, .tab, .toggle)::after,
   .light-glow {
     display: none;

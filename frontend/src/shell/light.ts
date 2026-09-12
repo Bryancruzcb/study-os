@@ -20,7 +20,7 @@ import { useEffect } from 'react'
    exactly this list, and styles/lightFallback.test.ts holds the two to it. */
 export const LIT = [
   '.nav', '.nav-links a', '.tile', '.figure-tile', '.qcard-big', '.opt', '.qcard',
-  '.ledger-card', '.eval-panel', '.bank-empty', '.btn', '.tab', '.toggle',
+  '.dash-card', '.eval-panel', '.bank-empty', '.btn', '.tab', '.toggle',
 ].join(', ')
 
 /* how far outside a surface the light still reaches, in CSS pixels */

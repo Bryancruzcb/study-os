@@ -9,14 +9,14 @@ const course = { id: 1, name: 'CS 158A', term: 'Fall 2026', concepts: 2, questio
 
 const bank = [
   {
-    id: 5, name: 'TCP handshake', summary: 'SYN/SYN-ACK/ACK', sourcePages: '3,4',
+    id: 5, name: 'TCP handshake', summary: 'SYN/SYN-ACK/ACK', sourcePages: '3,4', lecture: 'Lecture 3.pdf',
     questions: [
       { id: 9, type: 'MC' as const, prompt: 'Steps?', optionsJson: '["1","2","3","4"]', correctIndex: 2, sourcePages: '3', status: 'ACTIVE' as const, labelAnswerable: null, labelCorrectAnswer: null, labelUnambiguous: null },
       { id: 10, type: 'SHORT_ANSWER' as const, prompt: 'Why three?', optionsJson: null, correctIndex: null, sourcePages: '4', status: 'RETIRED' as const, labelAnswerable: null, labelCorrectAnswer: null, labelUnambiguous: null },
     ],
   },
   {
-    id: 6, name: 'Sockets', summary: 'bind/listen/accept', sourcePages: null,
+    id: 6, name: 'Sockets', summary: 'bind/listen/accept', sourcePages: null, lecture: null,
     questions: [
       { id: 11, type: 'SHORT_ANSWER' as const, prompt: 'What does bind do?', optionsJson: null, correctIndex: null, sourcePages: null, status: 'ACTIVE' as const, labelAnswerable: null, labelCorrectAnswer: null, labelUnambiguous: null },
     ],
@@ -168,7 +168,7 @@ test('an ingest in flight survives leaving the bank tab, and the list follows wh
   // still running: the control says so and takes no second file
   expect(file().closest('label')).toHaveTextContent('Ingesting…')
   expect(file()).toBeDisabled()
-  vi.mocked(api.bank).mockResolvedValueOnce([...bank, { id: 7, name: 'Routing', summary: 'tables', sourcePages: null, questions: [] }])
+  vi.mocked(api.bank).mockResolvedValueOnce([...bank, { id: 7, name: 'Routing', summary: 'tables', sourcePages: null, lecture: null, questions: [] }])
   land({ id: 2, filename: 'week1.pdf', status: 'INGESTED', errorMessage: null })
   // the list, its caption and the head move together
   await screen.findByRole('link', { name: /Routing/ })

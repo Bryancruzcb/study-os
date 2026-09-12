@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { Link, useOutletContext } from 'react-router-dom'
 import { api, type AnsweredAttempt, type Attempt, type StudyQuestion } from '../api'
 import type { CourseContext } from '../shell/CourseLayout'
+import { citation } from '../source'
 
 const LETTERS = 'ABCDEFGHIJ'
 const letter = (i: number) => LETTERS[i] ?? String(i + 1)
@@ -32,6 +33,23 @@ interface Visit {
 const unanswered = (question: StudyQuestion): Card =>
   ({ question, attempt: null, answerKey: null, picked: null, submitted: '' })
 
+/* the visit with one card's attempt replaced: an answered card's, or the question on the
+   table's when `card` is null */
+function withAttempt(visit: Visit, card: number | null, attempt: Attempt): Visit {
+  if (card === null) return visit.live ? { ...visit, live: { ...visit.live, attempt } } : visit
+  return { ...visit, answered: visit.answered.map((c, i) => (i === card ? { ...c, attempt } : c)) }
+}
+
+/* Whether an answered card's verdict can still change. The backend only overrides or
+   self-grades a concept's most recent attempt, the only one whose schedule change it can
+   still undo, so answering the same concept again later in the visit makes this one final. */
+function stillOpen(visit: Visit, card: number): boolean {
+  const concept = visit.answered[card].question.conceptId
+  const answeredAgain = visit.answered.slice(card + 1).some(c => c.question.conceptId === concept)
+    || (visit.live?.attempt != null && visit.live.question.conceptId === concept)
+  return !answeredAgain
+}
+
 export default function StudyPage() {
   const { course, refresh, slot } = useOutletContext<CourseContext>()
   const [visit, setVisit] = useState<Visit>({ courseId: course.id, answered: [], live: null, done: false })
@@ -47,6 +65,10 @@ export default function StudyPage() {
   // grading unmounts the control the caret sat on; the band takes it, so the next Tab
   // reaches its buttons rather than starting over from the top of the page
   const band = useRef<HTMLDivElement>(null)
+  // a one-shot command, set by every saved verdict, to put the caret on the band once it
+  // renders: on the question on the table, or on a card looked back on. A step through the
+  // visit changes which attempt is on screen too, and must not take the caret with it
+  const wantBand = useRef(false)
   // a ref, not state: a one-shot command to put the caret on the next card once it renders.
   // Next question sets it, and so does a step back or forward that disables its own button;
   // the mount load never does. The caret lands on the prompt, not on the first option: Enter
@@ -62,8 +84,12 @@ export default function StudyPage() {
   const attempt = live?.attempt ?? null
 
   useLayoutEffect(() => {
-    if (attempt) band.current?.focus()
-  }, [attempt])
+    if (!wantBand.current) return
+    const el = band.current
+    if (!el) return
+    wantBand.current = false
+    el.focus()
+  })
 
   // after every render: waits for the load's finally so the caret lands on the card that
   // arrived, not on the one on its way out. A failed load leaves the command standing for
@@ -120,16 +146,18 @@ export default function StudyPage() {
     return load()
   }
 
-  // the question on the table is the only card that ever changes
+  // the answer, the pick and the key only ever arrive on the question on the table
   function updateLive(change: Partial<Card>) {
     setVisit(v => (v.live ? { ...v, live: { ...v.live, ...change } } : v))
   }
 
-  // every verdict moves the concept out of today's queue, so the head figure is stale after one
-  function saveAttempt(call: () => Promise<Attempt>) {
+  // every verdict moves the concept out of today's queue, so the head figure is stale after
+  // one. `card` is the answered card being changed, or null for the question on the table
+  function saveAttempt(call: () => Promise<Attempt>, card: number | null = null) {
     return run(async () => {
       const saved = await call()
-      updateLive({ attempt: saved })
+      setVisit(v => withAttempt(v, card, saved))
+      wantBand.current = true
       await refresh()
     })
   }
@@ -167,6 +195,7 @@ export default function StudyPage() {
   // empty queue
   const total = visit.answered.length + 1
   const at = back ?? visit.answered.length
+  const past = back === null ? null : { index: back, card: visit.answered[back] }
 
   function step(to: number) {
     // a step to either end disables the button that took it, which would drop the caret on
@@ -197,10 +226,19 @@ export default function StudyPage() {
             onClick={() => step(at + 1)}>Next</button>
         </div>
       )}
-      {back !== null && (
-        <article className="qcard-big" key={back}>
-          <Head question={visit.answered[back].question} landing={takeLanding} />
-          <Outcome card={visit.answered[back]} />
+      {past && (
+        <article className="qcard-big" key={past.index}>
+          <Head question={past.card.question} landing={takeLanding} />
+          {stillOpen(visit, past.index) ? (
+            <Outcome card={past.card} band={band} actions={
+              <Changes attempt={past.card.attempt} submitting={submitting}
+                save={call => saveAttempt(call, past.index)} />
+            } />
+          ) : (
+            <Outcome card={past.card} band={band} final actions={
+              <p className="verdict-note">You answered this concept again later in the visit, so this verdict is final.</p>
+            } />
+          )}
         </article>
       )}
       {back === null && visit.done && (
@@ -230,23 +268,11 @@ export default function StudyPage() {
             </div>
           )}
           {attempt && (
-            <Outcome card={{ ...live, attempt }} band={band} actions={attempt.verdict === 'PENDING' ? (
-              <div className="actions">
-                <button className="btn btn--secondary" disabled={submitting}
-                  onClick={() => saveAttempt(() => api.selfGrade(attempt.id, true))}>I got it right</button>
-                <button className="btn btn--secondary" disabled={submitting}
-                  onClick={() => saveAttempt(() => api.selfGrade(attempt.id, false))}>I got it wrong</button>
+            <Outcome card={{ ...live, attempt }} band={band} actions={
+              <Changes attempt={attempt} submitting={submitting} save={call => saveAttempt(call)}>
                 <button className="btn" disabled={submitting} onClick={next}>Next question</button>
-              </div>
-            ) : (
-              <div className="actions">
-                <button className="btn btn--secondary" disabled={submitting}
-                  onClick={() => saveAttempt(() => api.override(attempt.id))}>
-                  {attempt.verdict === 'INCORRECT' ? 'I was actually right' : 'I was actually wrong'}
-                </button>
-                <button className="btn" disabled={submitting} onClick={next}>Next question</button>
-              </div>
-            )} />
+              </Changes>
+            } />
           )}
         </article>
       )}
@@ -254,25 +280,31 @@ export default function StudyPage() {
   )
 }
 
+/* the question's kind, the concept it tests, and the lecture and slides to check it against */
 function Head({ question, landing }: { question: StudyQuestion; landing: (el: HTMLElement | null) => void }) {
+  const source = citation(question.lecture, question.sourcePages)
   return (
     <>
       <div className="chips">
         <span className="chip">{question.type === 'MC' ? 'Multiple choice' : 'Short answer'}</span>
-        {question.sourcePages && <span className="chip chip--mono">pp. {question.sourcePages}</span>}
+        {question.topic && <span className="chip">{question.topic}</span>}
+        {source && <span className="chip chip--mono">{source}</span>}
       </div>
       <p className="prompt" tabIndex={-1} ref={landing}>{question.prompt}</p>
     </>
   )
 }
 
-/* How an answered question went: the answer as sent, the verdict, and the key. The question
-   on the table passes its actions and takes the band's ref. A question looked back on gets
-   neither: an override is only ever a disagreement noticed in the moment, which is what the
-   agreement number counts, and a self-grade only moves the concept's latest attempt */
-function Outcome({ card, band, actions }: { card: AnsweredCard; band?: Ref<HTMLDivElement>; actions?: ReactNode }) {
+/* How an answered question went: the answer as sent, the verdict and the key, with the
+   controls that can still change it. A final verdict, whose concept was answered again
+   later in the visit, carries a note where the controls would be */
+function Outcome({ card, band, actions, final = false }: {
+  card: AnsweredCard
+  band: Ref<HTMLDivElement>
+  actions: ReactNode
+  final?: boolean
+}) {
   const { question, attempt, answerKey, picked, submitted } = card
-  const onTheTable = actions !== undefined
   const review = (summary: string, open?: boolean) => answerKey && (
     <details className="answer-review" open={open}>
       <summary>{summary}</summary>
@@ -285,17 +317,17 @@ function Outcome({ card, band, actions }: { card: AnsweredCard; band?: Ref<HTMLD
       {submitted && <p className="your-answer">{submitted}</p>}
       {attempt.verdict === 'PENDING' ? (
         <>
-          {review(onTheTable ? 'Check the answer before self-grading' : 'Check the answer')}
-          <div ref={band} tabIndex={band ? -1 : undefined} className="verdict verdict--pending">
+          {review(final ? 'Check the answer' : 'Check the answer before self-grading')}
+          <div ref={band} tabIndex={-1} className="verdict verdict--pending">
             <p className="verdict-line">
               <span className="bracket" aria-hidden="true" />
-              {onTheTable ? 'Grader unavailable. Self-grade this one:' : 'Grader unavailable, and never self-graded.'}
+              {final ? 'Grader unavailable, and never self-graded.' : 'Grader unavailable. Self-grade this one:'}
             </p>
             {actions}
           </div>
         </>
       ) : (
-        <div ref={band} tabIndex={band ? -1 : undefined}
+        <div ref={band} tabIndex={-1}
           className={`verdict ${attempt.verdict === 'CORRECT' ? 'verdict--ok' : 'verdict--bad'}`}>
           <p className="verdict-line">
             <span className="bracket" aria-hidden="true" />
@@ -311,5 +343,32 @@ function Outcome({ card, band, actions }: { card: AnsweredCard; band?: Ref<HTMLD
         </div>
       )}
     </>
+  )
+}
+
+/* the controls that change a verdict: reverse an automatic grade, or grade a pending one
+   yourself. The question on the table adds its way on to the next one */
+function Changes({ attempt, submitting, save, children }: {
+  attempt: Attempt
+  submitting: boolean
+  save: (call: () => Promise<Attempt>) => void
+  children?: ReactNode
+}) {
+  return attempt.verdict === 'PENDING' ? (
+    <div className="actions">
+      <button className="btn btn--secondary" disabled={submitting}
+        onClick={() => save(() => api.selfGrade(attempt.id, true))}>I got it right</button>
+      <button className="btn btn--secondary" disabled={submitting}
+        onClick={() => save(() => api.selfGrade(attempt.id, false))}>I got it wrong</button>
+      {children}
+    </div>
+  ) : (
+    <div className="actions">
+      <button className="btn btn--secondary" disabled={submitting}
+        onClick={() => save(() => api.override(attempt.id))}>
+        {attempt.verdict === 'INCORRECT' ? 'I was actually right' : 'I was actually wrong'}
+      </button>
+      {children}
+    </div>
   )
 }

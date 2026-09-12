@@ -105,6 +105,42 @@
   border-color: var(--flag);
 }
 
+/* the questions a check failed, under the count they make up, each a way to its card */
+.review-list {
+  grid-column: 1 / -1;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.review-list summary {
+  color: var(--accent-strong);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.review-items {
+  display: grid;
+  gap: 12px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.review-items a {
+  color: var(--ink);
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.review-items span {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-dim);
+}
+
 @media (max-width: 620px) {
   .quality-check {
     grid-template-columns: 1fr;

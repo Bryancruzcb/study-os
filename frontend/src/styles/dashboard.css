@@ -4,17 +4,226 @@
   gap: 24px;
 }
 
-.ledger-card {
-  overflow: hidden;
+/* a card on the dashboard: the concepts to work on, and the lectures */
+.dash-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 22px 24px;
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   box-shadow: var(--shadow-card);
 }
 
-.ledger-card .empty {
-  padding: 24px;
+.dash-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px 24px;
 }
+
+.dash-title {
+  font-size: 19px;
+  letter-spacing: -0.02em;
+}
+
+/* a concept opens in the bank, where its questions carry their slides */
+.dash-link {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.dash-link:hover {
+  color: var(--accent-strong);
+}
+
+/* the lecture and slides a concept came from, under its name */
+.dash-source {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--ink-dim);
+}
+
+.dash-more {
+  font-size: 14px;
+  color: var(--ink-dim);
+}
+
+/* ---- the concepts to work on next ----------------------------------------- */
+
+.focus-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.focus-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+
+.focus-score {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.focus-score b {
+  font-family: var(--font-mono);
+  font-size: 16px;
+}
+
+.focus-score span {
+  font-size: 13px;
+  color: var(--ink-dim);
+}
+
+/* ---- the lectures ------------------------------------------------------------ */
+
+/* the key to the lecture bars, beside their heading: the swatch carries the colour, the
+   words carry the meaning */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+}
+
+.swatch--right,
+.lecture-bar-right {
+  background: var(--mastery-right);
+}
+
+.swatch--weak,
+.lecture-bar-weak {
+  background: var(--mastery-weak);
+}
+
+.swatch--new,
+.lecture-bar-new {
+  background: var(--mastery-track);
+}
+
+.lectures {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lecture {
+  border-top: 1px solid var(--line);
+}
+
+/* one lecture: its name, the bar of how its concepts stand, and the same in words. Every row
+   is its own grid, so the counts column is a fixed width: sized by its own text, it would
+   start each row's bar at a different place */
+.lecture-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(120px, 1fr) 16.5rem;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 0;
+  list-style: none;
+  cursor: pointer;
+}
+
+.lecture-head::-webkit-details-marker {
+  display: none;
+}
+
+.lecture-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+/* the disclosure mark, turned when the lecture is open */
+.lecture-name::before {
+  content: '▸';
+  display: inline-block;
+  margin-right: 8px;
+  color: var(--ink-dim);
+  transition: transform var(--motion) var(--ease);
+}
+
+.lecture details[open] .lecture-name::before {
+  transform: rotate(90deg);
+}
+
+/* a thin part-to-whole bar: the 2px gaps in the card colour keep neighbouring segments apart */
+.lecture-bar {
+  display: flex;
+  gap: 2px;
+  height: 10px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--card);
+}
+
+.lecture-bar > span {
+  flex-basis: 0;
+}
+
+.lecture-counts {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 13px;
+  color: var(--ink-dim);
+}
+
+.lecture-counts b {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.lecture-table {
+  margin-bottom: 16px;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+/* ---- a lecture's concepts ------------------------------------------------ */
 
 .ledger {
   width: 100%;
@@ -23,8 +232,8 @@
 }
 
 .ledger th {
-  height: 44px;
-  padding-inline: 18px;
+  height: 40px;
+  padding-inline: 16px;
   text-align: left;
   background: var(--sunken);
   border-bottom: 1px solid var(--line);
@@ -37,7 +246,7 @@
 
 .ledger td {
   height: 48px;
-  padding: 8px 18px;
+  padding: 8px 16px;
   vertical-align: middle;
   border-bottom: 1px solid var(--line);
   font-size: 15px;
@@ -64,11 +273,15 @@
 }
 
 .ledger th:nth-child(2) {
-  width: 14%;
+  width: 18%;
 }
 
 .ledger th:nth-child(3) {
-  width: 16%;
+  width: 14%;
+}
+
+.ledger-count {
+  color: var(--ink-dim);
 }
 
 /* a concept nobody has attempted: weight plus the word the row already carries */
@@ -84,9 +297,19 @@
   color: var(--accent-strong);
 }
 
+/* a concept whose last answer was wrong wears the flag colour on its mark */
+.row-mark--flag {
+  color: var(--flag);
+}
+
 @media (max-width: 720px) {
-  .ledger-card {
-    overflow-x: auto;
+  .lecture-head {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .lecture-counts {
+    align-items: flex-start;
   }
 
   .ledger {

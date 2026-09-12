@@ -1,8 +1,9 @@
-import { useLayoutEffect, useRef, useState } from 'react'
-import { useOutletContext, useParams } from 'react-router-dom'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useLocation, useOutletContext, useParams } from 'react-router-dom'
 import { api, type ConceptWithQuestions, type Question } from '../api'
 import { plural } from '../plural'
 import type { BankContext } from './BankRoute'
+import { citation, slides } from '../source'
 
 interface LabelBody { answerable: boolean; correctAnswer: boolean; unambiguous: boolean }
 
@@ -26,6 +27,16 @@ function ConceptCards({ concept, reload, refresh, setError }: {
   refresh: () => Promise<void>
   setError: (e: string | null) => void
 }) {
+  // a link from the evaluation page names one question: its card comes into view, marked, so the
+  // question that failed a check is the one the eye lands on
+  const { hash } = useLocation()
+  const target = hash.startsWith('#question-') ? Number(hash.slice('#question-'.length)) : null
+  useEffect(() => {
+    if (target == null) return
+    // jsdom has no scrollIntoView
+    document.getElementById(`question-${target}`)?.scrollIntoView?.({ block: 'center' })
+  }, [target])
+
   // the question whose retire is armed, or null. one at a time, so arming a card takes
   // the arming away from whichever card held it and only one confirm is ever on screen
   const [armed, setArmed] = useState<number | null>(null)
@@ -97,12 +108,13 @@ function ConceptCards({ concept, reload, refresh, setError }: {
 
   const active = concept.questions.filter(q => q.status === 'ACTIVE').length
   const retired = concept.questions.length - active
+  const source = citation(concept.lecture, concept.sourcePages)
 
   return (
     <div className="concept">
       <div className="concept-top">
         <div className="chips">
-          {concept.sourcePages && <span className="chip chip--mono">pp. {concept.sourcePages}</span>}
+          {source && <span className="chip chip--mono">{source}</span>}
           <span className="count">{plural(active, 'question')}{retired > 0 && ` · ${retired} retired`}</span>
         </div>
         <h2>{concept.name}</h2>
@@ -110,10 +122,11 @@ function ConceptCards({ concept, reload, refresh, setError }: {
       </div>
       <ul className="qcards">
         {concept.questions.map(q => (
-          <li className={q.status === 'RETIRED' ? 'qcard qcard--retired' : 'qcard'} key={q.id}>
+          <li id={`question-${q.id}`} key={q.id}
+            className={`qcard${q.status === 'RETIRED' ? ' qcard--retired' : ''}${target === q.id ? ' is-target' : ''}`}>
             <div className="chips">
               <span className="chip">{q.type === 'MC' ? 'Multiple choice' : 'Short answer'}</span>
-              {q.sourcePages && <span className="chip chip--mono">pp. {q.sourcePages}</span>}
+              {q.sourcePages && <span className="chip chip--mono">{slides(q.sourcePages)}</span>}
               {q.status === 'RETIRED' && <span className="chip chip--flag">Retired</span>}
             </div>
             <p className="qcard-prompt">{q.prompt}</p>

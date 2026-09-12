@@ -200,3 +200,9 @@
     max-height: none;
   }
 }
+
+/* the question a link from the evaluation page named: the glow the app uses for "this one" */
+.qcard.is-target {
+  border-color: var(--glow-line);
+  box-shadow: var(--glow);
+}

@@ -50,6 +50,14 @@
   --glow-edge: oklch(84% 0.09 285 / 0.2);
   --glow-none: oklch(84% 0.09 285 / 0);
 
+  /* (new) how a concept stands, on the dashboard's lecture bars: its last answer was right,
+     it was wrong, or it has not been started. Checked with the dataviz palette validator:
+     --ok beside --flag sits 4 apart for a deuteranope, and this pair sits 15 apart, with
+     both fills at 3:1 or better on the card */
+  --mastery-right: oklch(62% 0.13 152);
+  --mastery-weak: oklch(46% 0.17 28);
+  --mastery-track: oklch(92% 0.01 250);
+
   --shadow-nav: 0 1px 0 oklch(100% 0 0 / 0.7) inset, 0 10px 30px oklch(30% 0.04 250 / 0.08);
   --shadow-card: 0 1px 0 oklch(100% 0 0 / 0.8) inset, 0 8px 24px oklch(30% 0.03 250 / 0.06);
   --shadow-lift: 0 1px 0 oklch(100% 0 0 / 0.9) inset, 0 18px 40px oklch(30% 0.04 250 / 0.12);

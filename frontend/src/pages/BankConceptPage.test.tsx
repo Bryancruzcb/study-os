@@ -14,7 +14,7 @@ function question(over: Partial<Question>): Question {
 }
 
 function concept(questions: Question[]): ConceptWithQuestions[] {
-  return [{ id: 5, name: 'TCP handshake', summary: 'SYN/SYN-ACK/ACK', sourcePages: '3,4', questions }]
+  return [{ id: 5, name: 'TCP handshake', summary: 'SYN/SYN-ACK/ACK', sourcePages: '3,4', lecture: 'Lecture 3.pdf', questions }]
 }
 
 vi.mock('../api', () => ({
@@ -43,21 +43,21 @@ test('renders the concept with its summary, pages, counts and question cards', a
   at()
   expect(await screen.findByRole('heading', { level: 2, name: 'TCP handshake' })).toBeInTheDocument()
   expect(screen.getByText('SYN/SYN-ACK/ACK')).toBeInTheDocument()
-  expect(screen.getByText('pp. 3,4')).toBeInTheDocument()
+  expect(screen.getByText('Lecture 3.pdf · slides 3, 4')).toBeInTheDocument()
   expect(screen.getByText('1 question')).toBeInTheDocument()
   expect(screen.getByText('Steps?')).toBeInTheDocument()
   expect(screen.getByText('Multiple choice')).toBeInTheDocument()
-  expect(screen.getByText('pp. 3')).toBeInTheDocument()
+  expect(screen.getByText('slide 3')).toBeInTheDocument()
 })
 
 test('a concept and a question with no pages render no citation', async () => {
   vi.mocked(api.bank).mockResolvedValueOnce([{
-    id: 5, name: 'Sockets', summary: 'bind/listen/accept', sourcePages: null,
+    id: 5, name: 'Sockets', summary: 'bind/listen/accept', sourcePages: null, lecture: null,
     questions: [question({ id: 11, type: 'SHORT_ANSWER', prompt: 'What does bind do?', optionsJson: null, correctIndex: null, sourcePages: null })],
   }])
   at()
   await screen.findByRole('heading', { level: 2, name: 'Sockets' })
-  expect(screen.queryByText(/pp\./)).not.toBeInTheDocument()
+  expect(screen.queryByText(/slide|Lecture/)).not.toBeInTheDocument()
 })
 
 test('an unknown concept is a not-found state beside the list', async () => {
@@ -244,4 +244,22 @@ test('a card that arrives labelled leaves the caret alone', async () => {
   at()
   await screen.findByText('labeled')
   expect(document.body).toHaveFocus()
+})
+
+test('a link to one question brings its card into view and marks it', async () => {
+  // jsdom has no layout and no scrollIntoView, so the call, and what it was called on, is the assertion
+  const scroll = vi.fn()
+  const proto = HTMLElement.prototype as unknown as { scrollIntoView?: (arg?: unknown) => void }
+  const before = proto.scrollIntoView
+  proto.scrollIntoView = scroll
+  try {
+    vi.mocked(api.bank).mockResolvedValueOnce(concept([question({}), question({ id: 12, prompt: 'Why three?' })]))
+    renderBank('/courses/1/bank/5#question-12')
+    const card = (await screen.findByText('Why three?')).closest('li')!
+    expect(card).toHaveClass('is-target')
+    expect(screen.getByText('Steps?').closest('li')).not.toHaveClass('is-target')
+    await waitFor(() => expect(scroll.mock.contexts).toContain(card))
+  } finally {
+    proto.scrollIntoView = before
+  }
 })
