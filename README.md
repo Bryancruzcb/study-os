@@ -59,7 +59,9 @@ disagreement yet", not "the grader is right".*
   stays PENDING and I grade it myself, so studying never blocks on the API.
 - Home is a grid of course tiles, one per class, each showing what is due today and how
   much is in the bank. Inside a course there are three tabs: Study (answer, override a
-  verdict, self-grade a PENDING one), Bank (upload a PDF, open a concept, label its
+  verdict, self-grade a PENDING one, and step back through the questions already
+  answered in this visit to reread them and their verdicts), Bank (upload a PDF, open a
+  concept, label its
   questions, retire bad ones behind a confirm step and restore them when I misclick), and
   Dashboard (how many concepts are due, and per concept the streak, the correct-out-of-
   attempted count and the next due date). Eval (the report below) is global.
@@ -77,6 +79,8 @@ the page says so instead of showing 0%. One narrowing worth knowing when reading
 agreement number: I can only override the concept's most recent attempt, because that is
 the only one whose schedule change can still be undone. A disagreement I notice after
 clicking Next is never recorded, so the dataset holds in-the-moment disagreements only.
+Stepping back to an earlier question shows how it went but offers no override, which
+keeps that true.
 
 ## Run it
 
@@ -99,7 +103,7 @@ The two models are set in `backend/src/main/resources/application.yml` under
     mvn -f backend/pom.xml test
     cd frontend && npm install && npm test
 
-75 backend tests and 100 frontend tests. Neither suite calls the Claude API or needs a
+75 backend tests and 131 frontend tests. Neither suite calls the Claude API or needs a
 database, so no key is needed to run them.
 
 One suite is deliberately not in that number. `PersistenceTest` runs against a real

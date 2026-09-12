@@ -287,3 +287,135 @@ test('when the queue runs out after Next question, focus lands on the empty stat
   await userEvent.tab()
   expect(screen.getByRole('link', { name: 'Open the bank' })).toHaveFocus()
 })
+
+/* ---- looking back through the visit ---------------------------------------------------- */
+
+const secondMc: StudyQuestion = {
+  id: 12, type: 'MC', prompt: 'Which flag closes a connection?', options: ['1', '2', '3', '4'], sourcePages: '9',
+}
+
+/* answers the MC question on the table with option 3 and takes Next question to `next` */
+async function answerAndMoveOn(next: StudyQuestion) {
+  await userEvent.click(screen.getByRole('button', { name: '3' }))
+  await screen.findByRole('button', { name: 'Next question' })
+  vi.mocked(api.next).mockResolvedValueOnce(next)
+  await userEvent.click(screen.getByRole('button', { name: 'Next question' }))
+  await screen.findByText(next.prompt)
+}
+
+test('there is nothing to step back to before the first answer', async () => {
+  await renderWithQuestion()
+  expect(screen.queryByRole('button', { name: 'Previous' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Next' })).not.toBeInTheDocument()
+})
+
+test('after Next question the answered question is one step back, as it went', async () => {
+  await renderWithQuestion()
+  await answerAndMoveOn(shortAnswer)
+  expect(screen.getByText('2 of 2')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled()
+
+  await userEvent.click(screen.getByRole('button', { name: 'Previous' }))
+  expect(screen.getByText('1 of 2')).toBeInTheDocument()
+  expect(screen.getByText('Steps in the TCP handshake?')).toBeInTheDocument()
+  expect(screen.getByText('Correct')).toBeInTheDocument()
+  expect(screen.getByText('You picked C: 3')).toBeInTheDocument()
+  expect(screen.getByText('Check the answer').closest('details')).toHaveTextContent('Answer key3')
+  expect(screen.queryByText('Describe the handshake.')).not.toBeInTheDocument()
+
+  await userEvent.click(screen.getByRole('button', { name: 'Next' }))
+  expect(screen.getByText('2 of 2')).toBeInTheDocument()
+  expect(screen.getByText('Describe the handshake.')).toBeInTheDocument()
+  expect(screen.getByRole('textbox')).toBeInTheDocument()
+  // looking back and forward again fetched nothing and answered nothing
+  expect(api.next).toHaveBeenCalledTimes(2)
+  expect(api.answer).toHaveBeenCalledTimes(1)
+})
+
+test('a half-typed answer is still there after a look back', async () => {
+  await renderWithQuestion()
+  await answerAndMoveOn(shortAnswer)
+  await userEvent.type(screen.getByRole('textbox'), 'SYN first')
+  await userEvent.click(screen.getByRole('button', { name: 'Previous' }))
+  expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+  await userEvent.click(screen.getByRole('button', { name: 'Next' }))
+  expect(screen.getByRole('textbox')).toHaveValue('SYN first')
+})
+
+/* the override counts disagreements noticed in the moment, and the backend only moves a
+   concept's latest attempt, so a card looked back on is for reading */
+test('a question looked back on offers no second answer, override or self-grade', async () => {
+  await renderShortAnswer({ id: 2, verdict: 'PENDING', score: null, feedback: null })
+  await screen.findByRole('button', { name: /I got it right/i })
+  vi.mocked(api.next).mockResolvedValueOnce(secondMc)
+  await userEvent.click(screen.getByRole('button', { name: 'Next question' }))
+  await screen.findByText('Which flag closes a connection?')
+
+  await userEvent.click(screen.getByRole('button', { name: 'Previous' }))
+  expect(screen.getByText('Describe the handshake.')).toBeInTheDocument()
+  expect(screen.getByText('SYN then SYN-ACK')).toBeInTheDocument()
+  expect(screen.getByText('Grader unavailable, and never self-graded.')).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: /I got it/i })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Next question' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+})
+
+test('looking back shows the verdict as it stood when the question was left, override included', async () => {
+  vi.mocked(api.override).mockResolvedValueOnce({ id: 2, verdict: 'CORRECT', score: 1, feedback: 'Missed ACK.' })
+  await renderShortAnswer({ id: 2, verdict: 'INCORRECT', score: 0.4, feedback: 'Missed ACK.' })
+  await userEvent.click(await screen.findByRole('button', { name: /I was actually right/i }))
+  await screen.findByRole('button', { name: /I was actually wrong/i })
+  vi.mocked(api.next).mockResolvedValueOnce(secondMc)
+  await userEvent.click(screen.getByRole('button', { name: 'Next question' }))
+  await screen.findByText('Which flag closes a connection?')
+
+  await userEvent.click(screen.getByRole('button', { name: 'Previous' }))
+  expect(screen.getByText('Correct')).toBeInTheDocument()
+  expect(screen.queryByText('Incorrect')).not.toBeInTheDocument()
+})
+
+test('a step to either end of the visit hands the caret to the card that arrived', async () => {
+  await renderWithQuestion()
+  await answerAndMoveOn(shortAnswer)
+  await userEvent.click(screen.getByRole('button', { name: 'Previous' }))
+  // Previous has nowhere further to go, so the caret is on the question it brought back
+  await waitFor(() => expect(screen.getByText('Steps in the TCP handshake?')).toHaveFocus())
+  await userEvent.click(screen.getByRole('button', { name: 'Next' }))
+  await waitFor(() => expect(screen.getByText('Describe the handshake.')).toHaveFocus())
+})
+
+test('a step with further to go leaves the caret on its button', async () => {
+  await renderWithQuestion()
+  await answerAndMoveOn(secondMc)
+  await answerAndMoveOn(shortAnswer)
+  expect(screen.getByText('3 of 3')).toBeInTheDocument()
+  screen.getByRole('button', { name: 'Previous' }).focus()
+  await userEvent.keyboard('{Enter}')
+  expect(screen.getByText('2 of 3')).toBeInTheDocument()
+  expect(screen.getByText('Which flag closes a connection?')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Previous' })).toHaveFocus()
+})
+
+test('the step buttons wait while an answer is out being graded', async () => {
+  await renderWithQuestion()
+  await answerAndMoveOn(shortAnswer)
+  let resolveAnswer!: (a: AnsweredAttempt) => void
+  vi.mocked(api.answer).mockReturnValueOnce(new Promise<AnsweredAttempt>(r => { resolveAnswer = r }))
+  await userEvent.type(screen.getByRole('textbox'), 'SYN')
+  await userEvent.click(screen.getByRole('button', { name: /submit/i }))
+  expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled()
+  resolveAnswer({ id: 3, verdict: 'CORRECT', score: 1, feedback: null, answerKey: 'SYN, SYN-ACK, ACK' })
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Previous' })).toBeEnabled())
+})
+
+test('when the queue runs out, the answered questions are still one step back', async () => {
+  await renderWithQuestion()
+  vi.mocked(api.next).mockResolvedValueOnce(null)
+  await userEvent.click(screen.getByRole('button', { name: '3' }))
+  await userEvent.click(await screen.findByRole('button', { name: 'Next question' }))
+  await screen.findByText('Nothing due. Come back tomorrow.')
+  expect(screen.getByText('2 of 2')).toBeInTheDocument()
+  await userEvent.click(screen.getByRole('button', { name: 'Previous' }))
+  expect(screen.getByText('You picked C: 3')).toBeInTheDocument()
+  expect(screen.queryByText('Nothing due. Come back tomorrow.')).not.toBeInTheDocument()
+})

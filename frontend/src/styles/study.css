@@ -19,6 +19,15 @@
   width: 220px;
 }
 
+/* back through the questions answered this visit, and forward again to the one on the
+   table: Previous on the left, where the visit stands in the middle, Next on the right */
+.study-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .qcard-big {
   display: flex;
   flex-direction: column;
