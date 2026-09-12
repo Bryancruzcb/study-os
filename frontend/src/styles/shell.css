@@ -101,6 +101,7 @@
 }
 
 .nav-links {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -111,7 +112,28 @@
   font-size: 14px;
 }
 
+/* the current segment's pill: one element that slides between the links, where Nav
+   places it under whichever link is current. Before Nav has measured, it has no size */
+.nav-pill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--pill-w, 0);
+  height: var(--pill-h, 0);
+  border-radius: var(--radius-pill);
+  background: var(--card);
+  box-shadow: var(--shadow-nav);
+  transform: translate(var(--pill-x, 0), var(--pill-y, 0));
+  transition:
+    transform var(--motion-slide) var(--ease),
+    width var(--motion-slide) var(--ease);
+  pointer-events: none;
+}
+
+/* the links ride above the pill */
 .nav-links a {
+  position: relative;
+  z-index: 1;
   padding: 7px 14px;
   border-radius: var(--radius-pill);
   color: var(--ink-soft);
@@ -124,10 +146,8 @@
 }
 
 .nav-links a.is-current {
-  background: var(--card);
   color: var(--ink);
   font-weight: 600;
-  box-shadow: var(--shadow-nav);
 }
 
 /* the number the app publishes about itself, always in view */

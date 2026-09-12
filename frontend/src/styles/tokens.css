@@ -89,5 +89,7 @@
   --gutter: clamp(20px, 4vw, 48px);
 
   --motion: 220ms;
+  /* (new) long enough for the eye to follow a selection travelling across a control */
+  --motion-slide: 340ms;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
