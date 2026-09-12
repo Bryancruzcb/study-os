@@ -2,19 +2,115 @@
 .eval-panel {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 32px;
   padding: clamp(28px, 4vw, 44px) clamp(24px, 4vw, 48px);
   background: var(--sunken);
   border-radius: var(--radius-panel);
 }
 
-.eval-line {
-  font-size: 15px;
-  color: var(--ink-soft);
+.eval-section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
-.caveat {
-  max-width: 74ch;
-  font-size: 15px;
+.eval-section + .eval-section {
+  padding-top: 32px;
+  border-top: 1px solid var(--line);
+}
+
+.eval-section-head {
+  max-width: 68ch;
+}
+
+.eval-section-head h2 {
+  margin-top: 8px;
+  font-size: 23px;
+  letter-spacing: -0.02em;
+}
+
+.eval-section-head p:last-child {
+  margin-top: 8px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+
+.quality-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.quality-check {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 20px;
+  align-items: center;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+.quality-check h3 {
+  font-size: 17px;
+}
+
+.quality-check p {
+  margin-top: 5px;
+  color: var(--ink-soft);
+  line-height: 1.45;
+}
+
+.quality-score,
+.calibration-score {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0;
+  text-align: right;
+}
+
+.quality-score b,
+.calibration-score b {
+  font-family: var(--font-mono);
+  font-size: 16px;
+}
+
+.quality-score span,
+.calibration-score span {
   color: var(--ink-dim);
+  font-size: 13px;
+}
+
+.calibration {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+.calibration > p:last-child {
+  max-width: 70ch;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+
+.calibration--small {
+  border-color: var(--flag);
+}
+
+@media (max-width: 620px) {
+  .quality-check {
+    grid-template-columns: 1fr;
+  }
+
+  .quality-score {
+    text-align: left;
+  }
 }

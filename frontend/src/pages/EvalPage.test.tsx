@@ -12,22 +12,36 @@ vi.mock('../api', () => ({
   },
 }))
 
-test('renders eval metrics', async () => {
+test('explains what is being evaluated and turns question rates into sample counts', async () => {
   render(<EvalPage />)
-  await waitFor(() => expect(screen.getByText(/40 labeled/)).toBeInTheDocument())
-  expect(screen.getByText(/95%/)).toBeInTheDocument()
-  expect(screen.getByText(/90%.*agreement/)).toBeInTheDocument()
+  await waitFor(() => expect(screen.getByRole('heading', { name: 'Question quality' })).toBeInTheDocument())
+  expect(screen.getByText(/It does not measure your course grade/)).toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: 'Are the questions ready to study?' })).toBeInTheDocument()
+  expect(screen.getByText('38 of 40')).toBeInTheDocument()
+  expect(screen.getByText('36 of 40')).toBeInTheDocument()
+  expect(screen.getByText('34 of 40')).toBeInTheDocument()
+  expect(screen.getByText('95% pass · 2 questions need review')).toBeInTheDocument()
 })
 
-test('says there is no grader agreement to report when nothing was graded', async () => {
+test('says there are no quality checks yet when no questions have labels', async () => {
+  vi.mocked(api.evalReport).mockResolvedValueOnce({
+    labeled: 0, pctAnswerable: 0, pctCorrectAnswer: 0, pctUnambiguous: 0,
+    gradedShortAnswers: 8, graderAgreement: 0.75,
+  })
+  render(<EvalPage />)
+  await waitFor(() => expect(screen.getByText(/No question-quality labels yet/i)).toBeInTheDocument())
+  expect(screen.queryByText('Answerable from the source')).not.toBeInTheDocument()
+  expect(screen.getByText('75% match')).toBeInTheDocument()
+})
+
+test('says there is no automatic-grading sample instead of showing a misleading zero percent', async () => {
   vi.mocked(api.evalReport).mockResolvedValueOnce({
     labeled: 12, pctAnswerable: 0.95, pctCorrectAnswer: 0.88, pctUnambiguous: 0.75,
     gradedShortAnswers: 0, graderAgreement: 0,
   })
   render(<EvalPage />)
-  await waitFor(() => expect(screen.getByText(/no graded short answers yet/i)).toBeInTheDocument())
-  expect(screen.queryByText(/agreement/i)).not.toBeInTheDocument()
-  expect(screen.queryByText(/0%/)).not.toBeInTheDocument()
+  await waitFor(() => expect(screen.getByText(/No automatically graded short answers yet/i)).toBeInTheDocument())
+  expect(screen.queryByText(/0% match/)).not.toBeInTheDocument()
 })
 
 test('shows a failed report load in the alert', async () => {
@@ -36,44 +50,29 @@ test('shows a failed report load in the alert', async () => {
   await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('500 /api/eval/report'))
 })
 
-test('says nothing is labelled yet instead of three 0% label rates', async () => {
-  vi.mocked(api.evalReport).mockResolvedValueOnce({
-    labeled: 0, pctAnswerable: 0, pctCorrectAnswer: 0, pctUnambiguous: 0,
-    gradedShortAnswers: 8, graderAgreement: 0.75,
-  })
-  render(<EvalPage />)
-  await waitFor(() => expect(screen.getByText(/no labeled questions yet/i)).toBeInTheDocument())
-  expect(screen.queryByText(/answerable/i)).not.toBeInTheDocument()
-  expect(screen.queryByText(/0%/)).not.toBeInTheDocument()
-  expect(screen.getByText(/75%.*agreement/)).toBeInTheDocument()
-})
-
-test('counts read as singular when there is exactly one of a thing', async () => {
+test('keeps singular counts readable', async () => {
   vi.mocked(api.evalReport).mockResolvedValueOnce({
     labeled: 1, pctAnswerable: 1, pctCorrectAnswer: 1, pctUnambiguous: 1,
     gradedShortAnswers: 1, graderAgreement: 1,
   })
   render(<EvalPage />)
-  await waitFor(() => expect(screen.getByText('1 labeled question')).toBeInTheDocument())
-  expect(screen.getByText(/^1 graded short answer,/)).toBeInTheDocument()
+  await waitFor(() => expect(screen.getAllByText('1 of 1')).toHaveLength(3))
+  expect(screen.getByText(/across 1 automatically graded short answer/)).toBeInTheDocument()
 })
 
-test('the grader tile carries its n and is flagged while the sample is under thirty', async () => {
+test('calls out when the automatic-grading sample is still small', async () => {
   render(<EvalPage />)
-  const tile = (await screen.findByText('Grader agreement')).closest('li')!
-  expect(tile).toHaveClass('figure-tile--flag')
-  expect(tile.querySelector('.figure-n')).toHaveTextContent('n=20')
-  expect(screen.getByText(/The flag stays until there are 30/)).toBeInTheDocument()
+  const calibration = (await screen.findByText('90% match')).closest('.calibration')!
+  expect(calibration).toHaveClass('calibration--small')
+  expect(screen.getByText(/more reliable after 30 graded short answers/)).toBeInTheDocument()
 })
 
-test('at thirty graded answers the flag comes off', async () => {
+test('removes the small-sample warning at thirty graded answers', async () => {
   vi.mocked(api.evalReport).mockResolvedValueOnce({
     labeled: 40, pctAnswerable: 0.95, pctCorrectAnswer: 0.9, pctUnambiguous: 0.85,
     gradedShortAnswers: 30, graderAgreement: 0.9,
   })
   render(<EvalPage />)
-  const tile = (await screen.findByText('Grader agreement')).closest('li')!
-  expect(tile).not.toHaveClass('figure-tile--flag')
-  expect(tile.querySelector('.figure-n')).toHaveTextContent('n=30')
-  expect(screen.queryByText(/The flag stays/)).not.toBeInTheDocument()
+  const calibration = (await screen.findByText('90% match')).closest('.calibration')!
+  expect(calibration).not.toHaveClass('calibration--small')
 })

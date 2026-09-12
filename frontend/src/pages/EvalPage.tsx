@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { api, type EvalReport } from '../api'
 import { plural } from '../plural'
 
-/* under this many graded short answers, the agreement figure wears the flag */
 const REAL_SAMPLE = 30
 
 export default function EvalPage() {
@@ -14,48 +13,80 @@ export default function EvalPage() {
   }, [])
 
   const pct = (x: number) => `${Math.round(x * 100)}%`
+  const passed = (rate: number, total: number) => Math.round(rate * total)
 
   return (
     <div className="page">
       <header className="page-head">
-        <h1>Evaluation</h1>
+        <div>
+          <p className="eyebrow">Evaluation</p>
+          <h1>Question quality</h1>
+          <p className="lede">Use this page to check the question bank and automatic grading. It does not measure your course grade.</p>
+        </div>
       </header>
       {error && <p className="alert" role="alert">{error}</p>}
       {!report && !error && <p className="empty">Loading…</p>}
       {report && (
         <div className="eval-panel">
-          {/* the backend reports 0.0 rates for "nothing labeled" too, and 0% would read as
-              "no question is answerable" rather than "no question has been judged yet" */}
-          {report.labeled === 0
-            ? <p className="empty">No labeled questions yet.</p>
-            : <p className="lede">{plural(report.labeled, 'labeled question')}</p>}
-          <ul className="figures">
-            {report.labeled > 0 && (
-              <>
-                <li className="figure-tile"><b>{pct(report.pctAnswerable)}</b><span>Answerable from source</span></li>
-                <li className="figure-tile"><b>{pct(report.pctCorrectAnswer)}</b><span>Correct answer</span></li>
-                <li className="figure-tile"><b>{pct(report.pctUnambiguous)}</b><span>Unambiguous</span></li>
-              </>
+          <section className="eval-section" aria-labelledby="question-checks-title">
+            <div className="eval-section-head">
+              <p className="eyebrow">Question checks</p>
+              <h2 id="question-checks-title">Are the questions ready to study?</h2>
+              <p>Each check comes from a manually labelled sample of bank questions.</p>
+            </div>
+            {report.labeled === 0 ? (
+              <p className="empty">No question-quality labels yet. Label a few bank questions to start checking them here.</p>
+            ) : (
+              <ul className="quality-list">
+                <QualityCheck title="Answerable from the source" detail="Can the cited source pages support the answer?"
+                  rate={report.pctAnswerable} total={report.labeled} pct={pct} passed={passed} />
+                <QualityCheck title="Answer key is correct" detail="Does the saved answer key match the source?"
+                  rate={report.pctCorrectAnswer} total={report.labeled} pct={pct} passed={passed} />
+                <QualityCheck title="One clear best answer" detail="Is the wording specific enough to avoid multiple reasonable answers?"
+                  rate={report.pctUnambiguous} total={report.labeled} pct={pct} passed={passed} />
+              </ul>
             )}
-            {report.gradedShortAnswers > 0 && (
-              <li className={`figure-tile${report.gradedShortAnswers < REAL_SAMPLE ? ' figure-tile--flag' : ''}`}>
-                <b>{pct(report.graderAgreement)}<span className="figure-n">n={report.gradedShortAnswers}</span></b>
-                <span>Grader agreement</span>
-              </li>
+          </section>
+          <section className="eval-section" aria-labelledby="grader-title">
+            <div className="eval-section-head">
+              <p className="eyebrow">Short-answer grading</p>
+              <h2 id="grader-title">Is automatic grading matching your corrections?</h2>
+              <p>This is separate from question quality: it checks the automatic short-answer verdict after you have a chance to reverse it.</p>
+            </div>
+            {report.gradedShortAnswers === 0 ? (
+              <p className="empty">No automatically graded short answers yet. Complete short-answer prompts to start checking the grader.</p>
+            ) : (
+              <div className={`calibration${report.gradedShortAnswers < REAL_SAMPLE ? ' calibration--small' : ''}`}>
+                <p className="calibration-score"><b>{pct(report.graderAgreement)} match</b><span>across {plural(report.gradedShortAnswers, 'automatically graded short answer')}</span></p>
+                <p>The match rate changes when you reverse an automatic grade. It becomes more reliable after {REAL_SAMPLE} graded short answers.</p>
+              </div>
             )}
-          </ul>
-          {/* the backend reports 0.0 agreement for "nothing graded" too, and 0% would read as total disagreement */}
-          {report.gradedShortAnswers === 0
-            ? <p className="empty">No graded short answers yet.</p>
-            : <p className="eval-line">{plural(report.gradedShortAnswers, 'graded short answer')}, {pct(report.graderAgreement)} grader agreement</p>}
-          {report.gradedShortAnswers > 0 && report.gradedShortAnswers < REAL_SAMPLE && (
-            <p className="caveat">
-              The grader agreement covers only {plural(report.gradedShortAnswers, 'graded short answer')}.
-              The flag stays until there are {REAL_SAMPLE}.
-            </p>
-          )}
+          </section>
         </div>
       )}
     </div>
+  )
+}
+
+interface QualityCheckProps {
+  title: string
+  detail: string
+  rate: number
+  total: number
+  pct: (rate: number) => string
+  passed: (rate: number, total: number) => number
+}
+
+function QualityCheck({ title, detail, rate, total, pct, passed }: QualityCheckProps) {
+  const ready = passed(rate, total)
+  const needsReview = total - ready
+  return (
+    <li className="quality-check">
+      <div>
+        <h3>{title}</h3>
+        <p>{detail}</p>
+      </div>
+      <p className="quality-score"><b>{ready} of {total}</b><span>{pct(rate)} pass · {plural(needsReview, 'question')} need review</span></p>
+    </li>
   )
 }
