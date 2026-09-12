@@ -4,26 +4,75 @@
   padding-inline: var(--gutter);
 }
 
-/* one wash, one place: the top of the home page. Everything else is the plain page. */
+/* one wash, one place: the top of the home page. Everything else is the plain page.
+   The colour field fades into --page so the header never ends on a hard seam. */
 .band {
-  padding: 22px 0 56px;
+  position: relative;
+  isolation: isolate;
+  padding: 20px 0 72px;
   background: var(--band);
+  overflow: hidden;
+}
+
+.atmosphere {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.atmosphere-gl,
+.atmosphere-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.atmosphere-gl {
+  opacity: 0.85;
+}
+
+.blob { fill: var(--blob-0); }
+.blob-1 { fill: var(--blob-1); }
+.blob-2 { fill: var(--blob-2); }
+.blob-3 { fill: var(--blob-3); }
+
+.band .wrap,
+.frame .wrap {
+  position: relative;
+  z-index: 1;
 }
 
 /* every page but home: the nav pill on the plain page, then the page */
 .frame {
-  padding: 22px 0 64px;
+  position: relative;
+  padding: 20px 0 72px;
+}
+
+.frame::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 220px;
+  background: var(--band);
+  pointer-events: none;
+  z-index: 0;
 }
 
 .nav {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: clamp(16px, 3vw, 40px);
-  padding: 15px 24px;
-  background: var(--card);
+  gap: clamp(12px, 2.4vw, 28px);
+  padding: 10px 12px 10px 18px;
+  background: var(--glass);
+  border: 1px solid var(--glass-line);
   border-radius: var(--radius-nav);
   box-shadow: var(--shadow-nav);
+  backdrop-filter: saturate(1.7) blur(22px);
+  -webkit-backdrop-filter: saturate(1.7) blur(22px);
 }
 
 .wordmark {
@@ -32,42 +81,55 @@
   gap: 9px;
   font-size: 16px;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
   color: var(--ink);
 }
 
 .wordmark::before {
   content: '';
-  width: 9px;
-  height: 9px;
+  width: 11px;
+  height: 11px;
+  border-radius: 4px;
   background: var(--accent);
+  box-shadow: 0 0 0 3px var(--ok-wash);
 }
 
 .nav-links {
   display: flex;
   flex-wrap: wrap;
-  gap: clamp(14px, 2vw, 28px);
-  font-size: 15px;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--sunken);
+  font-size: 14px;
 }
 
 .nav-links a {
+  padding: 7px 14px;
+  border-radius: var(--radius-pill);
   color: var(--ink-soft);
+  font-weight: 500;
 }
 
 .nav-links a:hover {
   color: var(--ink);
+  text-decoration: none;
 }
 
 .nav-links a.is-current {
+  background: var(--card);
   color: var(--ink);
   font-weight: 600;
+  box-shadow: var(--shadow-nav);
 }
 
 /* the number the app publishes about itself, always in view */
 .readout {
   margin-left: auto;
+  padding-right: 8px;
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: 12px;
   color: var(--ink-dim);
 }
 
@@ -79,7 +141,7 @@
   display: flex;
   flex-direction: column;
   gap: 32px;
-  margin-top: 44px;
+  margin-top: 36px;
 }
 
 /* the head of a page: its title on the left, and on the right whatever the page puts
@@ -96,7 +158,7 @@
 }
 
 .course-head h1 {
-  margin-top: 12px;
+  margin-top: 10px;
 }
 
 /* the page fills this: the study figure, the upload control */
@@ -114,6 +176,6 @@
   }
 
   .page {
-    margin-top: 32px;
+    margin-top: 28px;
   }
 }

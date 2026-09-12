@@ -9,23 +9,23 @@
 :root {
   color-scheme: light;
 
-  --page: oklch(99% 0.002 250);
+  --page: oklch(99.2% 0.004 250);
   --card: oklch(100% 0 0);
-  --sunken: oklch(97.5% 0.006 250);
-  --line: oklch(91% 0.006 250);
-  --line-dashed: oklch(82% 0.008 250);
+  --sunken: oklch(97.2% 0.008 250);
+  --line: oklch(92% 0.01 250);
+  --line-dashed: oklch(84% 0.012 250);
 
-  --ink: oklch(22% 0.012 250);
-  --ink-fill: oklch(20% 0.012 250);
-  --ink-fill-hover: oklch(28% 0.012 250);
-  --ink-soft: oklch(38% 0.012 250);
-  --ink-dim: oklch(46% 0.012 250);
+  --ink: oklch(20% 0.016 250);
+  --ink-fill: oklch(18% 0.016 250);
+  --ink-fill-hover: oklch(28% 0.016 250);
+  --ink-soft: oklch(36% 0.014 250);
+  --ink-dim: oklch(48% 0.012 250);
   /* ink on a filled control: the button, the current tab, the current concept row */
   --on-fill: oklch(99% 0 0);
   --on-fill-dim: oklch(85% 0.01 250);
 
-  --accent: oklch(50% 0.14 232);
-  --accent-strong: oklch(40% 0.14 232);
+  --accent: oklch(54% 0.15 240);
+  --accent-strong: oklch(42% 0.14 240);
   --flag: oklch(52% 0.16 28);
   --flag-wash: oklch(95% 0.045 28); /* (new) */
   --ok: oklch(50% 0.14 152); /* (new) */
@@ -33,31 +33,46 @@
 
   /* (new) the AWS Startups card hover: a soft cyan-blue halo, never a fade */
   --glow-line: oklch(78% 0.11 230);
-  --glow: 0 0 0 1px oklch(78% 0.11 230 / 0.7), 0 0 30px 6px oklch(84% 0.10 228 / 0.55);
+  --glow: 0 0 0 1px oklch(78% 0.11 230 / 0.45), 0 18px 40px oklch(70% 0.08 240 / 0.12);
 
-  --shadow-nav: 0 1px 2px oklch(22% 0.012 250 / 0.06), 0 8px 24px oklch(22% 0.012 250 / 0.06);
+  --shadow-nav: 0 1px 0 oklch(100% 0 0 / 0.7) inset, 0 10px 30px oklch(30% 0.04 250 / 0.08);
+  --shadow-card: 0 1px 0 oklch(100% 0 0 / 0.8) inset, 0 8px 24px oklch(30% 0.03 250 / 0.06);
+  --shadow-lift: 0 1px 0 oklch(100% 0 0 / 0.9) inset, 0 18px 40px oklch(30% 0.04 250 / 0.12);
 
-  /* one wash, one band, home page only */
-  --band: linear-gradient(118deg, oklch(93% 0.055 218) 0%, oklch(95% 0.035 265) 42%, oklch(94% 0.05 12) 100%);
+  --glass: oklch(100% 0 0 / 0.62);
+  --glass-line: oklch(100% 0 0 / 0.55);
+
+  /* header wash that dissolves into the page white, plus the blobs that sit in it */
+  --band: linear-gradient(180deg,
+    oklch(93% 0.07 218) 0%,
+    oklch(95% 0.05 250) 32%,
+    oklch(96% 0.04 12) 58%,
+    oklch(99.2% 0.004 250) 100%);
+  --blob-0: oklch(86% 0.11 218);
+  --blob-1: oklch(88% 0.09 280);
+  --blob-2: oklch(90% 0.08 12);
+  --blob-3: oklch(91% 0.07 152);
+  --shine: linear-gradient(180deg, oklch(100% 0 0 / 0.45), oklch(100% 0 0 / 0));
 
   /* course tile washes, keyed by course id modulo five, drawn from the band's own hues */
-  --wash-0: linear-gradient(135deg, oklch(93% 0.055 218), oklch(95% 0.035 265));
-  --wash-1: linear-gradient(135deg, oklch(95% 0.035 265), oklch(94% 0.05 12));
-  --wash-2: linear-gradient(135deg, oklch(94% 0.05 152), oklch(93% 0.055 218));
-  --wash-3: linear-gradient(135deg, oklch(94% 0.05 12), oklch(95% 0.05 80));
-  --wash-4: linear-gradient(135deg, oklch(95% 0.05 80), oklch(94% 0.05 152));
+  --wash-0: linear-gradient(160deg, oklch(93% 0.07 218), oklch(96% 0.04 265));
+  --wash-1: linear-gradient(160deg, oklch(95% 0.05 265), oklch(96% 0.05 12));
+  --wash-2: linear-gradient(160deg, oklch(95% 0.06 152), oklch(94% 0.06 218));
+  --wash-3: linear-gradient(160deg, oklch(95% 0.06 12), oklch(96% 0.05 80));
+  --wash-4: linear-gradient(160deg, oklch(96% 0.05 80), oklch(95% 0.05 152));
 
-  --font-sans: 'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display',
+    'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 
-  --radius: 14px;
-  --radius-panel: 18px;
-  --radius-nav: 12px;
+  --radius: 20px;
+  --radius-panel: 24px;
+  --radius-nav: 22px;
   --radius-pill: 999px;
 
-  --wrap: 1180px;
-  --gutter: clamp(20px, 4vw, 56px);
+  --wrap: 1120px;
+  --gutter: clamp(20px, 4vw, 48px);
 
-  --motion: 160ms;
-  --ease: ease;
+  --motion: 220ms;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
 }

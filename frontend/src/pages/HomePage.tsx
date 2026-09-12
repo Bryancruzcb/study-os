@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { plural } from '../plural'
+import Atmosphere from '../shell/Atmosphere'
 import Nav from '../shell/Nav'
 import { dueSplit, useCourses } from '../shell/courses'
 
@@ -76,6 +77,7 @@ export default function HomePage() {
   return (
     <>
       <div className="band">
+        <Atmosphere />
         <div className="wrap">
           <Nav />
           <header className="hero">
