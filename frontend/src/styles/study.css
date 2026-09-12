@@ -26,7 +26,8 @@
   padding: clamp(24px, 4vw, 40px);
   background: var(--card);
   border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-card);
 }
 
 .prompt {
