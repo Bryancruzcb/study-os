@@ -15,7 +15,7 @@ public record QuestionView(Long id, String type, String prompt, List<String> opt
             parseOptions(q, mapper), q.sourcePages);
     }
 
-    private static List<String> parseOptions(Question q, ObjectMapper mapper) {
+    static List<String> parseOptions(Question q, ObjectMapper mapper) {
         if (q.optionsJson == null || q.optionsJson.isBlank()) return List.of();
         try {
             return mapper.readValue(q.optionsJson, STRING_LIST);

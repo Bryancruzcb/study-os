@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useOutletContext } from 'react-router-dom'
-import { api, type Attempt, type StudyQuestion } from '../api'
+import { api, type AnsweredAttempt, type Attempt, type StudyQuestion } from '../api'
 import type { CourseContext } from '../shell/CourseLayout'
 
 const LETTERS = 'ABCDEFGHIJ'
@@ -11,6 +11,7 @@ export default function StudyPage() {
   const { course, refresh, slot } = useOutletContext<CourseContext>()
   const [question, setQuestion] = useState<StudyQuestion | null>(null)
   const [attempt, setAttempt] = useState<Attempt | null>(null)
+  const [answerKey, setAnswerKey] = useState<string | null>(null)
   const [picked, setPicked] = useState<number | null>(null)
   const [text, setText] = useState('')
   const [submitted, setSubmitted] = useState('')
@@ -69,6 +70,7 @@ export default function StudyPage() {
     const q = await api.next(course.id)
     setQuestion(q)
     setAttempt(null)
+    setAnswerKey(null)
     setPicked(null)
     setSubmitted('')
     setDone(q === null)
@@ -88,17 +90,25 @@ export default function StudyPage() {
   }
 
   // every verdict moves the concept out of today's queue, so the head figure is stale after one
-  function submit(call: () => Promise<Attempt>) {
+  function saveAttempt(call: () => Promise<Attempt>) {
     return run(async () => {
       setAttempt(await call())
       await refresh()
     })
   }
 
+  function submitAnswer(call: () => Promise<AnsweredAttempt>) {
+    return saveAttempt(async () => {
+      const result = await call()
+      setAnswerKey(result.answerKey)
+      return result
+    })
+  }
+
   function answerMc(index: number) {
     if (!question) return
     setPicked(index)
-    submit(() => api.answer({ questionId: question.id, answerIndex: index }))
+    submitAnswer(() => api.answer({ questionId: question.id, answerIndex: index }))
   }
 
   function answerShort() {
@@ -106,7 +116,7 @@ export default function StudyPage() {
     // trimmed on the way out for the same reason Submit is gated on the trim: the
     // padding is not part of the answer and it is billed and stored either way
     const answer = text.trim()
-    submit(async () => {
+    submitAnswer(async () => {
       const a = await api.answer({ questionId: question.id, answerText: answer })
       setSubmitted(answer)
       setText('')
@@ -160,6 +170,12 @@ export default function StudyPage() {
           {attempt && (
             <>
               {submitted && <p className="your-answer">{submitted}</p>}
+              {answerKey && attempt.verdict === 'PENDING' && (
+                <details className="answer-review">
+                  <summary>Check the answer before self-grading</summary>
+                  <p className="answer-key"><span>Answer key</span>{answerKey}</p>
+                </details>
+              )}
               {attempt.verdict === 'PENDING' ? (
                 <div ref={band} tabIndex={-1} className="verdict verdict--pending">
                   <p className="verdict-line">
@@ -168,9 +184,9 @@ export default function StudyPage() {
                   </p>
                   <div className="actions">
                     <button className="btn btn--secondary" disabled={submitting}
-                      onClick={() => submit(() => api.selfGrade(attempt.id, true))}>I got it right</button>
+                      onClick={() => saveAttempt(() => api.selfGrade(attempt.id, true))}>I got it right</button>
                     <button className="btn btn--secondary" disabled={submitting}
-                      onClick={() => submit(() => api.selfGrade(attempt.id, false))}>I got it wrong</button>
+                      onClick={() => saveAttempt(() => api.selfGrade(attempt.id, false))}>I got it wrong</button>
                     <button className="btn" disabled={submitting} onClick={next}>Next question</button>
                   </div>
                 </div>
@@ -186,9 +202,15 @@ export default function StudyPage() {
                     <p className="verdict-note">You picked {letter(picked)}: {question.options[picked]}</p>
                   )}
                   {attempt.feedback && <p className="verdict-note">Grader: {attempt.feedback}</p>}
+                  {answerKey && (
+                    <details className="answer-review" open={attempt.verdict === 'INCORRECT'}>
+                      <summary>Check the answer</summary>
+                      <p className="answer-key"><span>Answer key</span>{answerKey}</p>
+                    </details>
+                  )}
                   <div className="actions">
                     <button className="btn btn--secondary" disabled={submitting}
-                      onClick={() => submit(() => api.override(attempt.id))}>
+                      onClick={() => saveAttempt(() => api.override(attempt.id))}>
                       {attempt.verdict === 'INCORRECT' ? 'I was actually right' : 'I was actually wrong'}
                     </button>
                     <button className="btn" disabled={submitting} onClick={next}>Next question</button>

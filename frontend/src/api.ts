@@ -34,6 +34,7 @@ export interface Material {
 }
 export interface StudyQuestion { id: number; type: 'MC' | 'SHORT_ANSWER'; prompt: string; options: string[]; sourcePages: string | null }
 export interface Attempt { id: number; verdict: 'CORRECT' | 'INCORRECT' | 'PENDING'; score: number | null; feedback: string | null }
+export interface AnsweredAttempt extends Attempt { answerKey: string | null }
 export interface ConceptStats { conceptId: number; name: string; streak: number; attempts: number; correct: number; dueDate: string; neverAttempted: boolean }
 export interface Dashboard { dueToday: number; concepts: ConceptStats[] }
 export interface EvalReport { labeled: number; pctAnswerable: number; pctCorrectAnswer: number; pctUnambiguous: number; gradedShortAnswers: number; graderAgreement: number }
@@ -92,7 +93,7 @@ export const api = {
     return readJson<StudyQuestion>(res, '/api/study/next')
   },
   answer: (body: { questionId: number; answerIndex?: number; answerText?: string }) =>
-    post<Attempt>('/api/study/answer', body),
+    post<AnsweredAttempt>('/api/study/answer', body),
   override: (attemptId: number) => post<Attempt>(`/api/study/attempts/${attemptId}/override`, {}),
   selfGrade: (attemptId: number, correct: boolean) => post<Attempt>(`/api/study/attempts/${attemptId}/self-grade`, { correct }),
   dashboard: (courseId: number) => get<Dashboard>(`/api/dashboard?courseId=${courseId}`),

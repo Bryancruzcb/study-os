@@ -158,6 +158,44 @@
   color: var(--ink-soft);
 }
 
+.answer-review {
+  padding: 0 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+}
+
+.answer-review summary {
+  padding: 15px 0;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.answer-review[open] summary {
+  border-bottom: 1px solid var(--line);
+}
+
+.answer-key {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 0 16px;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.answer-key span {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;

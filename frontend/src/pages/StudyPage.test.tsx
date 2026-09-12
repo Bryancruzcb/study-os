@@ -1,7 +1,7 @@
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, vi } from 'vitest'
-import { api, type Attempt, type StudyQuestion } from '../api'
+import { api, type AnsweredAttempt, type Attempt, type StudyQuestion } from '../api'
 import { renderInCourse } from '../test/render'
 import StudyPage from './StudyPage'
 
@@ -23,7 +23,7 @@ beforeEach(() => {
   vi.mocked(api.next).mockResolvedValue({
     id: 9, type: 'MC', prompt: 'Steps in the TCP handshake?', options: ['1', '2', '3', '4'], sourcePages: '3',
   })
-  vi.mocked(api.answer).mockResolvedValue({ id: 1, verdict: 'CORRECT', score: 1, feedback: null })
+  vi.mocked(api.answer).mockResolvedValue({ id: 1, verdict: 'CORRECT', score: 1, feedback: null, answerKey: '3' })
 })
 
 const shortAnswer: StudyQuestion = {
@@ -37,7 +37,7 @@ async function renderWithQuestion() {
 
 async function renderShortAnswer(attempt: Attempt) {
   vi.mocked(api.next).mockResolvedValueOnce(shortAnswer)
-  vi.mocked(api.answer).mockResolvedValueOnce(attempt)
+  vi.mocked(api.answer).mockResolvedValueOnce({ ...attempt, answerKey: 'SYN, SYN-ACK, ACK' })
   renderInCourse(<StudyPage />, 'study')
   await waitFor(() => expect(screen.getByText('Describe the handshake.')).toBeInTheDocument())
   await userEvent.type(screen.getByRole('textbox'), 'SYN then SYN-ACK')
@@ -52,6 +52,25 @@ test('shows the question with its type and pages, submits an MC answer, shows th
   await waitFor(() => expect(screen.getByText(/Correct/)).toBeInTheDocument())
   expect(screen.getByText('You picked C: 3')).toBeInTheDocument()
   expect(api.answer).toHaveBeenCalledWith({ questionId: 9, answerIndex: 2 })
+})
+
+test('offers the answer key after an answer is submitted', async () => {
+  await renderWithQuestion()
+  await userEvent.click(screen.getByRole('button', { name: '3' }))
+  const review = (await screen.findByText('Check the answer')).closest('details')!
+  expect(review).toHaveTextContent('Answer key3')
+  expect(review).not.toHaveAttribute('open')
+})
+
+test('opens the answer key automatically after an incorrect answer', async () => {
+  vi.mocked(api.answer).mockResolvedValueOnce({
+    id: 1, verdict: 'INCORRECT', score: 0, feedback: null, answerKey: '4',
+  })
+  await renderWithQuestion()
+  await userEvent.click(screen.getByRole('button', { name: '3' }))
+  const review = (await screen.findByText('Check the answer')).closest('details')!
+  expect(review).toHaveAttribute('open')
+  expect(review).toHaveTextContent('Answer key4')
 })
 
 test('the head figure shows what is left and the overview is refetched after an answer', async () => {
@@ -102,14 +121,14 @@ test('shows an alert when answering fails', async () => {
 })
 
 test('ignores a second click while an answer is pending', async () => {
-  let resolveAnswer!: (a: Attempt) => void
-  vi.mocked(api.answer).mockReturnValueOnce(new Promise<Attempt>(r => { resolveAnswer = r }))
+  let resolveAnswer!: (a: AnsweredAttempt) => void
+  vi.mocked(api.answer).mockReturnValueOnce(new Promise<AnsweredAttempt>(r => { resolveAnswer = r }))
   await renderWithQuestion()
   await userEvent.click(screen.getByRole('button', { name: '3' }))
   await userEvent.click(screen.getByRole('button', { name: '4' }))
   expect(api.answer).toHaveBeenCalledTimes(1)
   expect(screen.getByRole('button', { name: '4' })).toBeDisabled()
-  resolveAnswer({ id: 1, verdict: 'CORRECT', score: 1, feedback: null })
+  resolveAnswer({ id: 1, verdict: 'CORRECT', score: 1, feedback: null, answerKey: '3' })
   await waitFor(() => expect(screen.getByText(/Correct/)).toBeInTheDocument())
 })
 

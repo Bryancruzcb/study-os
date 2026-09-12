@@ -49,13 +49,38 @@ class StudyControllerTest {
 
     @Test
     void mcAnswerRoutesToService() throws Exception {
+        Question q = new Question();
+        q.type = QuestionType.MC;
+        q.optionsJson = "[\"1\",\"2\",\"3\",\"4\"]";
+        q.correctIndex = 2;
         Attempt a = new Attempt();
+        a.id = 4L;
+        a.question = q;
         a.verdict = Verdict.CORRECT;
         when(studyService.answerMc(9L, 2)).thenReturn(a);
         mvc.perform(post("/api/study/answer")
                 .contentType("application/json")
                 .content("{\"questionId\":9,\"answerIndex\":2}"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.verdict").value("CORRECT"));
+            .andExpect(jsonPath("$.verdict").value("CORRECT"))
+            .andExpect(jsonPath("$.answerKey").value("3"))
+            .andExpect(jsonPath("$.correctIndex").doesNotExist());
+    }
+
+    @Test
+    void shortAnswerResultIncludesTheModelAnswerOnlyAfterSubmission() throws Exception {
+        Question q = new Question();
+        q.type = QuestionType.SHORT_ANSWER;
+        q.modelAnswer = "SYN, SYN-ACK, ACK";
+        Attempt a = new Attempt();
+        a.id = 5L;
+        a.question = q;
+        a.verdict = Verdict.INCORRECT;
+        when(studyService.answerShort(10L, "SYN then ACK")).thenReturn(a);
+        mvc.perform(post("/api/study/answer")
+                .contentType("application/json")
+                .content("{\"questionId\":10,\"answerText\":\"SYN then ACK\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.answerKey").value("SYN, SYN-ACK, ACK"));
     }
 }

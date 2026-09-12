@@ -27,12 +27,12 @@ public class StudyController {
     }
 
     @PostMapping("/answer")
-    public Attempt answer(@RequestBody AnswerRequest req) {
+    public AnswerResult answer(@RequestBody AnswerRequest req) {
         if (req.answerIndex() != null) {
-            return studyService.answerMc(req.questionId(), req.answerIndex());
+            return AnswerResult.from(studyService.answerMc(req.questionId(), req.answerIndex()), mapper);
         }
         if (req.answerText() != null) {
-            return studyService.answerShort(req.questionId(), req.answerText());
+            return AnswerResult.from(studyService.answerShort(req.questionId(), req.answerText()), mapper);
         }
         throw new IllegalArgumentException("answerIndex or answerText required");
     }
