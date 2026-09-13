@@ -7,8 +7,11 @@ every override is counted. The app reports how often the grader and I disagreed,
 the number it publishes about its own grader is one I can check.
 
 Around that: I upload a lecture PDF, get back concepts and questions cited to their
-source pages, then study them daily with spaced repetition, paced to my exam dates. The
-project page is at https://bryancruzcb.github.io/study-os/.
+source pages, then study them daily with spaced repetition, paced to my exam dates. When
+I want to test myself on everything at once, a quiz shuffles every question from every
+topic together and shows, after each answer, why each option is right or wrong according
+to the slides, with a diagram where a picture helps. The project page is at
+https://bryancruzcb.github.io/study-os/.
 
 ## Walkthrough
 
@@ -29,6 +32,17 @@ bank, the middle tile lit where the pointer rests](docs/screenshots/courses.jpg)
 *Home. Each class is a tile; the number is what the schedule wants from me today, and
 the dashed tile after the courses makes a new one. Cards and buttons catch a light that
 follows the pointer, and the pill in the top bar slides to the page I am on.*
+
+![A quiz question on fork() after a wrong pick: four options, the picked one red and the
+right one green, each with a sentence from the slides on why, then the Incorrect verdict
+with the explanation and a sequence diagram of the parent and child
+processes](docs/screenshots/quiz.jpg)
+
+*A quiz question after I missed it. Every option says why the slides make it right or
+wrong, with the right answer in green and my pick in red, and the explanation underneath
+cites the slides it comes from and draws the parent and child processes. The quiz is
+every question from every lecture I pick, shuffled, and it never touches the study
+schedule.*
 
 ![The question bank: the course's concept list on the left with the open concept filled
 dark, and on the right that concept's lecture file and slides above its question cards,
@@ -97,17 +111,33 @@ right".*
 - Grading: multiple choice is checked against the stored answer index. A short answer
   gets one grader call against the question's rubric. If that call fails the attempt
   stays PENDING and I grade it myself, so studying never blocks on the API.
+- Quiz: every question in the course, or in the lectures I pick, shuffled into one quiz.
+  A shorter quiz deals from every topic in turn, so ten questions cover ten topics before
+  any topic gets a second. A short answer shows the model answer and its rubric and I mark
+  it myself, so a quiz spends nothing on the grader. A quiz records no attempts and moves
+  no review dates. The results list each lecture weakest first and the questions I missed,
+  with a way to retake just those, and the run is kept in the browser, so a long quiz
+  picks up where I left it.
+- Explanations: a question can carry an explanation, a note for each option and a Mermaid
+  diagram, all drawn only from its lecture's slides and cited by slide number. For the
+  current bank they were written from each deck's slide text, reading the figure slides as
+  images, and every deck had to pass a validator before it went in: every question
+  covered, every cited slide one the deck really has, and every diagram parsed by the same
+  mermaid version the app ships. Where a slide contradicted a question's answer key, the
+  key was corrected; a class poll whose slide never gives the answer says so rather than
+  guessing. Diagrams are drawn in mermaid's strict mode, in the page's own colours, and
+  mermaid loads only when a question has a diagram.
 - Home is a grid of course tiles, one per class, each showing what is due today and how
   much is in the bank, and a New course tile that makes a course and opens its bank for
-  the first upload. Inside a course there are three tabs: Study (answer, override a
+  the first upload. Inside a course there are four tabs: Study (answer, override a
   verdict, self-grade a PENDING one, and step back through the questions already
-  answered in this visit to override or self-grade them there), Bank (upload a PDF,
-  open a concept, label its questions, retire bad ones behind a confirm step and
-  restore them when I misclick), and Dashboard (the course's exams, added, edited and
-  deleted there, each with what today holds for it and when new topics give way to
-  review, how many concepts are due, the share of graded answers I got right, the five
-  weakest concepts to work on next, and a row per lecture with a bar of how its concepts
-  stand that opens to the concepts themselves, eight lectures to a page).
+  answered in this visit to override or self-grade them there), Quiz (above), Bank
+  (upload a PDF, open a concept, label its questions, retire bad ones behind a confirm
+  step and restore them when I misclick), and Dashboard (the course's exams, added,
+  edited and deleted there, each with what today holds for it and when new topics give
+  way to review, how many concepts are due, the share of graded answers I got right, the
+  five weakest concepts to work on next, and a row per lecture with a bar of how its
+  concepts stand that opens to the concepts themselves, eight lectures to a page).
   Every question names its concept, the lecture file and the slides it came from, so I
   can check it against the source. Eval (the report below) is global, and it grades the
   app rather than me.
@@ -154,17 +184,18 @@ Everything else is in `backend/src/main/resources/application.yml`: the two mode
     mvn -f backend/pom.xml test
     cd frontend && npm install && npm test
 
-105 backend tests and 155 frontend tests. Neither suite calls the Claude API or needs a
+109 backend tests and 180 frontend tests. Neither suite calls the Claude API or needs a
 database, so no key is needed to run them.
 
-One suite is deliberately not in that number. `PersistenceTest`, 10 tests, runs against
-a real Postgres, because four things cannot be checked without one: that
+One suite is deliberately not in that number. `PersistenceTest`, 12 tests, runs against
+a real Postgres, because some things cannot be checked without one: that
 `Attempt.createdAt` is non-null, that the concept and question lookups really are
 ordered, that the home tiles' counts see only their own course and only its live
-questions, and that the exam plan's queries find the exams still ahead of a lecture,
-nearest first, and count a concept as started only once an answer to it was graded. The
-ordering is what the latest-attempt override guard trusts. It is tagged `jpa` and
-excluded by default, so run it with a database up:
+questions, that the exam plan's queries find the exams still ahead of a lecture, nearest
+first, and count a concept as started only once an answer to it was graded, and that the
+quiz reads one course's live questions in lecture order into columns wide enough for a
+full explanation. The ordering is what the latest-attempt override guard trusts. It is
+tagged `jpa` and excluded by default, so run it with a database up:
 
     mvn -f backend/pom.xml test -Dtest.excludedGroups=none -Dgroups=jpa
 
@@ -191,3 +222,8 @@ file, so it comes in as a second lecture beside the first, and the old copy's qu
 can only be retired one at a time. Exam pacing counts topics, not how long they take, so
 a dense lecture's topics get the same share of a day as a light one's. Deleting an exam
 leaves its topics on the days its last plan gave them.
+
+Ingest does not write explanations yet. A lecture uploaded now gets its questions as
+before, and in a quiz they show the answer and the slides with a note that no explanation
+has been written. A quiz's progress lives in the browser it was taken in, so it does not
+follow me to another machine.
