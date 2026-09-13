@@ -20,6 +20,7 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +40,16 @@ public class IngestService {
     // matches @Column(length = 2000) on Material.errorMessage
     private static final int ERROR_MESSAGE_MAX = 2000;
     private static final String TRUNCATION_MARKER = " ...[truncated]";
+    // match the @Column lengths of Question's explanation fields
+    private static final int EXPLANATION_MAX = 4000;
+    private static final int OPTION_EXPLANATIONS_MAX = 8000;
+    private static final int DIAGRAM_MAX = 4000;
+    // the diagram kinds the quiz page draws; anything else, or one carrying an init directive, a
+    // click handler or a link, is left off instead of being handed to mermaid
+    private static final Pattern DIAGRAM_HEADER =
+        Pattern.compile("(?:(?:flowchart|graph)\\s+(?:TD|TB|LR|RL|BT)|sequenceDiagram|stateDiagram-v2)\\s*");
+    private static final Pattern DIAGRAM_BANNED =
+        Pattern.compile("%%\\{|\\bclick\\b|<script|href|javascript:", Pattern.CASE_INSENSITIVE);
     private static final byte[] PDF_MAGIC = {'%', 'P', 'D', 'F', '-'};
     private static final byte[] ZIP_MAGIC = {'P', 'K', 0x03, 0x04};
 
@@ -123,6 +134,9 @@ public class IngestService {
                 q.rubric = qp.rubric();
                 q.sourcePages = qp.sourcePages() == null ? null
                     : qp.sourcePages().stream().map(String::valueOf).collect(Collectors.joining(","));
+                q.explanation = usableText(qp.explanation(), EXPLANATION_MAX);
+                q.optionExplanationsJson = usableOptionExplanations(q.type, qp);
+                q.diagram = usableDiagram(qp.diagram());
                 questionRepo.save(q);
             }
             // spread the payload forward: a concept goes on the first day from today onwards
@@ -256,6 +270,32 @@ public class IngestService {
         return "question \"" + prompt + "\"";
     }
 
+    // A question's explanations are extras. One that is blank, too long for its column, or out of
+    // step with its question is left off, so a single bad note never fails the whole lecture and
+    // buys a second paid extraction; the quiz shows the key and the slides without it.
+    private static String usableText(String text, int max) {
+        if (text == null || text.isBlank()) return null;
+        String stripped = text.strip();
+        return stripped.length() <= max ? stripped : null;
+    }
+
+    private String usableOptionExplanations(QuestionType type, QuestionPayload qp) {
+        List<String> notes = qp.optionExplanations();
+        if (type != QuestionType.MC || notes == null || qp.options() == null || notes.size() != qp.options().size()
+                || notes.stream().anyMatch(n -> n == null || n.isBlank())) {
+            return null;
+        }
+        String json = writeJson(notes.stream().map(String::strip).toList());
+        return json.length() <= OPTION_EXPLANATIONS_MAX ? json : null;
+    }
+
+    private static String usableDiagram(String diagram) {
+        String source = usableText(diagram, DIAGRAM_MAX);
+        if (source == null) return null;
+        String firstLine = source.lines().findFirst().orElse("").strip();
+        return DIAGRAM_HEADER.matcher(firstLine).matches() && !DIAGRAM_BANNED.matcher(source).find() ? source : null;
+    }
+
     private String joinPages(ConceptPayload cp) {
         return cp.sourcePages() == null ? null
             : cp.sourcePages().stream().map(String::valueOf).collect(Collectors.joining(","));
@@ -265,7 +305,7 @@ public class IngestService {
         try {
             return mapper.writeValueAsString(o);
         } catch (JsonProcessingException e) {
-            throw new AiException("could not serialize question options: " + e.getMessage(), e);
+            throw new AiException("could not serialize question fields: " + e.getMessage(), e);
         }
     }
 

@@ -125,7 +125,7 @@ class IngestServiceTest {
     void invalidQuestionTypeRetriesOnceThenFails() {
         ConceptPayload good = FakeAiClient.samplePayload().concepts().get(0);
         QuestionPayload bad = new QuestionPayload("multiple_choice", "How many steps in the TCP handshake?",
-            List.of("1", "2", "3", "4"), 2, null, null, List.of(3));
+            List.of("1", "2", "3", "4"), 2, null, null, List.of(3), null, null, null);
         ai.nextExtract = new IngestPayload(List.of(new ConceptPayload(
             good.name(), good.summary(), good.sourcePages(), List.of(bad, good.questions().get(1)))));
         Material m = service.ingest(1L, "week1.pdf", PDF);
@@ -183,7 +183,7 @@ class IngestServiceTest {
     void mcWithoutOptionsRetriesOnceThenFails() {
         ConceptPayload good = FakeAiClient.samplePayload().concepts().get(0);
         QuestionPayload bad = new QuestionPayload("MC", "How many steps in the TCP handshake?",
-            null, 2, null, null, List.of(3));
+            null, 2, null, null, List.of(3), null, null, null);
         ai.nextExtract = new IngestPayload(List.of(new ConceptPayload(
             good.name(), good.summary(), good.sourcePages(), List.of(bad, good.questions().get(1)))));
         Material m = service.ingest(1L, "week1.pdf", PDF);
@@ -198,7 +198,7 @@ class IngestServiceTest {
     void mcWithOutOfRangeIndexRetriesOnceThenFails() {
         ConceptPayload good = FakeAiClient.samplePayload().concepts().get(0);
         QuestionPayload bad = new QuestionPayload("MC", "How many steps in the TCP handshake?",
-            List.of("1", "2", "3", "4"), 4, null, null, List.of(3));
+            List.of("1", "2", "3", "4"), 4, null, null, List.of(3), null, null, null);
         ai.nextExtract = new IngestPayload(List.of(new ConceptPayload(
             good.name(), good.summary(), good.sourcePages(), List.of(bad, good.questions().get(1)))));
         Material m = service.ingest(1L, "week1.pdf", PDF);
@@ -213,7 +213,7 @@ class IngestServiceTest {
     void shortAnswerWithoutModelAnswerRetriesOnceThenFails() {
         ConceptPayload good = FakeAiClient.samplePayload().concepts().get(0);
         QuestionPayload bad = new QuestionPayload("SHORT_ANSWER", "Describe the TCP three-way handshake.",
-            null, null, null, "- names all three segments\n- correct order", List.of(3, 4));
+            null, null, null, "- names all three segments\n- correct order", List.of(3, 4), null, null, null);
         ai.nextExtract = new IngestPayload(List.of(new ConceptPayload(
             good.name(), good.summary(), good.sourcePages(), List.of(good.questions().get(0), bad))));
         Material m = service.ingest(1L, "week1.pdf", PDF);
@@ -346,5 +346,85 @@ class IngestServiceTest {
         Material material = service.ingest(1L, "slides.pptx", PPTX);
         assertEquals(MaterialStatus.FAILED, material.status);
         verify(examPlanner, never()).lectureAdded(any());
+    }
+
+    // --- explanations arrive with the questions ------------------------------------------
+
+    private List<Question> savedQuestions() {
+        ArgumentCaptor<Question> saved = ArgumentCaptor.forClass(Question.class);
+        verify(questionRepo, atLeastOnce()).save(saved.capture());
+        return saved.getAllValues();
+    }
+
+    /** The sample payload with its MC question's explanation fields swapped for these. */
+    private static IngestPayload mcWith(String explanation, List<String> optionExplanations, String diagram) {
+        ConceptPayload good = FakeAiClient.samplePayload().concepts().get(0);
+        QuestionPayload mc = good.questions().get(0);
+        QuestionPayload changed = new QuestionPayload(mc.type(), mc.prompt(), mc.options(), mc.correctIndex(),
+            mc.modelAnswer(), mc.rubric(), mc.sourcePages(), explanation, optionExplanations, diagram);
+        return new IngestPayload(List.of(new ConceptPayload(
+            good.name(), good.summary(), good.sourcePages(), List.of(changed, good.questions().get(1)))));
+    }
+
+    @Test
+    void explanationsNotesAndDiagramsAreStoredWithTheirQuestions() {
+        ai.nextExtract = FakeAiClient.samplePayload();
+        service.ingest(1L, "week1.pdf", PDF);
+        Question mc = savedQuestions().get(0);
+        Question shortAnswer = savedQuestions().get(1);
+        assertEquals("Slide 3 shows SYN, SYN-ACK and ACK before any data moves.", mc.explanation);
+        assertEquals("[\"Slide 3 shows more than one segment.\",\"Slide 3 adds an ACK after the SYN-ACK.\","
+            + "\"SYN, SYN-ACK and ACK are the three segments on slide 3.\",\"Slide 3 never shows a fourth segment.\"]",
+            mc.optionExplanationsJson);
+        assertTrue(mc.diagram.startsWith("sequenceDiagram"), mc.diagram);
+        assertTrue(shortAnswer.explanation.startsWith("Slides 3 and 4"), shortAnswer.explanation);
+        assertNull(shortAnswer.optionExplanationsJson);
+        assertNull(shortAnswer.diagram);
+    }
+
+    @Test
+    void notesThatDoNotLineUpWithTheOptionsAreLeftOffAndTheLectureStillIngests() {
+        ai.nextExtract = mcWith("Slide 3 names three segments.", List.of("one note", "two notes", "three notes"), null);
+        Material m = service.ingest(1L, "week1.pdf", PDF);
+        assertEquals(MaterialStatus.INGESTED, m.status);
+        assertEquals(1, ai.extractCalls);
+        Question mc = savedQuestions().get(0);
+        assertEquals("Slide 3 names three segments.", mc.explanation);
+        assertNull(mc.optionExplanationsJson);
+    }
+
+    @Test
+    void aDiagramOfAKindThePageDoesNotDrawIsLeftOff() {
+        ai.nextExtract = mcWith("Slide 3.", null, "pie title Segments\n  \"SYN\" : 1");
+        service.ingest(1L, "week1.pdf", PDF);
+        assertNull(savedQuestions().get(0).diagram);
+    }
+
+    @Test
+    void aDiagramWithAClickHandlerIsLeftOff() {
+        ai.nextExtract = mcWith("Slide 3.", null, "flowchart LR\n  A --> B\n  click A callback");
+        service.ingest(1L, "week1.pdf", PDF);
+        assertNull(savedQuestions().get(0).diagram);
+    }
+
+    @Test
+    void anExplanationTooLongForItsColumnIsLeftOffRatherThanFailingTheLecture() {
+        // a varchar overflow would throw at flush, after ingest() returned, and roll the lecture back
+        ai.nextExtract = mcWith("x".repeat(4001), null, null);
+        Material m = service.ingest(1L, "week1.pdf", PDF);
+        assertEquals(MaterialStatus.INGESTED, m.status);
+        assertNull(savedQuestions().get(0).explanation);
+    }
+
+    @Test
+    void aShortAnswerNeverKeepsOptionNotes() {
+        ConceptPayload good = FakeAiClient.samplePayload().concepts().get(0);
+        QuestionPayload sa = good.questions().get(1);
+        QuestionPayload withNotes = new QuestionPayload(sa.type(), sa.prompt(), sa.options(), sa.correctIndex(),
+            sa.modelAnswer(), sa.rubric(), sa.sourcePages(), sa.explanation(), List.of("a stray note"), null);
+        ai.nextExtract = new IngestPayload(List.of(new ConceptPayload(
+            good.name(), good.summary(), good.sourcePages(), List.of(good.questions().get(0), withNotes))));
+        service.ingest(1L, "week1.pdf", PDF);
+        assertNull(savedQuestions().get(1).optionExplanationsJson);
     }
 }

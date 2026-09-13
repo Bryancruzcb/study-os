@@ -26,9 +26,15 @@ public class FakeAiClient implements AiClient {
             "TCP handshake", "Three-way SYN/SYN-ACK/ACK connection setup", List.of(3, 4),
             List.of(
                 new QuestionPayload("MC", "How many steps in the TCP handshake?",
-                    List.of("1", "2", "3", "4"), 2, null, null, List.of(3)),
+                    List.of("1", "2", "3", "4"), 2, null, null, List.of(3),
+                    "Slide 3 shows SYN, SYN-ACK and ACK before any data moves.",
+                    List.of("Slide 3 shows more than one segment.", "Slide 3 adds an ACK after the SYN-ACK.",
+                        "SYN, SYN-ACK and ACK are the three segments on slide 3.", "Slide 3 never shows a fourth segment."),
+                    "sequenceDiagram\n  Client->>Server: SYN\n  Server->>Client: SYN-ACK\n  Client->>Server: ACK"),
                 new QuestionPayload("SHORT_ANSWER", "Describe the TCP three-way handshake.",
                     null, null, "SYN, then SYN-ACK, then ACK",
-                    "- names all three segments\n- correct order", List.of(3, 4))))));
+                    "- names all three segments\n- correct order", List.of(3, 4),
+                    "Slides 3 and 4 name the three segments in order; an answer that drops the final ACK misses slide 4.",
+                    null, null)))));
     }
 }
