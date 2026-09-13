@@ -301,6 +301,45 @@ class PersistenceTest {
             .isEqualTo(2);
     }
 
+    // --- the quiz ---------------------------------------------------------------------
+
+    @Test
+    void theQuizReadsOneCoursesActiveQuestionsInLectureOrderWithTheirLectures() {
+        Course c = course("CS 149");
+        Course other = course("CS 158A");
+        Material first = material(c, "hash-quiz-first");
+        Material second = material(c, "hash-quiz-second");
+        // the later lecture's concept is saved first, so only the ORDER BY puts the first lecture ahead
+        Concept paging = concept(c, second, "paging");
+        Concept processes = concept(c, first, "processes");
+        Question pagingQuestion = question(paging, QuestionType.MC, QuestionStatus.ACTIVE);
+        Question processQuestion = question(processes, QuestionType.SHORT_ANSWER, QuestionStatus.ACTIVE);
+        question(processes, QuestionType.MC, QuestionStatus.RETIRED);
+        question(concept(other, material(other, "hash-quiz-other"), "tcp"), QuestionType.MC, QuestionStatus.ACTIVE);
+
+        List<Question> quiz = questions.findForQuiz(c.id, QuestionStatus.ACTIVE);
+
+        assertThat(quiz).extracting(q -> q.id).containsExactly(processQuestion.id, pagingQuestion.id);
+        assertThat(quiz).extracting(q -> q.concept.material.id).containsExactly(first.id, second.id);
+    }
+
+    @Test
+    void explanationsFitTheirColumnsAtFullLength() {
+        Course c = course("CS 149");
+        Question q = question(concept(c, material(c, "hash-explained"), "paging"), QuestionType.MC, QuestionStatus.ACTIVE);
+        q.explanation = "e".repeat(4000);
+        q.optionExplanationsJson = "[\"" + "o".repeat(7996) + "\"]";
+        q.diagram = "d".repeat(4000);
+
+        questions.saveAndFlush(q);
+
+        assertThat(questions.findById(q.id)).get().satisfies(found -> {
+            assertThat(found.explanation).hasSize(4000);
+            assertThat(found.optionExplanationsJson).hasSize(8000);
+            assertThat(found.diagram).hasSize(4000);
+        });
+    }
+
     // the exam plan's own queries: the exams ahead of a lecture, nearest first, and the concepts it counts
     @Test
     void examPlanQueriesFindTheExamsAheadOfALectureAndTheConceptsAPlanPaces() {
