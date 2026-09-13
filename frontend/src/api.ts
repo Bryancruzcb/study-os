@@ -1,4 +1,4 @@
-import { getAccessCode, markLocked } from './access'
+import { markSignedOut } from './auth'
 
 export interface Course { id: number; name: string; term: string }
 export interface CourseOverview {
@@ -65,15 +65,46 @@ async function readJson<T>(res: Response, url: string): Promise<T> {
   return res.json()
 }
 
-/* Every call goes through here: the live demo's access code rides along when there is one,
-   and a 401 locks the app behind the code form in shell/AccessGate. */
+/* Every call goes through here. A write carries the CSRF token the server planted in a cookie, which
+   a page on another site cannot read, and a 401 means the session is gone, so the page goes back to
+   the sign-in form in shell/AuthGate. */
 async function send(url: string, init: RequestInit = {}): Promise<Response> {
   const headers = new Headers(init.headers)
-  const code = getAccessCode()
-  if (code) headers.set('X-Access-Code', code)
+  const method = (init.method ?? 'GET').toUpperCase()
+  if (method !== 'GET' && method !== 'HEAD') {
+    const token = csrfToken()
+    if (token) headers.set('X-XSRF-TOKEN', token)
+  }
   const res = await fetch(url, { ...init, headers })
-  if (res.status === 401) markLocked()
+  if (res.status === 401) markSignedOut()
   return res
+}
+
+/* read fresh on every write, because signing in replaces the token */
+function csrfToken(): string | null {
+  const match = /(?:^|;\s*)XSRF-TOKEN=([^;]*)/.exec(document.cookie)
+  return match ? decodeURIComponent(match[1]) : null
+}
+
+/* the sign-in endpoints turn a request down with {"error": "<a sentence for the form>"} */
+async function refusal(res: Response): Promise<Error> {
+  try {
+    const body = await res.json()
+    if (body && typeof body.error === 'string') return new Error(body.error)
+  } catch {
+    // no JSON body, so the generic sentence below
+  }
+  return new Error(`Something went wrong (${res.status}). Try again.`)
+}
+
+async function account(url: string, body: unknown): Promise<string> {
+  const res = await send(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw await refusal(res)
+  return (await readJson<{ username: string }>(res, url)).username
 }
 
 async function get<T>(url: string): Promise<T> {
@@ -117,6 +148,22 @@ async function uploadFile<T = unknown>(url: string, file: File): Promise<T> {
 }
 
 export const api = {
+  auth: {
+    config: () => get<{ inviteRequired: boolean }>('/api/auth/config'),
+    /* who this session belongs to, or null when nobody is signed in */
+    me: async (): Promise<string | null> => {
+      const res = await send('/api/auth/me')
+      if (res.status === 401) return null
+      if (!res.ok) throw new Error(`${res.status} /api/auth/me`)
+      return (await readJson<{ username: string }>(res, '/api/auth/me')).username
+    },
+    login: (username: string, password: string) => account('/api/auth/login', { username, password }),
+    signup: (username: string, password: string, inviteCode: string) =>
+      account('/api/auth/signup', { username, password, inviteCode }),
+    logout: async (): Promise<void> => {
+      await send('/api/auth/logout', { method: 'POST' })
+    },
+  },
   overview: () => get<CourseOverview[]>('/api/courses/overview'),
   createCourse: (name: string, term: string) => post<Course>('/api/courses', { name, term }),
   bank: (courseId: number) => get<ConceptWithQuestions[]>(`/api/courses/${courseId}/bank`),

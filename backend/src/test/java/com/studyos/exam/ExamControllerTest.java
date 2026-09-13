@@ -7,19 +7,33 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import com.studyos.auth.Owned;
+import com.studyos.auth.SignedInMvc;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.server.ResponseStatusException;
 
 @WebMvcTest(ExamController.class)
+@Import(SignedInMvc.class)
 class ExamControllerTest {
     @Autowired MockMvc mvc;
     @MockBean ExamPlanner planner;
+    @MockBean Owned owned;
+
+    @Test
+    void anotherAccountsExamCannotBeDeleted() throws Exception {
+        when(owned.exam(SignedInMvc.ME.id(), 4L)).thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND));
+        mvc.perform(delete("/api/exams/4")).andExpect(status().isNotFound());
+        verifyNoInteractions(planner);
+    }
 
     static final ExamPlanner.ExamView MIDTERM = new ExamPlanner.ExamView(4L, "Midterm", LocalDate.of(2026, 9, 26),
         List.of(11L, 12L), "upcoming", new ExamPlanner.Plan(14, 3, LocalDate.of(2026, 9, 22), 22, 18, 2, 5));

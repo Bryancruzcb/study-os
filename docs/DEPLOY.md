@@ -4,10 +4,9 @@ The live demo is one Docker image on Render's free plan, with its database on Ne
 The image serves the React page and the API from the same address. The deployed copy has its
 own empty database, so nothing in it touches the copy on your own machine.
 
-Uploads and short-answer grading spend Anthropic credit, and the app has no accounts. The
-demo is therefore locked with an access code: every `/api` call must send it, or the server
-answers 401 and the page shows a code form. You share the code inside the link, so a friend
-never has to type it.
+Everyone who uses the demo has their own account, and an account sees only its own courses.
+Uploads and short-answer grading spend Anthropic credit, so creating an account needs an invite
+code. You share the code inside the link, so a friend never has to type it.
 
 ## 1. Database (Neon)
 
@@ -34,35 +33,41 @@ without breaking your local copy.
 3. Create an API key inside that workspace. Copy it now, because the Console shows it once.
 
 As a guide, ingesting a 50-page deck costs about $0.80 and grading one short answer costs
-about $0.04. Both models are `claude-opus-5`.
+about $0.04. Both models are `claude-opus-5`. Every account spends from this one key, so the
+spend limit covers all of them together.
 
 ## 3. Web service (Render)
 
 1. Sign in at render.com with GitHub and give Render access to the `study-os` repository.
 2. Select **New > Blueprint** and pick the repository. Render reads `render.yaml`.
 3. Enter the values it asks for: the three `SPRING_DATASOURCE_*` values and
-   `ANTHROPIC_API_KEY`. Render generates `APP_ACCESS_CODE` itself.
+   `ANTHROPIC_API_KEY`. Render generates `APP_INVITE_CODE` itself.
 4. Select **Apply**. The first build takes several minutes, because it installs the frontend
    and the Maven dependencies from scratch.
-5. When the deploy is live, open the service's URL. The code form should appear.
+5. When the deploy is live, open the service's URL. The sign-in form should appear.
 
 After this, every push to `master` deploys again once CI passes.
 
-## 4. Share it
+## 4. Make your account, then share the link
 
-1. In Render, open the service's **Environment** tab and copy `APP_ACCESS_CODE`.
-2. Send this link: `https://<your-service>.onrender.com/#access=<the code>`
+1. In Render, open the service's **Environment** tab and copy `APP_INVITE_CODE`.
+2. Open `https://<your-service>.onrender.com/#invite=<the code>` and create your own account.
+3. Send your friends the same link. It opens on **Create account** with the invite code
+   already filled in. Each friend picks a username and a password and starts with no courses.
 
-The page stores the code in the browser and removes it from the address bar. Anyone who
-opens the site without the code sees the form.
+The page removes the invite code from the address bar. After that, signing in needs only a
+username and password.
 
 ## Things to know
 
 - A free Render service stops after 15 minutes without traffic. The next visit starts it
   again, which takes about a minute, and Spring Boot adds its own start time on the free
   plan's small CPU. The first page load after a quiet spell is slow; later ones are not.
-- Everyone with the code shares one set of courses and one review schedule.
-- To lock out everyone who has the old code, change `APP_ACCESS_CODE` in the Environment
-  tab and save. The service redeploys, and old browsers get the code form again.
+- Sign-ins last 14 days and survive the service stopping, because sessions are stored in
+  the database.
+- There is no password reset yet. A friend who forgets their password has to make a new
+  account.
+- To stop new sign-ups, change `APP_INVITE_CODE` in the Environment tab and save. Accounts
+  that already exist keep working.
 - Upload a PDF. The app refuses PowerPoint and Word files and tells you to export them to
   PDF first.

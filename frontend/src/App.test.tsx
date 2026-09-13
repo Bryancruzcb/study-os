@@ -7,6 +7,12 @@ const overview = [{ id: 2, name: 'CS 149', term: 'Fall 2026', concepts: 248, que
 
 vi.mock('./api', () => ({
   api: {
+    // every test here is about the pages, so the session check finds an account
+    auth: {
+      me: vi.fn().mockResolvedValue('bryan'),
+      config: vi.fn().mockResolvedValue({ inviteRequired: false }),
+      logout: vi.fn().mockResolvedValue(undefined),
+    },
     overview: vi.fn().mockResolvedValue([
       { id: 2, name: 'CS 149', term: 'Fall 2026', concepts: 248, questions: 844, dueToday: 16 },
     ]),
@@ -25,7 +31,7 @@ afterEach(() => window.history.pushState({}, '', '/'))
 
 test('renders the wordmark', async () => {
   render(<App />)
-  expect(screen.getByText('Study OS')).toBeInTheDocument()
+  expect(await screen.findByText('Study OS')).toBeInTheDocument()
   await screen.findByRole('heading', { name: 'Courses' })
 })
 

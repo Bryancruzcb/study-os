@@ -1,6 +1,7 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { api, type EvalReport } from '../api'
+import { getUser, onAuthChange, setUser } from '../auth'
 
 /* The segment that was current in the last nav drawn. Home renders its own nav and every
    other page renders the frame's, so moving between them mounts a fresh nav; it starts
@@ -12,6 +13,7 @@ let lastSegment: number | null = null
    whichever page the user actually came for. */
 export default function Nav() {
   const { pathname } = useLocation()
+  const user = useSyncExternalStore(onAuthChange, getUser)
   const [report, setReport] = useState<EvalReport | null>(null)
   const segments = useRef<HTMLSpanElement>(null)
   const pill = useRef<HTMLSpanElement>(null)
@@ -26,6 +28,11 @@ export default function Nav() {
   // a plain Link that says where it is current itself
   const inCourses = !pathname.startsWith('/eval')
   const current = inCourses ? 0 : 1
+
+  function signOut() {
+    // whatever the server answers, this page stops acting signed in
+    api.auth.logout().catch(() => undefined).finally(() => setUser(null))
+  }
 
   // one pill slides under the links, so a switch reads as the selection moving across
   // rather than one background vanishing and another appearing
@@ -75,6 +82,12 @@ export default function Nav() {
           <span>{report.labeled} labeled</span>
           <span>{report.gradedShortAnswers} graded</span>
           {report.gradedShortAnswers > 0 && <span>{Math.round(report.graderAgreement * 100)}% agreement</span>}
+        </span>
+      )}
+      {user && (
+        <span className="nav-account">
+          <span className="nav-user">{user}</span>
+          <button className="btn btn--ghost btn--micro" type="button" onClick={signOut}>Sign out</button>
         </span>
       )}
     </nav>

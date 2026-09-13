@@ -36,11 +36,10 @@ class EvalServiceTest {
 
     @Test
     void reportComputesLabelPercentages() {
-        Question unlabeled = new Question();
-        when(questionRepo.findAll()).thenReturn(List.of(
-            labeled(true, true, true), labeled(true, false, false), unlabeled));
-        when(attemptRepo.findByGraderVerdictIsNotNull()).thenReturn(List.of());
-        var r = service.report();
+        when(questionRepo.findByConceptCourseOwnerIdAndLabelAnswerableIsNotNull(1L)).thenReturn(List.of(
+            labeled(true, true, true), labeled(true, false, false)));
+        when(attemptRepo.findByQuestionConceptCourseOwnerIdAndGraderVerdictIsNotNull(1L)).thenReturn(List.of());
+        var r = service.report(1L);
         assertEquals(2, r.labeled());
         assertEquals(1.0, r.pctAnswerable(), 1e-9);
         assertEquals(0.5, r.pctCorrectAnswer(), 1e-9);
@@ -63,14 +62,12 @@ class EvalServiceTest {
         wrongKey.id = 2L;
         wrongKey.prompt = "The address of the next instruction is provided by the ______";
         wrongKey.concept = concept;
-        Question unlabeled = new Question();
-        unlabeled.concept = concept;
-        when(questionRepo.findAll()).thenReturn(List.of(passes, wrongKey, unlabeled));
-        when(attemptRepo.findByGraderVerdictIsNotNull()).thenReturn(List.of());
+        when(questionRepo.findByConceptCourseOwnerIdAndLabelAnswerableIsNotNull(1L)).thenReturn(List.of(passes, wrongKey));
+        when(attemptRepo.findByQuestionConceptCourseOwnerIdAndGraderVerdictIsNotNull(1L)).thenReturn(List.of());
 
-        var r = service.report();
+        var r = service.report(1L);
 
-        // only a labeled question that fails something is listed; a pass and an unlabeled one are not
+        // only a labeled question that fails something is listed; one that passes is not
         assertEquals(1, r.needsReview().size());
         var item = r.needsReview().get(0);
         assertEquals(2L, item.questionId());
@@ -86,35 +83,35 @@ class EvalServiceTest {
 
     @Test
     void graderAgreementFromOverrides() {
-        when(questionRepo.findAll()).thenReturn(List.of());
+        when(questionRepo.findByConceptCourseOwnerIdAndLabelAnswerableIsNotNull(1L)).thenReturn(List.of());
         Attempt agreed = judged(Verdict.CORRECT, false);
         Attempt overriddenA = judged(Verdict.INCORRECT, true);
-        when(attemptRepo.findByGraderVerdictIsNotNull())
+        when(attemptRepo.findByQuestionConceptCourseOwnerIdAndGraderVerdictIsNotNull(1L))
             .thenReturn(List.of(agreed, agreed, agreed, overriddenA));
-        var r = service.report();
+        var r = service.report(1L);
         assertEquals(4, r.gradedShortAnswers());
         assertEquals(0.75, r.graderAgreement(), 1e-9);
     }
 
     @Test
     void graderFailuresAreNotJudgementsToAgreeWith() {
-        when(questionRepo.findAll()).thenReturn(List.of());
+        when(questionRepo.findByConceptCourseOwnerIdAndLabelAnswerableIsNotNull(1L)).thenReturn(List.of());
         // the grader failed on this one; the human self-graded it, so no judgement was disagreed with
         Attempt graderFailed = judged(Verdict.PENDING, false);
         graderFailed.graderRaw = null;
-        when(attemptRepo.findByGraderVerdictIsNotNull()).thenReturn(List.of(
+        when(attemptRepo.findByQuestionConceptCourseOwnerIdAndGraderVerdictIsNotNull(1L)).thenReturn(List.of(
             judged(Verdict.CORRECT, false), judged(Verdict.CORRECT, false),
             judged(Verdict.INCORRECT, true), graderFailed));
-        var r = service.report();
+        var r = service.report(1L);
         assertEquals(3, r.gradedShortAnswers());          // the PENDING row is not a graded short answer
         assertEquals(2 / 3.0, r.graderAgreement(), 1e-9); // counting it would report 0.75
     }
 
     @Test
     void emptyDataReportsZerosInsteadOfDividingByZero() {
-        when(questionRepo.findAll()).thenReturn(List.of());
-        when(attemptRepo.findByGraderVerdictIsNotNull()).thenReturn(List.of());
-        var r = service.report();
+        when(questionRepo.findByConceptCourseOwnerIdAndLabelAnswerableIsNotNull(1L)).thenReturn(List.of());
+        when(attemptRepo.findByQuestionConceptCourseOwnerIdAndGraderVerdictIsNotNull(1L)).thenReturn(List.of());
+        var r = service.report(1L);
         assertEquals(0, r.labeled());
         assertEquals(0.0, r.pctAnswerable(), 1e-9);
         assertEquals(0.0, r.pctCorrectAnswer(), 1e-9);

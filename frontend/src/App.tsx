@@ -1,5 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
-import AccessGate from './shell/AccessGate'
+import AuthGate from './shell/AuthGate'
 import CourseLayout from './shell/CourseLayout'
 import Frame from './shell/Frame'
 import BankConceptPage from './pages/BankConceptPage'
@@ -16,7 +16,7 @@ export default function App() {
   useLightField()
   return (
     <BrowserRouter>
-      <AccessGate>
+      <AuthGate>
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route element={<Frame />}>
@@ -34,7 +34,7 @@ export default function App() {
           {/* the old top-level /study, /bank and /dashboard, and anything else, land on the grid */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </AccessGate>
+      </AuthGate>
     </BrowserRouter>
   )
 }
