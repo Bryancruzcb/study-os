@@ -5,6 +5,8 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import com.studyos.auth.Owned;
+import com.studyos.auth.SignedInMvc;
 import com.studyos.domain.*;
 import com.studyos.repo.*;
 import java.util.List;
@@ -13,16 +15,45 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.server.ResponseStatusException;
 
 @WebMvcTest(IngestController.class)
+@Import(SignedInMvc.class)
 class IngestControllerTest {
     @Autowired MockMvc mvc;
     @MockBean IngestService ingestService;
     @MockBean CourseRepo courseRepo;
     @MockBean ConceptRepo conceptRepo;
     @MockBean QuestionRepo questionRepo;
+    @MockBean AppUserRepo appUserRepo;
+    @MockBean Owned owned;
+
+    // an upload spends API credit, so one into someone else's course must stop before the service
+    @Test
+    void anUploadIntoAnotherAccountsCourseIsNotFoundAndCostsNothing() throws Exception {
+        when(owned.course(SignedInMvc.ME.id(), 2L)).thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND));
+        mvc.perform(multipart("/api/courses/2/materials")
+                .file(new MockMultipartFile("file", "w1.pdf", "application/pdf", new byte[] {1})))
+            .andExpect(status().isNotFound());
+        verifyNoInteractions(ingestService);
+    }
+
+    @Test
+    void theCourseListIsOnlyTheSignedInAccountsCourses() throws Exception {
+        Course mine = new Course();
+        mine.id = 3L;
+        mine.name = "CS 149";
+        when(courseRepo.findByOwnerIdOrderByIdAsc(SignedInMvc.ME.id())).thenReturn(List.of(mine));
+        mvc.perform(get("/api/courses"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.length()").value(1))
+            .andExpect(jsonPath("$[0].id").value(3))
+            .andExpect(jsonPath("$[0].owner").doesNotExist());
+    }
 
     @Test
     void uploadDelegatesToService() throws Exception {
@@ -86,6 +117,8 @@ class IngestControllerTest {
         saved.name = "METR 112";
         saved.term = "Fall 2026";
         when(courseRepo.save(any())).thenReturn(saved);
+        AppUser me = new AppUser();
+        when(appUserRepo.getReferenceById(SignedInMvc.ME.id())).thenReturn(me);
         mvc.perform(post("/api/courses")
                 .contentType("application/json")
                 .content("{\"name\":\"METR 112\",\"term\":\"Fall 2026\"}"))
@@ -93,7 +126,8 @@ class IngestControllerTest {
             .andExpect(jsonPath("$.id").value(7))
             .andExpect(jsonPath("$.name").value("METR 112"))
             .andExpect(jsonPath("$.term").value("Fall 2026"));
-        verify(courseRepo).save(argThat(c -> "METR 112".equals(c.name) && "Fall 2026".equals(c.term)));
+        // and the course belongs to whoever made it
+        verify(courseRepo).save(argThat(c -> "METR 112".equals(c.name) && "Fall 2026".equals(c.term) && c.owner == me));
     }
 
     @Test

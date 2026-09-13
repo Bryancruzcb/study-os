@@ -5,18 +5,35 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import com.studyos.auth.Owned;
+import com.studyos.auth.SignedInMvc;
 import com.studyos.domain.*;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpStatus;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.server.ResponseStatusException;
 
 @WebMvcTest(StudyController.class)
+@Import(SignedInMvc.class)
 class StudyControllerTest {
     @Autowired MockMvc mvc;
     @MockBean StudyService studyService;
+    @MockBean Owned owned;
+
+    @Test
+    void anotherAccountsQuestionCannotBeAnswered() throws Exception {
+        when(owned.question(SignedInMvc.ME.id(), 9L)).thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND));
+        mvc.perform(post("/api/study/answer")
+                .contentType("application/json")
+                .content("{\"questionId\":9,\"answerIndex\":2}"))
+            .andExpect(status().isNotFound());
+        verifyNoInteractions(studyService);
+    }
 
     @Test
     void nextReturns204WhenNothingDue() throws Exception {

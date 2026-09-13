@@ -1,5 +1,7 @@
 package com.studyos.dashboard;
 
+import com.studyos.auth.Owned;
+import com.studyos.auth.SignedIn;
 import com.studyos.domain.QuestionStatus;
 import com.studyos.domain.Attempt;
 import com.studyos.domain.Verdict;
@@ -10,6 +12,7 @@ import com.studyos.repo.ReviewStateRepo;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -21,14 +24,17 @@ public class DashboardController {
     private final ReviewStateRepo reviewStateRepo;
     private final Clock clock;
     private final ExamPlanner examPlanner;
+    private final Owned owned;
 
     public DashboardController(ConceptRepo conceptRepo, AttemptRepo attemptRepo,
-                               ReviewStateRepo reviewStateRepo, Clock clock, ExamPlanner examPlanner) {
+                               ReviewStateRepo reviewStateRepo, Clock clock, ExamPlanner examPlanner,
+                               Owned owned) {
         this.conceptRepo = conceptRepo;
         this.attemptRepo = attemptRepo;
         this.reviewStateRepo = reviewStateRepo;
         this.clock = clock;
         this.examPlanner = examPlanner;
+        this.owned = owned;
     }
 
     /** lecture and sourcePages say where the concept came from, so a weak one can be checked against its slides */
@@ -37,7 +43,8 @@ public class DashboardController {
     public record Dashboard(int dueToday, List<ConceptStats> concepts) {}
 
     @GetMapping("/api/dashboard")
-    public Dashboard dashboard(@RequestParam Long courseId) {
+    public Dashboard dashboard(@AuthenticationPrincipal SignedIn me, @RequestParam Long courseId) {
+        owned.course(me.id(), courseId);
         // an exam plan moves due dates, so the course is planned up to today before anything is counted
         examPlanner.ensureToday(courseId);
         LocalDate today = LocalDate.now(clock);

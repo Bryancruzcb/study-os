@@ -18,5 +18,5 @@ services:
         sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
-      - key: APP_ACCESS_CODE
+      - key: APP_INVITE_CODE
         generateValue: true

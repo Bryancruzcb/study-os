@@ -7,7 +7,7 @@ import com.studyos.domain.MaterialStatus;
 import java.util.List;
 
 public interface MaterialRepo extends JpaRepository<Material, Long> {
-    Optional<Material> findByFileHash(String fileHash);
+    Optional<Material> findByCourseIdAndFileHash(Long courseId, String fileHash);
 
     // the lectures an exam can cover, in the order they were uploaded
     List<Material> findByCourseIdAndStatusOrderByIdAsc(Long courseId, MaterialStatus status);

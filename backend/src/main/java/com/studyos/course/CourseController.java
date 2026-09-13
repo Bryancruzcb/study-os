@@ -1,5 +1,6 @@
 package com.studyos.course;
 
+import com.studyos.auth.SignedIn;
 import com.studyos.domain.QuestionStatus;
 import com.studyos.exam.ExamPlanner;
 import com.studyos.repo.ConceptRepo;
@@ -10,7 +11,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
-import org.springframework.data.domain.Sort;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -45,11 +46,11 @@ public class CourseController {
                                  long dueToday) {}
 
     @GetMapping("/api/courses/overview")
-    public List<CourseOverview> overview() {
+    public List<CourseOverview> overview(@AuthenticationPrincipal SignedIn me) {
         LocalDate today = LocalDate.now(clock);
         List<CourseOverview> rows = new ArrayList<>();
-        // id order, so the newest course is the last tile and the order never shuffles
-        for (var c : courseRepo.findAll(Sort.by("id"))) {
+        // this account's courses in id order, so the newest course is the last tile and the order never shuffles
+        for (var c : courseRepo.findByOwnerIdOrderByIdAsc(me.id())) {
             examPlanner.ensureToday(c.id);
             rows.add(new CourseOverview(c.id, c.name, c.term,
                 conceptRepo.countByCourseId(c.id),

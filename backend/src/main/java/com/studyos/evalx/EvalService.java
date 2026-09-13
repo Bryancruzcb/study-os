@@ -31,16 +31,16 @@ public class EvalService {
     public record ReviewItem(Long questionId, Long courseId, String course, Long conceptId, String concept,
                              String prompt, boolean answerable, boolean correctAnswer, boolean unambiguous) {}
 
-    public EvalReport report() {
-        List<Question> labeled = questionRepo.findAll().stream()
-            .filter(q -> q.labelAnswerable != null).toList();
+    /** The report over one account's courses: its labeled questions and its graded answers. */
+    public EvalReport report(Long ownerId) {
+        List<Question> labeled = questionRepo.findByConceptCourseOwnerIdAndLabelAnswerableIsNotNull(ownerId);
         int n = labeled.size();
         double a = n == 0 ? 0 : labeled.stream().filter(q -> q.labelAnswerable).count() / (double) n;
         double c = n == 0 ? 0 : labeled.stream().filter(q -> Boolean.TRUE.equals(q.labelCorrectAnswer)).count() / (double) n;
         double u = n == 0 ? 0 : labeled.stream().filter(q -> Boolean.TRUE.equals(q.labelUnambiguous)).count() / (double) n;
         // only a judgement the grader actually produced can be agreed or disagreed with:
         // PENDING means the grader failed, and those rows would count as agreement they never earned
-        List<Attempt> graded = attemptRepo.findByGraderVerdictIsNotNull().stream()
+        List<Attempt> graded = attemptRepo.findByQuestionConceptCourseOwnerIdAndGraderVerdictIsNotNull(ownerId).stream()
             .filter(at -> at.graderVerdict != Verdict.PENDING).toList();
         int g = graded.size();
         double agreement = g == 0 ? 0 : graded.stream().filter(at -> !at.overridden).count() / (double) g;

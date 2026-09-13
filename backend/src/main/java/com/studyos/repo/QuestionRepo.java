@@ -3,11 +3,15 @@ package com.studyos.repo;
 import com.studyos.domain.Question;
 import com.studyos.domain.QuestionStatus;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
 public interface QuestionRepo extends JpaRepository<Question, Long> {
     List<Question> findByConceptIdAndStatus(Long conceptId, QuestionStatus status);
+    Optional<Question> findByIdAndConceptCourseOwnerId(Long id, Long ownerId);
+    // one account's labeled questions, for its eval report
+    List<Question> findByConceptCourseOwnerIdAndLabelAnswerableIsNotNull(Long ownerId);
     // the bank list is a long sequential labeling pass, so it must not reshuffle when a
     // question is retired or labelled: Postgres returns physical order without an ORDER BY
     List<Question> findByConceptIdOrderByIdAsc(Long conceptId);
