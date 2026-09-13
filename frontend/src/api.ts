@@ -1,3 +1,5 @@
+import { getAccessCode, markLocked } from './access'
+
 export interface Course { id: number; name: string; term: string }
 export interface CourseOverview {
   id: number
@@ -63,14 +65,25 @@ async function readJson<T>(res: Response, url: string): Promise<T> {
   return res.json()
 }
 
+/* Every call goes through here: the live demo's access code rides along when there is one,
+   and a 401 locks the app behind the code form in shell/AccessGate. */
+async function send(url: string, init: RequestInit = {}): Promise<Response> {
+  const headers = new Headers(init.headers)
+  const code = getAccessCode()
+  if (code) headers.set('X-Access-Code', code)
+  const res = await fetch(url, { ...init, headers })
+  if (res.status === 401) markLocked()
+  return res
+}
+
 async function get<T>(url: string): Promise<T> {
-  const res = await fetch(url)
+  const res = await send(url)
   if (!res.ok) throw new Error(`${res.status} ${url}`)
   return readJson<T>(res, url)
 }
 
 async function post<T = unknown>(url: string, body: unknown): Promise<T> {
-  const res = await fetch(url, {
+  const res = await send(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -80,7 +93,7 @@ async function post<T = unknown>(url: string, body: unknown): Promise<T> {
 }
 
 async function put<T = unknown>(url: string, body: unknown): Promise<T> {
-  const res = await fetch(url, {
+  const res = await send(url, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -91,14 +104,14 @@ async function put<T = unknown>(url: string, body: unknown): Promise<T> {
 
 /* a delete answers 204 with no body, so there is nothing to read */
 async function remove(url: string): Promise<void> {
-  const res = await fetch(url, { method: 'DELETE' })
+  const res = await send(url, { method: 'DELETE' })
   if (!res.ok) throw new Error(`${res.status} ${url}`)
 }
 
 async function uploadFile<T = unknown>(url: string, file: File): Promise<T> {
   const form = new FormData()
   form.append('file', file)
-  const res = await fetch(url, { method: 'POST', body: form })
+  const res = await send(url, { method: 'POST', body: form })
   if (!res.ok) throw new Error(`${res.status} ${url}`)
   return readJson<T>(res, url)
 }
@@ -113,7 +126,7 @@ export const api = {
   label: (questionId: number, body: { answerable: boolean; correctAnswer: boolean; unambiguous: boolean }) =>
     post(`/api/questions/${questionId}/label`, body),
   next: async (courseId: number): Promise<StudyQuestion | null> => {
-    const res = await fetch(`/api/study/next?courseId=${courseId}`)
+    const res = await send(`/api/study/next?courseId=${courseId}`)
     if (res.status === 204) return null
     if (!res.ok) throw new Error(`${res.status} /api/study/next`)
     return readJson<StudyQuestion>(res, '/api/study/next')

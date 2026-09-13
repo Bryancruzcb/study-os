@@ -11,6 +11,9 @@ import '@fontsource/ibm-plex-mono/500.css'
 import '@fontsource/ibm-plex-mono/600.css'
 import './index.css'
 import App from './App.tsx'
+import { takeCodeFromLink } from './access'
+
+takeCodeFromLink()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
