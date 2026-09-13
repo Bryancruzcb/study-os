@@ -297,13 +297,13 @@ function Setup({ questions, landing, onStart }: {
           </p>
           <fieldset className="quiz-fieldset">
             <legend className="field-label">Lectures</legend>
-            <div className="chips">
+            {/* the exam form's checkbox rows, so picking lectures looks the same wherever it happens */}
+            <div className="quiz-lectures">
               {lectures.map(lecture => (
-                <label key={lecture.id} className="toggle">
-                  <input type="checkbox" className="visually-hidden" checked={picked.has(lecture.id)}
-                    onChange={() => toggle(lecture.id)} />
-                  <span>{lecture.name}</span>
-                  <span className="quiz-toggle-count">{lecture.questions}</span>
+                <label key={lecture.id} className="quiz-lecture">
+                  <input type="checkbox" checked={picked.has(lecture.id)} onChange={() => toggle(lecture.id)} />
+                  <span className="quiz-lecture-name">{lecture.name}</span>
+                  <span className="count">{plural(lecture.questions, 'question')}</span>
                 </label>
               ))}
             </div>

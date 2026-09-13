@@ -36,11 +36,30 @@
   gap: 8px;
 }
 
-/* a lecture's question count on its toggle, dimmed so the name leads */
-.quiz-toggle-count {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  opacity: 0.7;
+/* the lectures a quiz covers, as the exam form lists them: a checkbox row each, in two
+   columns where the card is wide enough */
+.quiz-lectures {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 2px 28px;
+}
+
+.quiz-lecture {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.quiz-lecture-name {
+  overflow-wrap: anywhere;
+}
+
+.quiz-lecture .count {
+  flex: none;
+  margin-left: auto;
 }
 
 /* ---- an answered multiple-choice question ------------------------------------ */
