@@ -7,6 +7,7 @@ import BankRoute from './pages/BankRoute'
 import DashboardPage from './pages/DashboardPage'
 import EvalPage from './pages/EvalPage'
 import HomePage from './pages/HomePage'
+import QuizPage from './pages/QuizPage'
 import StudyPage from './pages/StudyPage'
 import { useLightField } from './shell/light'
 
@@ -21,6 +22,7 @@ export default function App() {
           <Route path="/courses/:courseId" element={<CourseLayout />}>
             <Route index element={<Navigate to="study" replace />} />
             <Route path="study" element={<StudyPage />} />
+            <Route path="quiz" element={<QuizPage />} />
             <Route path="bank" element={<BankRoute />}>
               <Route index element={<BankPage />} />
               <Route path=":conceptId" element={<BankConceptPage />} />

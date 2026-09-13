@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { Link, useOutletContext } from 'react-router-dom'
 import { api, type AnsweredAttempt, type Attempt, type StudyQuestion } from '../api'
 import type { CourseContext } from '../shell/CourseLayout'
-import { citation } from '../source'
+import QuestionHead from './QuestionHead'
 
 const LETTERS = 'ABCDEFGHIJ'
 const letter = (i: number) => LETTERS[i] ?? String(i + 1)
@@ -228,7 +228,7 @@ export default function StudyPage() {
       )}
       {past && (
         <article className="qcard-big" key={past.index}>
-          <Head question={past.card.question} landing={takeLanding} />
+          <QuestionHead question={past.card.question} landing={takeLanding} />
           {stillOpen(visit, past.index) ? (
             <Outcome card={past.card} band={band} actions={
               <Changes attempt={past.card.attempt} submitting={submitting}
@@ -249,7 +249,7 @@ export default function StudyPage() {
       )}
       {back === null && live && (
         <article className="qcard-big">
-          <Head question={live.question} landing={takeLanding} />
+          <QuestionHead question={live.question} landing={takeLanding} />
           {live.question.type === 'MC' && !attempt && (
             <div className="opts">
               {live.question.options.map((o, i) => (
@@ -277,21 +277,6 @@ export default function StudyPage() {
         </article>
       )}
     </div>
-  )
-}
-
-/* the question's kind, the concept it tests, and the lecture and slides to check it against */
-function Head({ question, landing }: { question: StudyQuestion; landing: (el: HTMLElement | null) => void }) {
-  const source = citation(question.lecture, question.sourcePages)
-  return (
-    <>
-      <div className="chips">
-        <span className="chip">{question.type === 'MC' ? 'Multiple choice' : 'Short answer'}</span>
-        {question.topic && <span className="chip">{question.topic}</span>}
-        {source && <span className="chip chip--mono">{source}</span>}
-      </div>
-      <p className="prompt" tabIndex={-1} ref={landing}>{question.prompt}</p>
-    </>
   )
 }
 
