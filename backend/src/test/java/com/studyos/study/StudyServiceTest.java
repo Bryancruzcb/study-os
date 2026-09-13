@@ -8,6 +8,7 @@ import com.studyos.ai.AiException;
 import com.studyos.ai.FakeAiClient;
 import com.studyos.ai.GradePayload;
 import com.studyos.domain.*;
+import com.studyos.exam.ExamPlanner;
 import com.studyos.repo.*;
 import java.time.Clock;
 import java.time.Instant;
@@ -24,6 +25,7 @@ class StudyServiceTest {
     ReviewStateRepo reviewStateRepo = mock(ReviewStateRepo.class);
     Clock clock = Clock.fixed(Instant.parse("2026-09-01T12:00:00Z"), ZoneOffset.UTC);
     FakeAiClient ai = new FakeAiClient();
+    ExamPlanner examPlanner = mock(ExamPlanner.class);
     StudyService service;
 
     Concept concept = new Concept();
@@ -54,7 +56,9 @@ class StudyServiceTest {
         when(attemptRepo.findTopByQuestionIdOrderByCreatedAtDesc(any())).thenReturn(Optional.empty());
         when(attemptRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(reviewStateRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        service = new StudyService(questionRepo, attemptRepo, reviewStateRepo, clock, new GradingService(ai));
+        // with no exam the queue is asked in due-date order, which is what these tests pin
+        when(examPlanner.askingOrder(anyLong(), anyList())).thenAnswer(inv -> inv.getArgument(1));
+        service = new StudyService(questionRepo, attemptRepo, reviewStateRepo, clock, new GradingService(ai), examPlanner);
     }
 
     @Test
@@ -201,5 +205,25 @@ class StudyServiceTest {
         verify(attemptRepo, times(1)).findTopByQuestionIdOrderByCreatedAtDesc(10L);
         verify(attemptRepo, times(1)).findTopByQuestionIdOrderByCreatedAtDesc(11L);
         verify(attemptRepo, times(1)).findTopByQuestionIdOrderByCreatedAtDesc(12L);
+    }
+
+    @Test
+    void theQueueIsPlannedUpToTodayAndAskedInTheExamPlansOrder() {
+        Concept other = new Concept();
+        other.id = 6L;
+        ReviewState first = ReviewState.initial(other, LocalDate.of(2026, 9, 1));
+        Question otherQuestion = new Question();
+        otherQuestion.id = 30L;
+        otherQuestion.concept = other;
+        when(questionRepo.findByConceptIdAndStatus(6L, QuestionStatus.ACTIVE)).thenReturn(List.of(otherQuestion));
+        when(examPlanner.askingOrder(eq(1L), anyList())).thenReturn(List.of(first, rs));
+        assertEquals(otherQuestion, service.next(1L).orElseThrow());
+        verify(examPlanner).ensureToday(1L);
+    }
+
+    @Test
+    void aVerdictsNextReviewIsKeptBeforeAnyExamAhead() {
+        service.answerMc(9L, 2);
+        verify(examPlanner).keepBeforeExam(rs);
     }
 }

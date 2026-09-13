@@ -4,6 +4,8 @@ import com.studyos.domain.Attempt;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import com.studyos.domain.Verdict;
+import org.springframework.data.jpa.repository.Query;
 
 public interface AttemptRepo extends JpaRepository<Attempt, Long> {
     Optional<Attempt> findTopByQuestionIdOrderByCreatedAtDesc(Long questionId);
@@ -11,4 +13,9 @@ public interface AttemptRepo extends JpaRepository<Attempt, Long> {
     Optional<Attempt> findTopByQuestionConceptIdOrderByCreatedAtDesc(Long conceptId);
     // every attempt a grader judged, including the failures it recorded as PENDING
     List<Attempt> findByGraderVerdictIsNotNull();
+
+    // the concepts in a course with a graded answer; the caller passes PENDING, which grades nothing
+    @Query("select distinct a.question.concept.id from Attempt a"
+        + " where a.question.concept.course.id = ?1 and a.verdict <> ?2")
+    List<Long> findGradedConceptIdsByCourseId(Long courseId, Verdict notGraded);
 }

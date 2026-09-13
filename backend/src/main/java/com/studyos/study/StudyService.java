@@ -1,6 +1,7 @@
 package com.studyos.study;
 
 import com.studyos.domain.*;
+import com.studyos.exam.ExamPlanner;
 import com.studyos.repo.*;
 import java.time.Clock;
 import java.time.Instant;
@@ -20,20 +21,25 @@ public class StudyService {
     private final ReviewStateRepo reviewStateRepo;
     private final Clock clock;
     private final GradingService gradingService;
+    private final ExamPlanner examPlanner;
 
     public StudyService(QuestionRepo questionRepo, AttemptRepo attemptRepo,
-                        ReviewStateRepo reviewStateRepo, Clock clock, GradingService gradingService) {
+                        ReviewStateRepo reviewStateRepo, Clock clock, GradingService gradingService,
+                        ExamPlanner examPlanner) {
         this.questionRepo = questionRepo;
         this.attemptRepo = attemptRepo;
         this.reviewStateRepo = reviewStateRepo;
         this.clock = clock;
         this.gradingService = gradingService;
+        this.examPlanner = examPlanner;
     }
 
     public Optional<Question> next(Long courseId) {
+        // an exam plan moves due dates, so the course is planned up to today before the queue is read
+        examPlanner.ensureToday(courseId);
         LocalDate today = LocalDate.now(clock);
-        List<ReviewState> due =
-            reviewStateRepo.findByConceptCourseIdAndDueDateLessThanEqualOrderByDueDateAsc(courseId, today);
+        List<ReviewState> due = examPlanner.askingOrder(courseId,
+            reviewStateRepo.findByConceptCourseIdAndDueDateLessThanEqualOrderByDueDateAsc(courseId, today));
         for (ReviewState rs : due) {
             List<Question> candidates = questionRepo.findByConceptIdAndStatus(rs.concept.id, QuestionStatus.ACTIVE);
             Map<Long, Instant> lastAttemptAt = new HashMap<>();
@@ -104,6 +110,7 @@ public class StudyService {
         a.overridden = a.graderVerdict != null && a.graderVerdict != Verdict.PENDING
             && a.verdict != a.graderVerdict;
         Sm2Scheduler.apply(rs, flipped, LocalDate.now(clock));
+        examPlanner.keepBeforeExam(rs);
         reviewStateRepo.save(rs);
         return attemptRepo.save(a);
     }
@@ -141,6 +148,8 @@ public class StudyService {
         a.prevStreak = rs.streak;
         a.prevDueDate = rs.dueDate;
         Sm2Scheduler.apply(rs, correct, LocalDate.now(clock));
+        // an interval can run past an exam; the review comes back before it instead
+        examPlanner.keepBeforeExam(rs);
         reviewStateRepo.save(rs);
     }
 }

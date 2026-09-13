@@ -3,6 +3,7 @@ package com.studyos.dashboard;
 import com.studyos.domain.QuestionStatus;
 import com.studyos.domain.Attempt;
 import com.studyos.domain.Verdict;
+import com.studyos.exam.ExamPlanner;
 import com.studyos.repo.AttemptRepo;
 import com.studyos.repo.ConceptRepo;
 import com.studyos.repo.ReviewStateRepo;
@@ -19,13 +20,15 @@ public class DashboardController {
     private final AttemptRepo attemptRepo;
     private final ReviewStateRepo reviewStateRepo;
     private final Clock clock;
+    private final ExamPlanner examPlanner;
 
     public DashboardController(ConceptRepo conceptRepo, AttemptRepo attemptRepo,
-                               ReviewStateRepo reviewStateRepo, Clock clock) {
+                               ReviewStateRepo reviewStateRepo, Clock clock, ExamPlanner examPlanner) {
         this.conceptRepo = conceptRepo;
         this.attemptRepo = attemptRepo;
         this.reviewStateRepo = reviewStateRepo;
         this.clock = clock;
+        this.examPlanner = examPlanner;
     }
 
     /** lecture and sourcePages say where the concept came from, so a weak one can be checked against its slides */
@@ -35,6 +38,8 @@ public class DashboardController {
 
     @GetMapping("/api/dashboard")
     public Dashboard dashboard(@RequestParam Long courseId) {
+        // an exam plan moves due dates, so the course is planned up to today before anything is counted
+        examPlanner.ensureToday(courseId);
         LocalDate today = LocalDate.now(clock);
         // the figure the course head shows: due, and with a question the queue can still ask
         int dueToday = (int) reviewStateRepo

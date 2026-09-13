@@ -12,6 +12,8 @@ vi.mock('../api', () => ({
       { id: 1, name: 'CS 158A', term: 'Fall 2026', concepts: 39, questions: 139, dueToday: 7 },
     ]),
     dashboard: vi.fn(),
+    exams: vi.fn().mockResolvedValue([]),
+    lectures: vi.fn().mockResolvedValue([]),
   },
 }))
 

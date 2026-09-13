@@ -4,6 +4,7 @@ import { api, type ConceptStats, type Dashboard } from '../api'
 import { plural } from '../plural'
 import type { CourseContext } from '../shell/CourseLayout'
 import { citation, slides } from '../source'
+import Exams from './Exams'
 
 /* how many of the weakest concepts the page leads with */
 const FOCUS = 5
@@ -53,13 +54,15 @@ function byLecture(concepts: ConceptStats[]): Lecture[] {
 }
 
 export default function DashboardPage() {
-  const { course } = useOutletContext<CourseContext>()
+  const { course, refresh } = useOutletContext<CourseContext>()
   const [dash, setDash] = useState<Dashboard | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // bumped when an exam changes: its plan moves due dates, so the numbers below go stale
+  const [planned, setPlanned] = useState(0)
 
   useEffect(() => {
     api.dashboard(course.id).then(setDash).catch(e => setError(String(e)))
-  }, [course.id])
+  }, [course.id, planned])
 
   const concepts = dash?.concepts ?? []
   const graded = concepts.reduce((n, c) => n + c.attempts, 0)
@@ -68,6 +71,8 @@ export default function DashboardPage() {
 
   return (
     <div className="dashboard">
+      {/* what today holds for each exam leads: the rest of the page is paced to it */}
+      <Exams courseId={course.id} onChange={() => { setPlanned(p => p + 1); void refresh() }} />
       <ul className="figures">
         <li className="figure-tile"><b>{course.dueToday}</b><span>due today</span></li>
         {dash && (

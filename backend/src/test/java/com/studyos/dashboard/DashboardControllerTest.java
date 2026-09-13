@@ -20,6 +20,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.test.web.servlet.MockMvc;
+import com.studyos.exam.ExamPlanner;
 
 @WebMvcTest(DashboardController.class)
 class DashboardControllerTest {
@@ -32,6 +33,7 @@ class DashboardControllerTest {
     @MockBean ConceptRepo conceptRepo;
     @MockBean AttemptRepo attemptRepo;
     @MockBean ReviewStateRepo reviewStateRepo;
+    @MockBean ExamPlanner examPlanner;
 
     @Test
     void aggregatesPerConceptStats() throws Exception {

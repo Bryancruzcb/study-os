@@ -22,6 +22,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.dao.DataIntegrityViolationException;
+import com.studyos.domain.Exam;
+import com.studyos.domain.MaterialStatus;
 
 /**
  * The one suite that talks to a real Postgres. Everything else in this project is
@@ -44,6 +46,7 @@ class PersistenceTest {
     @Autowired QuestionRepo questions;
     @Autowired AttemptRepo attempts;
     @Autowired ReviewStateRepo reviewStates;
+    @Autowired ExamRepo exams;
 
     private Course course(String name) {
         Course c = new Course();
@@ -296,5 +299,52 @@ class PersistenceTest {
         assertThat(questions.countByConceptCourseIdAndStatus(mine.id, QuestionStatus.ACTIVE)).isEqualTo(3);
         assertThat(reviewStates.countDueByConceptCourseIdWithQuestionStatus(mine.id, today, QuestionStatus.ACTIVE))
             .isEqualTo(2);
+    }
+
+    // the exam plan's own queries: the exams ahead of a lecture, nearest first, and the concepts it counts
+    @Test
+    void examPlanQueriesFindTheExamsAheadOfALectureAndTheConceptsAPlanPaces() {
+        Course c = course("Operating Systems");
+        Material lecture = material(c, "exam-plan-lecture");
+        lecture.status = MaterialStatus.INGESTED;
+        materials.save(lecture);
+        material(c, "exam-plan-still-pending");
+        Concept graded = concept(c, lecture, "graded");
+        Concept pendingOnly = concept(c, lecture, "pending only");
+        Question gradedQuestion = question(graded, QuestionType.MC, QuestionStatus.ACTIVE);
+        Question pendingQuestion = question(pendingOnly, QuestionType.SHORT_ANSWER, QuestionStatus.RETIRED);
+        attempts.save(examPlanAttempt(gradedQuestion, Verdict.INCORRECT));
+        attempts.save(examPlanAttempt(pendingQuestion, Verdict.PENDING));
+        exams.save(examOn(c, "Quiz", LocalDate.of(2026, 8, 20), lecture));
+        exams.save(examOn(c, "Final", LocalDate.of(2026, 12, 10), lecture));
+        exams.save(examOn(c, "Midterm", LocalDate.of(2026, 9, 26), lecture));
+
+        assertThat(exams.findUpcomingByLectureId(lecture.id, LocalDate.of(2026, 9, 1)))
+            .extracting(e -> e.name).containsExactly("Midterm", "Final");
+        assertThat(exams.findByCourseIdOrderByDateAscIdAsc(c.id))
+            .extracting(e -> e.name).containsExactly("Quiz", "Midterm", "Final");
+        // a PENDING attempt was never graded, so its concept is not started
+        assertThat(attempts.findGradedConceptIdsByCourseId(c.id, Verdict.PENDING)).containsExactly(graded.id);
+        assertThat(questions.findConceptIdsByCourseIdAndStatus(c.id, QuestionStatus.ACTIVE)).containsExactly(graded.id);
+        assertThat(materials.findByCourseIdAndStatusOrderByIdAsc(c.id, MaterialStatus.INGESTED))
+            .extracting(m -> m.fileHash).containsExactly("exam-plan-lecture");
+        assertThat(reviewStates.findByConceptCourseIdOrderByConceptIdAsc(c.id)).isEmpty();
+    }
+
+    private static Attempt examPlanAttempt(Question q, Verdict verdict) {
+        Attempt a = new Attempt();
+        a.question = q;
+        a.verdict = verdict;
+        a.createdAt = Instant.parse("2026-09-01T12:00:00Z");
+        return a;
+    }
+
+    private static Exam examOn(Course c, String name, LocalDate date, Material... lectures) {
+        Exam e = new Exam();
+        e.course = c;
+        e.name = name;
+        e.date = date;
+        e.lectures.addAll(List.of(lectures));
+        return e;
     }
 }

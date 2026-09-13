@@ -42,6 +42,12 @@ export interface Dashboard { dueToday: number; concepts: ConceptStats[] }
 /* a labeled question that failed at least one check, with where it lives so the page can link to its card */
 export interface ReviewItem { questionId: number; courseId: number; course: string; conceptId: number; concept: string; prompt: string; answerable: boolean; correctAnswer: boolean; unambiguous: boolean }
 export interface EvalReport { labeled: number; pctAnswerable: number; pctCorrectAnswer: number; pctUnambiguous: number; gradedShortAnswers: number; graderAgreement: number; needsReview: ReviewItem[] }
+/* a lecture the course has ingested, for picking what an exam covers */
+export interface Lecture { id: number; filename: string; concepts: number }
+/* where an exam's plan stands today, worked out again by the server every day */
+export interface ExamPlan { daysLeft: number; reviewDays: number; lastNewDay: string; topics: number; topicsLeft: number; newToday: number; reviewsToday: number }
+export interface Exam { id: number; name: string; date: string; lectureIds: number[]; status: 'upcoming' | 'today' | 'past'; plan: ExamPlan | null }
+export interface ExamInput { name: string; date: string; lectureIds: number[] }
 
 // A 200 that is not JSON means the request never reached the backend: the vite dev
 // server answers an unproxied /api path with index.html. res.json() would report that
@@ -73,6 +79,22 @@ async function post<T = unknown>(url: string, body: unknown): Promise<T> {
   return readJson<T>(res, url)
 }
 
+async function put<T = unknown>(url: string, body: unknown): Promise<T> {
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error(`${res.status} ${url}`)
+  return readJson<T>(res, url)
+}
+
+/* a delete answers 204 with no body, so there is nothing to read */
+async function remove(url: string): Promise<void> {
+  const res = await fetch(url, { method: 'DELETE' })
+  if (!res.ok) throw new Error(`${res.status} ${url}`)
+}
+
 async function uploadFile<T = unknown>(url: string, file: File): Promise<T> {
   const form = new FormData()
   form.append('file', file)
@@ -102,4 +124,9 @@ export const api = {
   selfGrade: (attemptId: number, correct: boolean) => post<Attempt>(`/api/study/attempts/${attemptId}/self-grade`, { correct }),
   dashboard: (courseId: number) => get<Dashboard>(`/api/dashboard?courseId=${courseId}`),
   evalReport: () => get<EvalReport>('/api/eval/report'),
+  lectures: (courseId: number) => get<Lecture[]>(`/api/courses/${courseId}/lectures`),
+  exams: (courseId: number) => get<Exam[]>(`/api/courses/${courseId}/exams`),
+  createExam: (courseId: number, body: ExamInput) => post<Exam>(`/api/courses/${courseId}/exams`, body),
+  updateExam: (examId: number, body: ExamInput) => put<Exam>(`/api/exams/${examId}`, body),
+  deleteExam: (examId: number) => remove(`/api/exams/${examId}`),
 }

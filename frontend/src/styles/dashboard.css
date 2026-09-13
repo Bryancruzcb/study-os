@@ -316,3 +316,117 @@
     min-width: 40rem;
   }
 }
+
+/* ---- exams ---------------------------------------------------------------- */
+
+.exam-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.exam {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+
+.exam-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+
+.exam-head h3 {
+  font-size: 17px;
+}
+
+.exam-when {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--ink-dim);
+}
+
+.exam-head .btn {
+  margin-left: auto;
+}
+
+/* the day's work for the exam: the line the rest of the card explains */
+.exam-today {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.exam-outlook {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.exam--past h3,
+.exam--past .exam-outlook {
+  color: var(--ink-dim);
+}
+
+.exam-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px 0;
+  border-top: 1px solid var(--line);
+}
+
+.exam-form-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 13rem;
+  gap: 12px;
+}
+
+.exam-lectures {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.exam-lecture {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.exam-lecture-name {
+  overflow-wrap: anywhere;
+}
+
+.exam-lecture .count {
+  margin-left: auto;
+}
+
+.exam-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.exam-delete {
+  margin-left: auto;
+}
+
+@media (max-width: 720px) {
+  .exam-form-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -11,6 +11,7 @@ import com.studyos.ai.IngestPayload;
 import com.studyos.ai.QuestionPayload;
 import com.studyos.config.AppStudyProps;
 import com.studyos.domain.*;
+import com.studyos.exam.ExamPlanner;
 import com.studyos.repo.*;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
@@ -31,6 +32,7 @@ class IngestServiceTest {
     QuestionRepo questionRepo = mock(QuestionRepo.class);
     ReviewStateRepo reviewStateRepo = mock(ReviewStateRepo.class);
     FakeAiClient ai = new FakeAiClient();
+    ExamPlanner examPlanner = mock(ExamPlanner.class);
     Clock clock = Clock.fixed(Instant.parse("2026-09-01T12:00:00Z"), ZoneOffset.UTC);
     static final LocalDate TODAY = LocalDate.of(2026, 9, 1);
     // ingest only accepts bytes that start with the PDF magic, so every fixture that is meant to
@@ -54,7 +56,7 @@ class IngestServiceTest {
 
     private IngestService serviceWithDailyLimit(int newConceptsPerDay) {
         return new IngestService(courseRepo, materialRepo, conceptRepo, questionRepo, reviewStateRepo, ai, clock,
-            new AppStudyProps(newConceptsPerDay));
+            new AppStudyProps(newConceptsPerDay, 0.2), examPlanner);
     }
 
     /** A valid payload of {@code n} distinct concepts, each carrying the sample question pair. */
@@ -329,5 +331,20 @@ class IngestServiceTest {
             TODAY.plusDays(1), TODAY.plusDays(1),
             TODAY.plusDays(2), TODAY.plusDays(2),
             TODAY.plusDays(3)), savedDueDates());
+    }
+
+    @Test
+    void anIngestedLectureIsHandedToTheExamPlanner() {
+        ai.nextExtract = FakeAiClient.samplePayload();
+        Material material = service.ingest(1L, "lecture.pdf", PDF);
+        assertEquals(MaterialStatus.INGESTED, material.status);
+        verify(examPlanner).lectureAdded(material);
+    }
+
+    @Test
+    void anUploadThatFailsJoinsNoExam() {
+        Material material = service.ingest(1L, "slides.pptx", PPTX);
+        assertEquals(MaterialStatus.FAILED, material.status);
+        verify(examPlanner, never()).lectureAdded(any());
     }
 }

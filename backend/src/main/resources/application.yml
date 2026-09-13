@@ -15,6 +15,8 @@ app:
   study:
     # a bulk import fills the calendar forward at this many new concepts a day per course
     new-concepts-per-day: 8
+    # before an exam, the part of the days left that is kept for review after the last new topic
+    exam-review-share: 0.2
   model:
     generation: claude-opus-5
     grading: claude-opus-5

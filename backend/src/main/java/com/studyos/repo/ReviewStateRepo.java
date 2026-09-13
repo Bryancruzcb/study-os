@@ -30,4 +30,7 @@ public interface ReviewStateRepo extends JpaRepository<ReviewState, Long> {
         LocalDate getDueDate();
         long getTotal();
     }
+
+    // a course's whole schedule in the order its lectures produced the concepts, for the exam plan
+    List<ReviewState> findByConceptCourseIdOrderByConceptIdAsc(Long courseId);
 }

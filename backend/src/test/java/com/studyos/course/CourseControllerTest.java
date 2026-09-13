@@ -25,6 +25,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.domain.Sort;
 import org.springframework.test.web.servlet.MockMvc;
+import com.studyos.exam.ExamPlanner;
 
 @WebMvcTest(CourseController.class)
 class CourseControllerTest {
@@ -38,6 +39,7 @@ class CourseControllerTest {
     @MockBean ConceptRepo conceptRepo;
     @MockBean QuestionRepo questionRepo;
     @MockBean ReviewStateRepo reviewStateRepo;
+    @MockBean ExamPlanner examPlanner;
 
     private static Course course(long id, String name, String term) {
         Course c = new Course();

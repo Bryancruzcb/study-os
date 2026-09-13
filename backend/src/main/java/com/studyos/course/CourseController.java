@@ -1,12 +1,14 @@
 package com.studyos.course;
 
 import com.studyos.domain.QuestionStatus;
+import com.studyos.exam.ExamPlanner;
 import com.studyos.repo.ConceptRepo;
 import com.studyos.repo.CourseRepo;
 import com.studyos.repo.QuestionRepo;
 import com.studyos.repo.ReviewStateRepo;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import org.springframework.data.domain.Sort;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,7 +19,8 @@ import org.springframework.web.bind.annotation.RestController;
  * is a review state due today or earlier on a concept that still has an ACTIVE question,
  * which is exactly what the study queue will serve. Three count queries per course is fine
  * at a handful of courses; a grouped query can replace them when there are enough courses
- * for it to matter.
+ * for it to matter. An exam plan moves due dates, so each course is planned up to today
+ * before it is counted.
  */
 @RestController
 public class CourseController {
@@ -26,14 +29,16 @@ public class CourseController {
     private final QuestionRepo questionRepo;
     private final ReviewStateRepo reviewStateRepo;
     private final Clock clock;
+    private final ExamPlanner examPlanner;
 
     public CourseController(CourseRepo courseRepo, ConceptRepo conceptRepo, QuestionRepo questionRepo,
-                            ReviewStateRepo reviewStateRepo, Clock clock) {
+                            ReviewStateRepo reviewStateRepo, Clock clock, ExamPlanner examPlanner) {
         this.courseRepo = courseRepo;
         this.conceptRepo = conceptRepo;
         this.questionRepo = questionRepo;
         this.reviewStateRepo = reviewStateRepo;
         this.clock = clock;
+        this.examPlanner = examPlanner;
     }
 
     public record CourseOverview(Long id, String name, String term, long concepts, long questions,
@@ -42,12 +47,15 @@ public class CourseController {
     @GetMapping("/api/courses/overview")
     public List<CourseOverview> overview() {
         LocalDate today = LocalDate.now(clock);
+        List<CourseOverview> rows = new ArrayList<>();
         // id order, so the newest course is the last tile and the order never shuffles
-        return courseRepo.findAll(Sort.by("id")).stream()
-            .map(c -> new CourseOverview(c.id, c.name, c.term,
+        for (var c : courseRepo.findAll(Sort.by("id"))) {
+            examPlanner.ensureToday(c.id);
+            rows.add(new CourseOverview(c.id, c.name, c.term,
                 conceptRepo.countByCourseId(c.id),
                 questionRepo.countByConceptCourseIdAndStatus(c.id, QuestionStatus.ACTIVE),
-                reviewStateRepo.countDueByConceptCourseIdWithQuestionStatus(c.id, today, QuestionStatus.ACTIVE)))
-            .toList();
+                reviewStateRepo.countDueByConceptCourseIdWithQuestionStatus(c.id, today, QuestionStatus.ACTIVE)));
+        }
+        return rows;
     }
 }

@@ -4,6 +4,7 @@ import com.studyos.domain.Question;
 import com.studyos.domain.QuestionStatus;
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 
 public interface QuestionRepo extends JpaRepository<Question, Long> {
     List<Question> findByConceptIdAndStatus(Long conceptId, QuestionStatus status);
@@ -12,4 +13,8 @@ public interface QuestionRepo extends JpaRepository<Question, Long> {
     List<Question> findByConceptIdOrderByIdAsc(Long conceptId);
     // the overview counts what can still be asked, so retired questions stay out of it
     long countByConceptCourseIdAndStatus(Long courseId, QuestionStatus status);
+
+    // the concepts that still have a question in the given status; an exam plan only paces ones it can ask
+    @Query("select distinct q.concept.id from Question q where q.concept.course.id = ?1 and q.status = ?2")
+    List<Long> findConceptIdsByCourseIdAndStatus(Long courseId, QuestionStatus status);
 }

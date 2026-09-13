@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 
 import com.studyos.ai.FakeAiClient;
 import com.studyos.domain.*;
+import com.studyos.exam.ExamPlanner;
 import com.studyos.repo.*;
 import java.time.Clock;
 import java.time.Instant;
@@ -20,6 +21,7 @@ class OverrideTest {
     AttemptRepo attemptRepo = mock(AttemptRepo.class);
     ReviewStateRepo reviewStateRepo = mock(ReviewStateRepo.class);
     Clock clock = Clock.fixed(Instant.parse("2026-09-01T12:00:00Z"), ZoneOffset.UTC);
+    ExamPlanner examPlanner = mock(ExamPlanner.class);
     StudyService service;
 
     Concept concept = new Concept();
@@ -42,7 +44,7 @@ class OverrideTest {
         when(attemptRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(reviewStateRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
         service = new StudyService(questionRepo, attemptRepo, reviewStateRepo, clock,
-            new GradingService(new FakeAiClient()));
+            new GradingService(new FakeAiClient()), examPlanner);
     }
 
     @Test

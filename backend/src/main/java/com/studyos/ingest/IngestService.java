@@ -9,6 +9,7 @@ import com.studyos.ai.IngestPayload;
 import com.studyos.ai.QuestionPayload;
 import com.studyos.config.AppStudyProps;
 import com.studyos.domain.*;
+import com.studyos.exam.ExamPlanner;
 import com.studyos.repo.*;
 import java.security.MessageDigest;
 import java.time.Clock;
@@ -33,6 +34,7 @@ public class IngestService {
     private final AiClient ai;
     private final Clock clock;
     private final AppStudyProps study;
+    private final ExamPlanner examPlanner;
     private final ObjectMapper mapper = new ObjectMapper();
     // matches @Column(length = 2000) on Material.errorMessage
     private static final int ERROR_MESSAGE_MAX = 2000;
@@ -42,7 +44,7 @@ public class IngestService {
 
     public IngestService(CourseRepo courseRepo, MaterialRepo materialRepo, ConceptRepo conceptRepo,
                          QuestionRepo questionRepo, ReviewStateRepo reviewStateRepo, AiClient ai, Clock clock,
-                         AppStudyProps study) {
+                         AppStudyProps study, ExamPlanner examPlanner) {
         this.courseRepo = courseRepo;
         this.materialRepo = materialRepo;
         this.conceptRepo = conceptRepo;
@@ -51,6 +53,7 @@ public class IngestService {
         this.ai = ai;
         this.clock = clock;
         this.study = study;
+        this.examPlanner = examPlanner;
     }
 
     @Transactional
@@ -131,7 +134,10 @@ public class IngestService {
             scheduled.merge(dueDate, 1L, Long::sum);
         }
         material.status = MaterialStatus.INGESTED;
-        return materialRepo.save(material);
+        Material ingested = materialRepo.save(material);
+        // a lecture that arrives before an exam joins it, and the exam's plan takes its topics in
+        examPlanner.lectureAdded(ingested);
+        return ingested;
     }
 
     // What the course already has booked on every day from `from` onwards, in one read. Days
