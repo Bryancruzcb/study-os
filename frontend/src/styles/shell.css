@@ -208,6 +208,27 @@
   padding-bottom: 6px;
 }
 
+/* the live demo's lock screen, standing in for every page until a code is accepted */
+.gate {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 24px var(--gutter);
+  background: var(--band);
+}
+
+.gate-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: min(100%, 400px);
+  padding: 28px;
+  border: 1px solid var(--glass-line);
+  border-radius: var(--radius);
+  background: var(--card);
+  box-shadow: var(--shadow-card);
+}
+
 @media (max-width: 720px) {
   .readout {
     margin-left: 0;

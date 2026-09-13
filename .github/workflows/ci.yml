@@ -58,3 +58,49 @@ jobs:
         working-directory: frontend
       - run: npm run build
         working-directory: frontend
+
+  # the image the live demo runs. Nothing on the dev machine runs Docker, so this is where it
+  # is proven: it builds, starts against a real Postgres, serves the page on a deep link, and
+  # keeps /api locked to the access code
+  image:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: studyos
+          POSTGRES_USER: studyos
+          POSTGRES_PASSWORD: studyos
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t study-os .
+      - name: Start it the way the host does
+        run: |
+          docker run -d --name app --network host \
+            -e PORT=8080 \
+            -e SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/studyos \
+            -e SPRING_DATASOURCE_USERNAME=studyos \
+            -e SPRING_DATASOURCE_PASSWORD=studyos \
+            -e APP_ACCESS_CODE=ci-code \
+            -e ANTHROPIC_API_KEY=unused \
+            study-os
+          for i in $(seq 1 90); do
+            curl -sf localhost:8080/api/ping && exit 0
+            sleep 2
+          done
+          exit 1
+      - name: Page, deep link, lock
+        run: |
+          curl -sf localhost:8080/ | grep -q '<div id="root">'
+          curl -sf localhost:8080/courses/1/study | grep -q '<div id="root">'
+          test "$(curl -s -o /dev/null -w '%{http_code}' localhost:8080/api/courses)" = 401
+          test "$(curl -s -o /dev/null -w '%{http_code}' -H 'X-Access-Code: ci-code' localhost:8080/api/courses)" = 200
+      - if: failure()
+        run: docker logs app

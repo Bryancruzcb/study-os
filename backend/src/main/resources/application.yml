@@ -1,3 +1,6 @@
+server:
+  # a host that assigns the port says so in PORT; locally it stays 8080
+  port: ${PORT:8080}
 spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/studyos
@@ -12,6 +15,8 @@ spring:
       max-file-size: 32MB
       max-request-size: 33MB
 app:
+  # empty locally. On a public host APP_ACCESS_CODE is set and every /api call must send it
+  access-code: ${APP_ACCESS_CODE:}
   study:
     # a bulk import fills the calendar forward at this many new concepts a day per course
     new-concepts-per-day: 8
