@@ -84,12 +84,15 @@ right".*
 
 - Spring Boot backend (Java 21), React and TypeScript frontend (Vite), Postgres.
 - Ingest: the PDF goes to Claude as a document block, and a structured-output schema
-  returns concepts and questions with their source pages. A file I have already ingested
-  is recognized by its hash and handed back as it is, so I do not pay to read it twice.
-  A failed extraction is retried once, then the material is marked FAILED, so there are
-  no silent partial ingests; uploading that same file again retries it. Lectures can come
-  in one at a time as they are released: each upload adds its concepts beside the ones
-  already there and leaves my progress on those alone.
+  returns concepts and questions with their source pages, and with each question its
+  explanation, a note for each option and a diagram where one helps. The response is
+  streamed, because that much output would outlast a single HTTP response. An explanation
+  that does not line up with its question is dropped instead of failing the upload. A file
+  I have already ingested is recognized by its hash and handed back as it is, so I do not
+  pay to read it twice. A failed extraction is retried once, then the material is marked
+  FAILED, so there are no silent partial ingests; uploading that same file again retries
+  it. Lectures can come in one at a time as they are released: each upload adds its
+  concepts beside the ones already there and leaves my progress on those alone.
 - Study: SM-2-lite scheduling per concept. A new concept starts with a 1 day interval and
   ease 2.5, due on the first day from today that is still under
   `app.study.new-concepts-per-day` (8) for its course, so a big upload fills the calendar
@@ -119,13 +122,13 @@ right".*
   with a way to retake just those, and the run is kept in the browser, so a long quiz
   picks up where I left it.
 - Explanations: a question can carry an explanation, a note for each option and a Mermaid
-  diagram, all drawn only from its lecture's slides and cited by slide number. For the
-  current bank they were written from each deck's slide text, reading the figure slides as
-  images, and every deck had to pass a validator before it went in: every question
-  covered, every cited slide one the deck really has, and every diagram parsed by the same
-  mermaid version the app ships. Where a slide contradicted a question's answer key, the
-  key was corrected; a class poll whose slide never gives the answer says so rather than
-  guessing. Diagrams are drawn in mermaid's strict mode, in the page's own colours, and
+  diagram, all drawn only from its lecture's slides and cited by slide number. New uploads
+  get them from ingest. The questions banked before ingest could write them were explained
+  from each deck's slide text, reading the figure slides as images, and every deck had to
+  pass a validator before it went in: every question covered, every cited slide one the
+  deck really has, and every diagram parsed by the same mermaid version the app ships.
+  Where a slide contradicted a question's answer key, the key was corrected; a class poll
+  whose slide never gives the answer says so rather than guessing. Diagrams are drawn in mermaid's strict mode, in the page's own colours, and
   mermaid loads only when a question has a diagram.
 - Home is a grid of course tiles, one per class, each showing what is due today and how
   much is in the bank, and a New course tile that makes a course and opens its bank for
@@ -184,7 +187,7 @@ Everything else is in `backend/src/main/resources/application.yml`: the two mode
     mvn -f backend/pom.xml test
     cd frontend && npm install && npm test
 
-109 backend tests and 180 frontend tests. Neither suite calls the Claude API or needs a
+115 backend tests and 180 frontend tests. Neither suite calls the Claude API or needs a
 database, so no key is needed to run them.
 
 One suite is deliberately not in that number. `PersistenceTest`, 12 tests, runs against
@@ -223,7 +226,5 @@ can only be retired one at a time. Exam pacing counts topics, not how long they 
 a dense lecture's topics get the same share of a day as a light one's. Deleting an exam
 leaves its topics on the days its last plan gave them.
 
-Ingest does not write explanations yet. A lecture uploaded now gets its questions as
-before, and in a quiz they show the answer and the slides with a note that no explanation
-has been written. A quiz's progress lives in the browser it was taken in, so it does not
-follow me to another machine.
+A quiz's progress lives in the browser it was taken in, so it does not follow me to
+another machine.
