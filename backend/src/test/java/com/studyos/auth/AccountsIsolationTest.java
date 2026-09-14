@@ -134,6 +134,8 @@ class AccountsIsolationTest {
             put("/api/exams/{id}", e).contentType(APPLICATION_JSON).content(exam),
             delete("/api/exams/{id}", e),
             get("/api/study/next").param("courseId", String.valueOf(c)),
+            get("/api/courses/{id}/quiz", c),
+            get("/api/questions/{id}/review", q),
             post("/api/study/answer").contentType(APPLICATION_JSON).content("{\"questionId\":" + q + ",\"answerIndex\":0}"),
             post("/api/study/attempts/{id}/override", a),
             post("/api/study/attempts/{id}/self-grade", a).contentType(APPLICATION_JSON).content("{\"correct\":true}"));
@@ -182,6 +184,12 @@ class AccountsIsolationTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[0].id").value(aliceExam.id.intValue()));
         mvc.perform(get("/api/study/next").param("courseId", String.valueOf(aliceCourse.id)).with(as(alice)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.id").value(aliceQuestion.id.intValue()));
+        mvc.perform(get("/api/courses/{id}/quiz", aliceCourse.id).with(as(alice)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].id").value(aliceQuestion.id.intValue()));
+        mvc.perform(get("/api/questions/{id}/review", aliceQuestion.id).with(as(alice)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.id").value(aliceQuestion.id.intValue()));
     }

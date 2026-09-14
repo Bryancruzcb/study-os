@@ -5,20 +5,26 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import com.studyos.auth.Owned;
+import com.studyos.auth.SignedInMvc;
 import com.studyos.domain.*;
 import com.studyos.repo.QuestionRepo;
 import java.util.List;
-import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpStatus;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.server.ResponseStatusException;
 
 @WebMvcTest(QuizController.class)
+@Import(SignedInMvc.class)
 class QuizControllerTest {
     @Autowired MockMvc mvc;
     @MockBean QuestionRepo questionRepo;
+    @MockBean Owned owned;
 
     private static Question question(long id, QuestionType type) {
         Question q = new Question();
@@ -47,6 +53,20 @@ class QuizControllerTest {
     }
 
     @Test
+    void anotherAccountsCourseCannotBeRead() throws Exception {
+        when(owned.course(SignedInMvc.ME.id(), 2L)).thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND));
+        mvc.perform(get("/api/courses/2/quiz")).andExpect(status().isNotFound());
+        verifyNoInteractions(questionRepo);
+    }
+
+    @Test
+    void anotherAccountsQuestionCannotBeReviewed() throws Exception {
+        when(owned.question(SignedInMvc.ME.id(), 9L)).thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND));
+        mvc.perform(get("/api/questions/9/review")).andExpect(status().isNotFound());
+        verifyNoInteractions(questionRepo);
+    }
+
+    @Test
     void theQuizListsEveryActiveQuestionWithItsLectureAndNeverTheKey() throws Exception {
         Question shortAnswer = question(10L, QuestionType.SHORT_ANSWER);
         shortAnswer.prompt = "Describe the handshake.";
@@ -69,7 +89,7 @@ class QuizControllerTest {
 
     @Test
     void theReviewCarriesTheKeyAndWhyEveryAnswerIsRightOrWrong() throws Exception {
-        when(questionRepo.findById(9L)).thenReturn(Optional.of(explainedMc()));
+        when(owned.question(SignedInMvc.ME.id(), 9L)).thenReturn(explainedMc());
 
         mvc.perform(get("/api/questions/9/review"))
             .andExpect(status().isOk())
@@ -86,7 +106,7 @@ class QuizControllerTest {
         Question q = question(10L, QuestionType.SHORT_ANSWER);
         q.modelAnswer = "SYN, SYN-ACK, ACK";
         q.rubric = "- names all three segments";
-        when(questionRepo.findById(10L)).thenReturn(Optional.of(q));
+        when(owned.question(SignedInMvc.ME.id(), 10L)).thenReturn(q);
 
         mvc.perform(get("/api/questions/10/review"))
             .andExpect(status().isOk())
@@ -99,7 +119,7 @@ class QuizControllerTest {
 
     @Test
     void anUnknownQuestionIsNotFound() throws Exception {
-        when(questionRepo.findById(404L)).thenReturn(Optional.empty());
+        when(owned.question(SignedInMvc.ME.id(), 404L)).thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND));
         mvc.perform(get("/api/questions/404/review")).andExpect(status().isNotFound());
     }
 }
