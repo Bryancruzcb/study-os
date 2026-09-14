@@ -1,0 +1,22 @@
+# Render Blueprint for the live demo; docs/DEPLOY.md walks through it. One Docker web service.
+# The database is Neon, because Render's free Postgres is deleted 30 days after it is created.
+services:
+  - type: web
+    name: study-os
+    runtime: docker
+    plan: free
+    branch: master
+    # a push to master deploys only once CI has passed on it
+    autoDeployTrigger: checksPass
+    healthCheckPath: /api/ping
+    envVars:
+      - key: SPRING_DATASOURCE_URL
+        sync: false
+      - key: SPRING_DATASOURCE_USERNAME
+        sync: false
+      - key: SPRING_DATASOURCE_PASSWORD
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: APP_INVITE_CODE
+        generateValue: true

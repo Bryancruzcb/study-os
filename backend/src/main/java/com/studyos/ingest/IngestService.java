@@ -70,18 +70,16 @@ public class IngestService {
     @Transactional
     public Material ingest(Long courseId, String filename, byte[] pdfBytes) {
         String hash = sha256(pdfBytes);
-        var existing = materialRepo.findByFileHash(hash);
+        var existing = materialRepo.findByCourseIdAndFileHash(courseId, hash);
         if (existing.isPresent() && existing.get().status != MaterialStatus.FAILED) return existing.get();
 
         Course course = courseRepo.findById(courseId).orElseThrow();
         Material material;
         if (existing.isPresent()) {
-            // fileHash is unique and there is no retry endpoint, so a FAILED row would block this
-            // PDF forever. Reuse it (it has no concepts) and run the pipeline again. The row must
-            // describe the upload that succeeds, so it takes this call's course and filename, the
-            // same course every new Concept is attached to below.
+            // a course holds a file once and there is no retry endpoint, so a FAILED row would block
+            // this PDF in its course forever. Reuse it (it has no concepts) and run the pipeline again,
+            // under the filename this upload came with.
             material = existing.get();
-            material.course = course;
             material.filename = filename;
             material.status = MaterialStatus.PENDING;
             material.errorMessage = null;
@@ -95,7 +93,7 @@ public class IngestService {
 
         // The guard sits below the hash lookup, not above it, so a rejection travels the same
         // FAILED-row contract as a provider failure: the bank page already renders errorMessage,
-        // and re-uploading the same bad file reuses this row instead of tripping unique fileHash.
+        // and re-uploading the same bad file reuses this row instead of tripping the course's unique fileHash.
         String notPdf = notPdfMessage(pdfBytes, filename);
         if (notPdf != null) {
             material.status = MaterialStatus.FAILED;

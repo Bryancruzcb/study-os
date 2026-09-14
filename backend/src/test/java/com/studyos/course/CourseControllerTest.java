@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.studyos.auth.SignedInMvc;
 import com.studyos.domain.Course;
 import com.studyos.domain.QuestionStatus;
 import com.studyos.repo.ConceptRepo;
@@ -23,11 +24,12 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
-import org.springframework.data.domain.Sort;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import com.studyos.exam.ExamPlanner;
 
 @WebMvcTest(CourseController.class)
+@Import(SignedInMvc.class)
 class CourseControllerTest {
     @TestConfiguration
     static class FixedClock {
@@ -51,7 +53,7 @@ class CourseControllerTest {
 
     @Test
     void reportsEveryCourseWithItsCountsInIdOrder() throws Exception {
-        when(courseRepo.findAll(Sort.by("id"))).thenReturn(List.of(
+        when(courseRepo.findByOwnerIdOrderByIdAsc(SignedInMvc.ME.id())).thenReturn(List.of(
             course(1L, "CS 47", "Spring 2026"), course(2L, "CS 149", "Fall 2026")));
         when(conceptRepo.countByCourseId(1L)).thenReturn(18L);
         when(conceptRepo.countByCourseId(2L)).thenReturn(248L);
@@ -79,7 +81,7 @@ class CourseControllerTest {
 
     @Test
     void countsOnlyActiveQuestionsAndTakesTodayFromTheClock() throws Exception {
-        when(courseRepo.findAll(Sort.by("id"))).thenReturn(List.of(course(3L, "CS 158A", "Fall 2026")));
+        when(courseRepo.findByOwnerIdOrderByIdAsc(SignedInMvc.ME.id())).thenReturn(List.of(course(3L, "CS 158A", "Fall 2026")));
 
         mvc.perform(get("/api/courses/overview")).andExpect(status().isOk());
 
@@ -89,7 +91,7 @@ class CourseControllerTest {
 
     @Test
     void aCourseWithNothingInItReportsZeros() throws Exception {
-        when(courseRepo.findAll(Sort.by("id"))).thenReturn(List.of(course(4L, "CS 46B", "Spring 2027")));
+        when(courseRepo.findByOwnerIdOrderByIdAsc(SignedInMvc.ME.id())).thenReturn(List.of(course(4L, "CS 46B", "Spring 2027")));
 
         mvc.perform(get("/api/courses/overview"))
             .andExpect(status().isOk())
@@ -100,7 +102,7 @@ class CourseControllerTest {
 
     @Test
     void noCoursesIsAnEmptyList() throws Exception {
-        when(courseRepo.findAll(Sort.by("id"))).thenReturn(List.of());
+        when(courseRepo.findByOwnerIdOrderByIdAsc(SignedInMvc.ME.id())).thenReturn(List.of());
 
         mvc.perform(get("/api/courses/overview"))
             .andExpect(status().isOk())

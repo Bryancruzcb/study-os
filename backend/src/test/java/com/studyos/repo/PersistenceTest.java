@@ -3,6 +3,7 @@ package com.studyos.repo;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.studyos.domain.AppUser;
 import com.studyos.domain.Attempt;
 import com.studyos.domain.Concept;
 import com.studyos.domain.Course;
@@ -47,6 +48,15 @@ class PersistenceTest {
     @Autowired AttemptRepo attempts;
     @Autowired ReviewStateRepo reviewStates;
     @Autowired ExamRepo exams;
+    @Autowired AppUserRepo users;
+
+    private AppUser owner(String username) {
+        AppUser u = new AppUser();
+        u.username = username;
+        u.passwordHash = "{noop}not-used-here";
+        u.createdAt = Instant.now();
+        return users.save(u);
+    }
 
     private Course course(String name) {
         Course c = new Course();
@@ -142,9 +152,11 @@ class PersistenceTest {
     }
 
     @Test
-    void twoMaterialsCannotShareAFileHash() {
+    void aCourseHoldsAFileOnceButAnotherCourseCanHoldItToo() {
         Course c = course("CS 151");
         material(c, "hash-duplicate");
+        // two accounts can upload the same slides, each into their own course
+        material(course("CS 151, another account's"), "hash-duplicate");
 
         Material second = new Material();
         second.course = c;
@@ -220,6 +232,8 @@ class PersistenceTest {
     @Test
     void attemptsAreReachableByConceptAndFilterableToGraderJudgements() {
         Course c = course("CS 47");
+        c.owner = owner("grader-owner");
+        courses.save(c);
         Material m = material(c, "hash-grader");
         Concept concept = concept(c, m, "assembly");
         Question mc = question(concept, QuestionType.MC, QuestionStatus.ACTIVE);
@@ -235,18 +249,19 @@ class PersistenceTest {
                 .containsExactlyInAnyOrder(machineGraded.id, graderFailed.id, multipleChoice.id);
 
         // multiple choice is never grader-judged, so it must not reach the eval denominator
-        assertThat(attempts.findByGraderVerdictIsNotNull())
+        assertThat(attempts.findByQuestionConceptCourseOwnerIdAndGraderVerdictIsNotNull(c.owner.id))
                 .extracting(a -> a.id)
-                .contains(machineGraded.id, graderFailed.id)
-                .doesNotContain(multipleChoice.id);
+                .containsExactlyInAnyOrder(machineGraded.id, graderFailed.id);
     }
 
     @Test
     void materialsAreFoundByHashAndDueConceptsComeBackOldestFirst() {
         Course c = course("CS 146");
         Material m = material(c, "hash-lookup");
-        assertThat(materials.findByFileHash("hash-lookup")).get().extracting(x -> x.id).isEqualTo(m.id);
-        assertThat(materials.findByFileHash("hash-that-does-not-exist")).isEmpty();
+        assertThat(materials.findByCourseIdAndFileHash(c.id, "hash-lookup")).get().extracting(x -> x.id).isEqualTo(m.id);
+        assertThat(materials.findByCourseIdAndFileHash(c.id, "hash-that-does-not-exist")).isEmpty();
+        // the same file is not found through another course
+        assertThat(materials.findByCourseIdAndFileHash(course("CS 146, elsewhere").id, "hash-lookup")).isEmpty();
 
         Concept overdue = concept(c, m, "recursion");
         Concept dueToday = concept(c, m, "hashing");
@@ -262,6 +277,40 @@ class PersistenceTest {
         List<ReviewState> due =
                 reviewStates.findByConceptCourseIdAndDueDateLessThanEqualOrderByDueDateAsc(c.id, today);
         assertThat(due).extracting(x -> x.id).containsExactly(a.id, b.id);
+    }
+
+    // --- the lookups that keep one account out of another's rows ---------------------
+
+    @Test
+    void theOwnerScopedLookupsFindOnlyTheOwnersRows() {
+        AppUser alice = owner("alice");
+        AppUser bob = owner("bob");
+        Course mine = course("CS 149");
+        mine.owner = alice;
+        courses.save(mine);
+        Course fromBeforeAccounts = course("CS 47");
+        Material m = material(mine, "hash-owned");
+        Question q = question(concept(mine, m, "threads"), QuestionType.MC, QuestionStatus.ACTIVE);
+        q.labelAnswerable = true;
+        questions.save(q);
+        Attempt a = attempt(q, Verdict.CORRECT, null, Instant.now());
+        Exam e = exams.save(examOn(mine, "Midterm", LocalDate.of(2026, 10, 1), m));
+
+        assertThat(courses.findByOwnerIdOrderByIdAsc(alice.id)).extracting(x -> x.id).containsExactly(mine.id);
+        assertThat(courses.findByOwnerIdOrderByIdAsc(bob.id)).isEmpty();
+        assertThat(courses.findByIdAndOwnerId(mine.id, alice.id)).isPresent();
+        assertThat(courses.findByIdAndOwnerId(mine.id, bob.id)).isEmpty();
+        assertThat(courses.findByOwnerIsNull()).extracting(x -> x.id)
+                .contains(fromBeforeAccounts.id).doesNotContain(mine.id);
+        assertThat(questions.findByIdAndConceptCourseOwnerId(q.id, alice.id)).isPresent();
+        assertThat(questions.findByIdAndConceptCourseOwnerId(q.id, bob.id)).isEmpty();
+        assertThat(questions.findByConceptCourseOwnerIdAndLabelAnswerableIsNotNull(alice.id))
+                .extracting(x -> x.id).containsExactly(q.id);
+        assertThat(questions.findByConceptCourseOwnerIdAndLabelAnswerableIsNotNull(bob.id)).isEmpty();
+        assertThat(attempts.findByIdAndQuestionConceptCourseOwnerId(a.id, alice.id)).isPresent();
+        assertThat(attempts.findByIdAndQuestionConceptCourseOwnerId(a.id, bob.id)).isEmpty();
+        assertThat(exams.findByIdAndCourseOwnerId(e.id, alice.id)).isPresent();
+        assertThat(exams.findByIdAndCourseOwnerId(e.id, bob.id)).isEmpty();
     }
 
     // --- the counts behind the course overview ---------------------------------------

@@ -58,3 +58,62 @@ jobs:
         working-directory: frontend
       - run: npm run build
         working-directory: frontend
+
+  # the image the live demo runs. Nothing on the dev machine runs Docker, so this is where it
+  # is proven: it builds, starts against a real Postgres, serves the page on a deep link, keeps
+  # /api behind a sign-in, and lets an account be created only with the invite code
+  image:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: studyos
+          POSTGRES_USER: studyos
+          POSTGRES_PASSWORD: studyos
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t study-os .
+      - name: Start it the way the host does
+        run: |
+          docker run -d --name app --network host \
+            -e PORT=8080 \
+            -e SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/studyos \
+            -e SPRING_DATASOURCE_USERNAME=studyos \
+            -e SPRING_DATASOURCE_PASSWORD=studyos \
+            -e APP_INVITE_CODE=ci-code \
+            -e ANTHROPIC_API_KEY=unused \
+            study-os
+          for i in $(seq 1 90); do
+            curl -sf localhost:8080/api/ping && exit 0
+            sleep 2
+          done
+          exit 1
+      - name: Page, deep link, sign-up
+        run: |
+          curl -sf localhost:8080/ | grep -q '<div id="root">'
+          curl -sf localhost:8080/courses/1/study | grep -q '<div id="root">'
+          touch jar
+          # the status code of a request that reads and writes the cookie jar
+          code() { curl -s -o /dev/null -w '%{http_code}' -c jar -b jar "$@"; }
+          # any response plants the XSRF-TOKEN cookie, and every POST must echo it in a header
+          xsrf() { awk '$6 == "XSRF-TOKEN" { print $7 }' jar; }
+          signup() {
+            code -H "X-XSRF-TOKEN: $(xsrf)" -H 'Content-Type: application/json' -d "$1" \
+              localhost:8080/api/auth/signup
+          }
+          test "$(code localhost:8080/api/courses/overview)" = 401
+          test "$(code localhost:8080/api/auth/me)" = 401
+          test "$(signup '{"username":"ci-user","password":"ci-password","inviteCode":"wrong"}')" = 403
+          test "$(signup '{"username":"ci-user","password":"ci-password","inviteCode":"ci-code"}')" = 200
+          test "$(code localhost:8080/api/courses/overview)" = 200
+          test "$(code localhost:8080/api/auth/me)" = 200
+      - if: failure()
+        run: docker logs app

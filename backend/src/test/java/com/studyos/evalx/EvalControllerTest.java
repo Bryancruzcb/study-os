@@ -6,6 +6,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import com.studyos.auth.Owned;
+import com.studyos.auth.SignedInMvc;
 import com.studyos.domain.Question;
 import com.studyos.repo.QuestionRepo;
 import java.util.List;
@@ -14,14 +16,17 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(EvalController.class)
+@Import(SignedInMvc.class)
 class EvalControllerTest {
     @Autowired MockMvc mvc;
     @MockBean EvalService evalService;
     @MockBean QuestionRepo questionRepo;
+    @MockBean Owned owned;
 
     @Test
     void labelStoresAllThreeLabels() throws Exception {
@@ -43,7 +48,7 @@ class EvalControllerTest {
     void reportIsServedAsJson() throws Exception {
         var wrongKey = new EvalService.ReviewItem(9L, 2L, "CS 149", 7L, "Program counter",
             "The address of the next instruction is provided by the ______", true, false, true);
-        when(evalService.report()).thenReturn(new EvalService.EvalReport(2, 1.0, 0.5, 0.5, 4, 0.75, List.of(wrongKey)));
+        when(evalService.report(SignedInMvc.ME.id())).thenReturn(new EvalService.EvalReport(2, 1.0, 0.5, 0.5, 4, 0.75, List.of(wrongKey)));
         mvc.perform(get("/api/eval/report"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.labeled").value(2))

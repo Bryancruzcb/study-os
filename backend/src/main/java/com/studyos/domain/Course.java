@@ -10,6 +10,10 @@ public class Course {
     public Long id;
     public String name;
     public String term;
+    // null only on a course made before accounts existed, until the first account adopts it
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JsonIgnore
+    public AppUser owner;
     // the last day the exam plan was worked out; the first read of the schedule on a new day plans again
     @JsonIgnore
     public LocalDate plannedOn;

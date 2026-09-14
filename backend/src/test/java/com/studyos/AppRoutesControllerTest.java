@@ -1,8 +1,7 @@
 package com.studyos;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.forwardedUrl;
 
 import com.studyos.auth.SecurityConfig;
 import org.junit.jupiter.api.Test;
@@ -11,16 +10,15 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 
-// the host's health check cannot sign in, so ping is open under the real rules
-@WebMvcTest(PingController.class)
+// the page's routes are public under the real rules, not under Spring Boot's lock-everything default
+@WebMvcTest(AppRoutesController.class)
 @Import(SecurityConfig.class)
-class PingControllerTest {
+class AppRoutesControllerTest {
     @Autowired MockMvc mvc;
 
     @Test
-    void pingReturnsOk() throws Exception {
-        mvc.perform(get("/api/ping"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.status").value("ok"));
+    void aReloadedPageGetsTheApp() throws Exception {
+        mvc.perform(get("/courses/3/bank/12")).andExpect(forwardedUrl("/index.html"));
+        mvc.perform(get("/eval")).andExpect(forwardedUrl("/index.html"));
     }
 }

@@ -1,3 +1,14 @@
+server:
+  # a host that assigns the port says so in PORT; locally it stays 8080
+  port: ${PORT:8080}
+  # the host ends TLS in front of the app; trusting its X-Forwarded-Proto marks the cookies Secure
+  forward-headers-strategy: native
+  servlet:
+    session:
+      # a sign-in lasts two weeks, and outlives closing the browser
+      timeout: 14d
+      cookie:
+        max-age: 14d
 spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/studyos
@@ -11,7 +22,14 @@ spring:
     multipart:
       max-file-size: 32MB
       max-request-size: 33MB
+  session:
+    jdbc:
+      # the free host restarts and sleeps, and a sign-in has to survive that, so sessions live in Postgres
+      initialize-schema: always
 app:
+  # blank locally, so anyone can make an account. A public host sets APP_INVITE_CODE, because
+  # uploads and grading spend API credit
+  invite-code: ${APP_INVITE_CODE:}
   study:
     # a bulk import fills the calendar forward at this many new concepts a day per course
     new-concepts-per-day: 8

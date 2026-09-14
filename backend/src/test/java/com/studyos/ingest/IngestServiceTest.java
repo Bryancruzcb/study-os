@@ -46,7 +46,7 @@ class IngestServiceTest {
     void setUp() {
         course.id = 1L;
         when(courseRepo.findById(1L)).thenReturn(Optional.of(course));
-        when(materialRepo.findByFileHash(any())).thenReturn(Optional.empty());
+        when(materialRepo.findByCourseIdAndFileHash(any(), any())).thenReturn(Optional.empty());
         when(materialRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(conceptRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(questionRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -105,7 +105,7 @@ class IngestServiceTest {
     void duplicateHashIsNoOp() {
         Material existing = new Material();
         existing.status = MaterialStatus.INGESTED;
-        when(materialRepo.findByFileHash(any())).thenReturn(Optional.of(existing));
+        when(materialRepo.findByCourseIdAndFileHash(any(), any())).thenReturn(Optional.of(existing));
         Material m = service.ingest(1L, "week1.pdf", PDF);
         assertSame(existing, m);
         assertEquals(0, ai.extractCalls);
@@ -137,14 +137,13 @@ class IngestServiceTest {
 
     @Test
     void failedMaterialWithSameHashIsRetried() {
-        Course otherCourse = new Course();
-        otherCourse.id = 2L;
         Material failed = new Material();
-        failed.course = otherCourse;
+        failed.course = course;
         failed.filename = "old-name.pdf";
         failed.status = MaterialStatus.FAILED;
         failed.errorMessage = "boom";
-        when(materialRepo.findByFileHash(any())).thenReturn(Optional.of(failed));
+        // looked up inside the course the upload is for, never across courses
+        when(materialRepo.findByCourseIdAndFileHash(eq(1L), any())).thenReturn(Optional.of(failed));
         ai.nextExtract = FakeAiClient.samplePayload();
         Material m = service.ingest(1L, "week1.pdf", PDF);
         assertSame(failed, m);
@@ -271,14 +270,14 @@ class IngestServiceTest {
 
     @Test
     void reuploadingTheSameRejectedFileReusesItsFailedRow() {
-        // this is why the guard sits below the hash lookup: fileHash is unique, so a second
+        // this is why the guard sits below the hash lookup: a course holds a file once, so a second
         // upload of the same .pptx has to land on the existing FAILED row
         Material failed = new Material();
         failed.course = course;
         failed.filename = "climate-lecture.pptx";
         failed.status = MaterialStatus.FAILED;
         failed.errorMessage = "boom";
-        when(materialRepo.findByFileHash(any())).thenReturn(Optional.of(failed));
+        when(materialRepo.findByCourseIdAndFileHash(any(), any())).thenReturn(Optional.of(failed));
         ai.nextExtract = FakeAiClient.samplePayload();
         Material m = service.ingest(1L, "climate-lecture.pptx", PPTX);
         assertSame(failed, m);

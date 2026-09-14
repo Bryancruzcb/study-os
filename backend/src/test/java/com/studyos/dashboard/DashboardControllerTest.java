@@ -21,8 +21,14 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.test.web.servlet.MockMvc;
 import com.studyos.exam.ExamPlanner;
+import com.studyos.auth.Owned;
+import com.studyos.auth.SignedInMvc;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 @WebMvcTest(DashboardController.class)
+@Import(SignedInMvc.class)
 class DashboardControllerTest {
     @TestConfiguration
     static class FixedClock {
@@ -34,6 +40,15 @@ class DashboardControllerTest {
     @MockBean AttemptRepo attemptRepo;
     @MockBean ReviewStateRepo reviewStateRepo;
     @MockBean ExamPlanner examPlanner;
+    @MockBean Owned owned;
+
+    @Test
+    void anotherAccountsCourseIsNotFoundAndNothingIsRead() throws Exception {
+        when(owned.course(SignedInMvc.ME.id(), 2L)).thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND));
+        mvc.perform(get("/api/dashboard").param("courseId", "2"))
+            .andExpect(status().isNotFound());
+        verifyNoInteractions(conceptRepo, reviewStateRepo, examPlanner);
+    }
 
     @Test
     void aggregatesPerConceptStats() throws Exception {
