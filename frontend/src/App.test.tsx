@@ -18,6 +18,7 @@ vi.mock('./api', () => ({
     ]),
     // the bare-course-path test renders the study tab, whose queue call must resolve, not throw
     next: vi.fn().mockResolvedValue(null),
+    quiz: vi.fn().mockResolvedValue([]),
     createCourse: vi.fn(),
     evalReport: vi.fn().mockResolvedValue({
       labeled: 31, pctAnswerable: 1, pctCorrectAnswer: 0.97, pctUnambiguous: 0.94,
@@ -69,6 +70,13 @@ test('a bare course path opens that course on its study tab', async () => {
   await waitFor(() => expect(window.location.pathname).toBe('/courses/2/study'))
   expect(await screen.findByRole('heading', { level: 1, name: 'CS 149' })).toBeInTheDocument()
   expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+})
+
+test('a course has a quiz tab of its own', async () => {
+  window.history.pushState({}, '', '/courses/2/quiz')
+  render(<App />)
+  expect(await screen.findByRole('heading', { level: 2, name: 'Quiz' })).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: 'Quiz' })).toHaveClass('is-current')
 })
 
 test('a course page renders inside one main landmark, with the nav outside it', async () => {

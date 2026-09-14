@@ -37,6 +37,20 @@ export interface Material {
   errorMessage: string | null
 }
 export interface StudyQuestion { id: number; conceptId: number; topic: string | null; lecture: string | null; type: 'MC' | 'SHORT_ANSWER'; prompt: string; options: string[]; sourcePages: string | null }
+/* a question in the quiz, with the id of the lecture it came from, which the quiz narrows by */
+export interface QuizQuestion extends StudyQuestion { lectureId: number }
+/* What the quiz reveals once a question is answered: the key, and why each answer is right or
+   wrong according to the slides. optionExplanations runs in option order and is empty for a short
+   answer; explanation and diagram (Mermaid source) are null on a question nobody has explained yet. */
+export interface QuestionReview {
+  id: number
+  correctIndex: number | null
+  modelAnswer: string | null
+  rubric: string | null
+  explanation: string | null
+  optionExplanations: string[]
+  diagram: string | null
+}
 export interface Attempt { id: number; verdict: 'CORRECT' | 'INCORRECT' | 'PENDING'; score: number | null; feedback: string | null }
 export interface AnsweredAttempt extends Attempt { answerKey: string | null }
 export interface ConceptStats { conceptId: number; name: string; lecture: string | null; sourcePages: string | null; streak: number; attempts: number; correct: number; dueDate: string; neverAttempted: boolean }
@@ -182,6 +196,8 @@ export const api = {
     post<AnsweredAttempt>('/api/study/answer', body),
   override: (attemptId: number) => post<Attempt>(`/api/study/attempts/${attemptId}/override`, {}),
   selfGrade: (attemptId: number, correct: boolean) => post<Attempt>(`/api/study/attempts/${attemptId}/self-grade`, { correct }),
+  quiz: (courseId: number) => get<QuizQuestion[]>(`/api/courses/${courseId}/quiz`),
+  review: (questionId: number) => get<QuestionReview>(`/api/questions/${questionId}/review`),
   dashboard: (courseId: number) => get<Dashboard>(`/api/dashboard?courseId=${courseId}`),
   evalReport: () => get<EvalReport>('/api/eval/report'),
   lectures: (courseId: number) => get<Lecture[]>(`/api/courses/${courseId}/lectures`),

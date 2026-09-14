@@ -25,6 +25,7 @@ class QuestionViewTest {
         q.concept.id = 4L;
         q.concept.name = "TCP handshake";
         q.concept.material = new Material();
+        q.concept.material.id = 7L;
         q.concept.material.filename = "Lecture 3.pdf";
         return q;
     }
@@ -36,6 +37,7 @@ class QuestionViewTest {
         assertEquals(4L, v.conceptId());
         assertEquals("TCP handshake", v.topic());
         assertEquals("Lecture 3.pdf", v.lecture());
+        assertEquals(7L, v.lectureId());
         assertEquals("MC", v.type());
         assertEquals("Steps in the TCP handshake?", v.prompt());
         assertEquals(List.of("a", "b"), v.options());

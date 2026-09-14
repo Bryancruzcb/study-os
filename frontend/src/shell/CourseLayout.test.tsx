@@ -34,6 +34,7 @@ test('a known course gets its head and tabs, and the index route lands on study'
   expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('CS 149')
   expect(screen.getByText('Fall 2026 · 248 concepts · 844 questions')).toBeInTheDocument()
   expect(screen.getByRole('link', { name: 'Study' })).toHaveAttribute('href', '/courses/2/study')
+  expect(screen.getByRole('link', { name: 'Quiz' })).toHaveAttribute('href', '/courses/2/quiz')
   expect(screen.getByRole('link', { name: 'Bank' })).toHaveAttribute('href', '/courses/2/bank')
   expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('href', '/courses/2/dashboard')
   expect(screen.getByRole('link', { name: '← All courses' })).toHaveAttribute('href', '/')

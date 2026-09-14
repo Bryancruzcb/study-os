@@ -105,6 +105,7 @@ export default function CourseLayout() {
           <h1>{course.name}</h1>
           <nav className="tabs" aria-label="Course">
             <NavLink to="study" className={tab}>Study</NavLink>
+            <NavLink to="quiz" className={tab}>Quiz</NavLink>
             {/* the bank's index redirects to its first concept, so a push from inside the bank
                 would leave a second entry with the same URL and one dead Back: replace instead */}
             <NavLink to="bank" replace={pathname.startsWith(`/courses/${course.id}/bank`)} className={tab}>Bank</NavLink>

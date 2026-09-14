@@ -1,0 +1,232 @@
+/* quiz mode: the setup card, an answered question's review, and the results. One centered
+   column like the study page, since a quiz question is the same card */
+.quiz {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+  max-width: 820px;
+  margin: 0 auto;
+}
+
+.quiz-setup,
+.quiz-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.quiz-fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.quiz-fieldset legend {
+  margin-bottom: 12px;
+}
+
+.quiz-fieldset-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* the lectures a quiz covers, as the exam form lists them: a checkbox row each, in two
+   columns where the card is wide enough */
+.quiz-lectures {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 2px 28px;
+}
+
+.quiz-lecture {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.quiz-lecture-name {
+  overflow-wrap: anywhere;
+}
+
+.quiz-lecture .count {
+  flex: none;
+  margin-left: auto;
+}
+
+/* ---- an answered multiple-choice question ------------------------------------ */
+
+.quiz-review {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.quiz-opt {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+.quiz-opt-line {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 17px;
+  color: var(--ink);
+}
+
+.quiz-opt-text {
+  flex: 1;
+  min-width: 0;
+}
+
+/* why this option is right or wrong, indented under its text, past the letter */
+.quiz-opt-why {
+  padding-left: 50px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.quiz-opt.is-key {
+  border-color: var(--ok);
+  background: var(--ok-wash);
+}
+
+.quiz-opt.is-miss {
+  border-color: var(--flag);
+  background: var(--flag-wash);
+}
+
+.quiz-opt.is-key .letter {
+  border-color: var(--ok);
+  color: var(--ok);
+}
+
+.quiz-opt.is-miss .letter {
+  border-color: var(--flag);
+  color: var(--flag);
+}
+
+/* the words beside the colour, so colour is never the only signal */
+.quiz-tag {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.is-key .quiz-tag {
+  color: var(--ok);
+}
+
+.is-miss .quiz-tag {
+  color: var(--flag);
+}
+
+/* ---- why, from the slides ------------------------------------------------------ */
+
+.why {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 22px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+}
+
+.why-label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.why-text {
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--ink);
+}
+
+.why-source {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--ink-dim);
+}
+
+.quiz-rubric {
+  white-space: pre-line;
+}
+
+/* mermaid sizes its SVG to the drawing; a wide one scrolls inside its own box */
+.diagram {
+  margin: 0;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--sunken);
+  overflow-x: auto;
+}
+
+.diagram-art svg {
+  display: block;
+  height: auto;
+  margin: 0 auto;
+}
+
+/* ---- results ---------------------------------------------------------------------- */
+
+.quiz-scores {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.quiz-scores li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 6px 16px;
+}
+
+.quiz-scores .bar {
+  grid-column: 1 / -1;
+}
+
+.quiz-score-name {
+  font-size: 15px;
+  color: var(--ink);
+}
+
+.quiz-missed {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.quiz-missed-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px 0 18px;
+}
