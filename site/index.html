@@ -293,7 +293,7 @@
       <article class="card">
         <p class="step">02</p>
         <h3>Study</h3>
-        <p>Concepts are scheduled with SM-2-lite spaced repetition. A correct answer multiplies the interval by the ease and always adds at least a day; a miss resets the interval to one day and drops the ease by 0.2, with a floor of 1.3. Give a course an exam date and the lectures it covers, and each day's new topics are paced to it, with the last stretch before the exam kept for review. The dashboard shows what is due and how each concept is actually going.</p>
+        <p>Concepts are scheduled with SM-2-lite spaced repetition. A correct answer multiplies the interval by the ease and always adds at least a day; a miss resets the interval to one day and drops the ease by 0.2, with a floor of 1.3. Give a course an exam date and the lectures it covers, and each day's new topics are paced to it, with the last stretch before the exam kept for review. When I want every question at once, a quiz shuffles them and shows, after each answer, why each option is right or wrong according to the slides. The dashboard shows what is due and how each concept is actually going.</p>
       </article>
       <article class="card card--lead">
         <p class="step">03</p>
@@ -329,6 +329,13 @@
                alt="The question bank: the course's concept list on the left with the open concept filled dark, and on the right that concept's lecture file and slides above its question cards, each tagged with its type and the slides it came from, with three pill-toggle labels, a save button and a retire link.">
         </div>
         <figcaption>The bank. The concept list beside the open concept's question cards, each citing the lecture slides it came from, with three pill-toggle labels and a quiet retire link; a retired question is struck through, not deleted.</figcaption>
+      </figure>
+      <figure>
+        <div class="shot">
+          <img src="screenshots/quiz.jpg" width="1400" height="850" loading="lazy"
+               alt="A quiz question on fork() after a wrong pick: four options, the picked one red and the right one green, each with a sentence from the slides on why, then the Incorrect verdict with the explanation and a sequence diagram.">
+        </div>
+        <figcaption>A quiz question after a miss. Every option says why the slides make it right or wrong, with the explanation and a diagram where a picture helps. Quiz progress stays in this browser.</figcaption>
       </figure>
       <figure>
         <div class="shot">
@@ -368,10 +375,10 @@
     <div class="split">
       <h2>What it is not</h2>
       <ul role="list">
-        <li>This is v1 and it is built for exactly one person. There are no accounts and no auth, so anyone who can reach the port can use it.</li>
-        <li>It runs on a laptop. Nothing is deployed: the source and this page are the only parts of it on the internet.</li>
-        <li>Ingest is one call per file with no progress and no background queue, so a long deck takes a while and the upload request waits for it.</li>
-        <li>Uploads have to be PDFs and nothing checks that, so anything else simply fails to ingest. Files are capped at 32&nbsp;MB.</li>
+        <li>Accounts exist. Sign-up needs an invite code when the demo sets one, and each account owns only its own courses. A forgotten password is reset from the sign-in form (no email; the token stays in that browser visit).</li>
+        <li>This page is published here from <code>site/</code>. An optional live demo of the app itself can be deployed on Render with Neon Postgres; the steps are in <a href="https://github.com/Bryancruzcb/study-os/blob/master/docs/DEPLOY.md">docs/DEPLOY.md</a>.</li>
+        <li>Upload returns once the file is stored; extraction runs in the background and the bank polls until the lecture is ready or failed. A lecture can be deleted, and uploading again under the same filename replaces it.</li>
+        <li>Uploads must be PDFs; anything else is refused on its first bytes. Files are capped at 32&nbsp;MB. Quiz progress is saved on the account for that course. Exam pacing counts topics, not how long they take.</li>
       </ul>
     </div>
   </section>
@@ -382,6 +389,7 @@
   <span>Built by Bryan Cruz &middot; San Jos&eacute; State University</span>
   <nav aria-label="Footer">
     <a href="https://github.com/Bryancruzcb/study-os">GitHub</a>
+    <a href="https://github.com/Bryancruzcb/study-os/blob/master/docs/DEPLOY.md">Deploy</a>
     <a href="https://github.com/Bryancruzcb/study-os#evaluation">Evaluation</a>
     <a href="https://github.com/Bryancruzcb/study-os#readme">README</a>
   </nav>
