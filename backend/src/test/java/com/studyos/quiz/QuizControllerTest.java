@@ -1,6 +1,10 @@
 package com.studyos.quiz;
 
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -9,13 +13,17 @@ import com.studyos.auth.Owned;
 import com.studyos.auth.SignedInMvc;
 import com.studyos.domain.*;
 import com.studyos.repo.QuestionRepo;
+import com.studyos.repo.QuizProgressRepo;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -24,6 +32,7 @@ import org.springframework.web.server.ResponseStatusException;
 class QuizControllerTest {
     @Autowired MockMvc mvc;
     @MockBean QuestionRepo questionRepo;
+    @MockBean QuizProgressRepo progressRepo;
     @MockBean Owned owned;
 
     private static Question question(long id, QuestionType type) {
@@ -50,6 +59,24 @@ class QuizControllerTest {
             + "\"SYN, SYN-ACK and ACK are the three on slide 3.\",\"Slide 3 never shows a fourth.\"]";
         q.diagram = "sequenceDiagram\n  Client->>Server: SYN";
         return q;
+    }
+
+    private static Course course(long id) {
+        Course c = new Course();
+        c.id = id;
+        c.name = "CS 149";
+        c.term = "Fall 2026";
+        return c;
+    }
+
+    private static QuizProgress progress(long courseId) {
+        QuizProgress row = new QuizProgress();
+        row.id = 1L;
+        row.course = course(courseId);
+        row.orderJson = "[11,9,10]";
+        row.answersJson = "{\"11\":{\"picked\":1,\"text\":\"\",\"correct\":false}}";
+        row.finished = false;
+        return row;
     }
 
     @Test
@@ -121,5 +148,65 @@ class QuizControllerTest {
     void anUnknownQuestionIsNotFound() throws Exception {
         when(owned.question(SignedInMvc.ME.id(), 404L)).thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND));
         mvc.perform(get("/api/questions/404/review")).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void anotherAccountsProgressCannotBeReadOrWritten() throws Exception {
+        when(owned.course(SignedInMvc.ME.id(), 2L)).thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND));
+        mvc.perform(get("/api/courses/2/quiz/progress")).andExpect(status().isNotFound());
+        mvc.perform(put("/api/courses/2/quiz/progress").contentType(MediaType.APPLICATION_JSON)
+            .content("{\"order\":[1],\"answers\":{},\"finished\":false}")).andExpect(status().isNotFound());
+        mvc.perform(delete("/api/courses/2/quiz/progress")).andExpect(status().isNotFound());
+        verifyNoInteractions(progressRepo);
+    }
+
+    @Test
+    void aCourseWithNoSavedRunAnswers204() throws Exception {
+        when(owned.course(SignedInMvc.ME.id(), 2L)).thenReturn(course(2L));
+        when(progressRepo.findByCourseId(2L)).thenReturn(Optional.empty());
+        mvc.perform(get("/api/courses/2/quiz/progress")).andExpect(status().isNoContent());
+    }
+
+    @Test
+    void aSavedRunRoundTripsThroughPutAndGet() throws Exception {
+        when(owned.course(SignedInMvc.ME.id(), 2L)).thenReturn(course(2L));
+        when(progressRepo.findByCourseId(2L)).thenReturn(Optional.empty());
+        when(progressRepo.save(any(QuizProgress.class))).thenAnswer(inv -> {
+            QuizProgress row = inv.getArgument(0);
+            row.id = 5L;
+            return row;
+        });
+
+        mvc.perform(put("/api/courses/2/quiz/progress").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"order\":[11,9],\"answers\":{\"11\":{\"picked\":1,\"text\":\"\",\"correct\":false}},\"finished\":false}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.order.length()").value(2))
+            .andExpect(jsonPath("$.order[0]").value(11))
+            .andExpect(jsonPath("$.answers.11.picked").value(1))
+            .andExpect(jsonPath("$.answers.11.correct").value(false))
+            .andExpect(jsonPath("$.finished").value(false));
+
+        ArgumentCaptor<QuizProgress> saved = ArgumentCaptor.forClass(QuizProgress.class);
+        verify(progressRepo).save(saved.capture());
+        QuizProgress row = saved.getValue();
+        assertEquals(2L, row.course.id);
+        assertEquals(true, row.orderJson.contains("11"));
+        assertFalse(row.finished);
+
+        when(progressRepo.findByCourseId(2L)).thenReturn(Optional.of(progress(2L)));
+        mvc.perform(get("/api/courses/2/quiz/progress"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.order[0]").value(11))
+            .andExpect(jsonPath("$.answers.11.correct").value(false))
+            .andExpect(jsonPath("$.finished").value(false));
+    }
+
+    @Test
+    void clearingProgressDeletesTheRow() throws Exception {
+        when(owned.course(SignedInMvc.ME.id(), 2L)).thenReturn(course(2L));
+        QuizProgress row = progress(2L);
+        when(progressRepo.findByCourseId(2L)).thenReturn(Optional.of(row));
+        mvc.perform(delete("/api/courses/2/quiz/progress")).andExpect(status().isNoContent());
+        verify(progressRepo).delete(eq(row));
     }
 }

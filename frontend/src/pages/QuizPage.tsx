@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { Link, useOutletContext } from 'react-router-dom'
 import { api, type QuestionReview, type QuizQuestion } from '../api'
 import { plural } from '../plural'
-import { asked, buildQuiz, byLecture, loadRun, saveRun, shuffle, tally, type QuizAnswer, type QuizRun } from '../quiz'
+import { asked, buildQuiz, byLecture, clearLocalRun, shuffle, takeLocalRun, tally, type QuizAnswer, type QuizRun } from '../quiz'
 import type { CourseContext } from '../shell/CourseLayout'
 import { citation } from '../source'
 import Diagram from './Diagram'
@@ -41,11 +41,11 @@ function keyText(question: QuizQuestion, review: QuestionReview): string {
 /* Quiz mode: every question in the course, from every topic, shuffled into one quiz. After each
    answer the page shows why every option is right or wrong, drawn from the slides, with a diagram
    where one helps. A quiz is practice: nothing here records an attempt or moves a review date. The
-   run lives in this browser, so leaving and coming back picks the quiz up where it stopped. */
+   run is saved on the account, so another browser or device picks the quiz up where it stopped. */
 export default function QuizPage() {
   const { course, slot } = useOutletContext<CourseContext>()
   const [questions, setQuestions] = useState<QuizQuestion[] | null>(null)
-  const [run, setRun] = useState<QuizRun | null>(() => loadRun(course.id))
+  const [run, setRun] = useState<QuizRun | null>(null)
   const [reviews, setReviews] = useState<Record<number, QuestionReview>>({})
   // the answered question kept on screen until Next question; null shows the next unanswered one
   const [showing, setShowing] = useState<number | null>(null)
@@ -66,8 +66,24 @@ export default function QuizPage() {
 
   useEffect(() => {
     let current = true
-    api.quiz(course.id)
-      .then(loaded => { if (current) setQuestions(loaded) })
+    Promise.all([api.quiz(course.id), api.quizProgress(course.id)])
+      .then(async ([loaded, progress]) => {
+        if (!current) return
+        let next = progress
+        if (next) {
+          clearLocalRun(course.id)
+        } else {
+          // one-time lift of a run left in this browser before progress lived on the account
+          const local = takeLocalRun(course.id)
+          if (local) {
+            next = local
+            try { await api.saveQuizProgress(course.id, local) } catch { /* still usable this visit */ }
+          }
+        }
+        if (!current) return
+        setQuestions(loaded)
+        setRun(next)
+      })
       .catch(e => { if (current) setError(String(e)) })
     return () => { current = false }
   }, [course.id])
@@ -88,9 +104,10 @@ export default function QuizPage() {
   const current = run ? quiz.find(q => !run.answers[q.id]) ?? null : null
   const onScreen = showing !== null ? byId.get(showing) ?? null : current
 
-  function keep(next: QuizRun | null) {
+  async function keep(next: QuizRun | null) {
     setRun(next)
-    saveRun(course.id, next)
+    if (next) await api.saveQuizProgress(course.id, next)
+    else await api.clearQuizProgress(course.id)
   }
 
   async function work(task: () => Promise<void>) {
@@ -128,17 +145,19 @@ export default function QuizPage() {
   }
 
   function start(order: number[]) {
-    keep({ order, answers: {}, finished: false })
-    setShowing(null)
-    setRevealed(null)
-    setText('')
-    wantLanding.current = true
+    work(async () => {
+      await keep({ order, answers: {}, finished: false })
+      setShowing(null)
+      setRevealed(null)
+      setText('')
+      wantLanding.current = true
+    })
   }
 
   function answerMc(q: QuizQuestion, picked: number) {
     work(async () => {
       const review = await reviewOf(q.id)
-      keep(answered(q, { picked, text: '', correct: review.correctIndex === picked }))
+      await keep(answered(q, { picked, text: '', correct: review.correctIndex === picked }))
       setShowing(q.id)
       wantBand.current = true
     })
@@ -156,28 +175,36 @@ export default function QuizPage() {
     const next = answered(q, { picked: null, text: text.trim(), correct })
     if (!next) return
     const done = asked(next, byId).every(x => next.answers[x.id])
-    keep(done ? { ...next, finished: true } : next)
-    setRevealed(null)
-    setText('')
-    wantLanding.current = true
+    work(async () => {
+      await keep(done ? { ...next, finished: true } : next)
+      setRevealed(null)
+      setText('')
+      wantLanding.current = true
+    })
   }
 
   function nextQuestion() {
-    if (run && current === null) keep({ ...run, finished: true })
-    setShowing(null)
-    wantLanding.current = true
+    work(async () => {
+      if (run && current === null) await keep({ ...run, finished: true })
+      setShowing(null)
+      wantLanding.current = true
+    })
   }
 
   function end() {
-    if (run) keep({ ...run, finished: true })
-    setShowing(null)
-    setRevealed(null)
-    wantLanding.current = true
+    work(async () => {
+      if (run) await keep({ ...run, finished: true })
+      setShowing(null)
+      setRevealed(null)
+      wantLanding.current = true
+    })
   }
 
   function newQuiz() {
-    keep(null)
-    wantLanding.current = true
+    work(async () => {
+      await keep(null)
+      wantLanding.current = true
+    })
   }
 
   const { answered: count } = run ? tally(run, quiz) : { answered: 0 }

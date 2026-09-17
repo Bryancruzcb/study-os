@@ -1,6 +1,6 @@
 import { beforeEach } from 'vitest'
 import type { QuizQuestion } from './api'
-import { asked, buildQuiz, byLecture, loadRun, saveRun, shuffle, tally, type QuizRun } from './quiz'
+import { asked, buildQuiz, byLecture, clearLocalRun, shuffle, takeLocalRun, tally, type QuizRun } from './quiz'
 
 /* a fixed sequence, so a shuffle is the same shuffle every run */
 function seeded(seed = 7) {
@@ -72,21 +72,28 @@ test('lectures come back weakest first', () => {
   ])
 })
 
-describe('the saved run', () => {
+describe('a leftover local run', () => {
   beforeEach(() => localStorage.clear())
 
-  test('round-trips per course', () => {
-    saveRun(2, run)
-    expect(loadRun(2)).toEqual(run)
-    expect(loadRun(3)).toBeNull()
-    saveRun(2, null)
-    expect(loadRun(2)).toBeNull()
+  test('takeLocalRun reads once and clears the key', () => {
+    localStorage.setItem('studyos.quiz.2', JSON.stringify(run))
+    expect(takeLocalRun(2)).toEqual(run)
+    expect(localStorage.getItem('studyos.quiz.2')).toBeNull()
+    expect(takeLocalRun(2)).toBeNull()
+    expect(takeLocalRun(3)).toBeNull()
   })
 
-  test('anything else under the key is no run at all', () => {
+  test('anything else under the key is no run at all, and still clears', () => {
     localStorage.setItem('studyos.quiz.2', '{"order":"nope"}')
-    expect(loadRun(2)).toBeNull()
+    expect(takeLocalRun(2)).toBeNull()
+    expect(localStorage.getItem('studyos.quiz.2')).toBeNull()
     localStorage.setItem('studyos.quiz.2', 'not json')
-    expect(loadRun(2)).toBeNull()
+    expect(takeLocalRun(2)).toBeNull()
+  })
+
+  test('clearLocalRun drops the key without reading it', () => {
+    localStorage.setItem('studyos.quiz.2', JSON.stringify(run))
+    clearLocalRun(2)
+    expect(localStorage.getItem('studyos.quiz.2')).toBeNull()
   })
 })

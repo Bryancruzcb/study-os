@@ -1,22 +1,6 @@
-import type { QuizQuestion } from './api'
+import type { QuizQuestion, QuizAnswer, QuizRun } from './api'
 
-/* One answer as the quiz took it: the option picked, or the short answer as typed, and
-   whether it was right. A short answer is marked right or wrong by the student, after
-   reading the model answer and why. */
-export interface QuizAnswer {
-  picked: number | null
-  text: string
-  correct: boolean
-}
-
-/* A quiz as the page keeps it between visits: which questions, in the order it asks them,
-   and what has been answered. The questions themselves are fetched fresh on every visit,
-   so one retired since the quiz began drops out of it. */
-export interface QuizRun {
-  order: number[]
-  answers: Record<number, QuizAnswer>
-  finished: boolean
-}
+export type { QuizAnswer, QuizRun }
 
 export function shuffle<T>(items: readonly T[], random: () => number = Math.random): T[] {
   const out = [...items]
@@ -96,11 +80,13 @@ function isRun(value: unknown): value is QuizRun {
     && typeof run.answers === 'object' && run.answers !== null && typeof run.finished === 'boolean'
 }
 
-/* Storage can throw (a private window, blocked site data) or hold something else under the
-   key; either way there is no quiz to pick up, and the page starts a new one. */
-export function loadRun(courseId: number): QuizRun | null {
+/* Leftover from when the run lived only in this browser. Read once to migrate onto the
+   account, then clear so the next visit trusts the server. Storage can throw or hold
+   something else under the key; either way there is no leftover to migrate. */
+export function takeLocalRun(courseId: number): QuizRun | null {
   try {
     const raw = localStorage.getItem(key(courseId))
+    localStorage.removeItem(key(courseId))
     const parsed: unknown = raw ? JSON.parse(raw) : null
     return isRun(parsed) ? parsed : null
   } catch {
@@ -108,11 +94,10 @@ export function loadRun(courseId: number): QuizRun | null {
   }
 }
 
-export function saveRun(courseId: number, run: QuizRun | null) {
+export function clearLocalRun(courseId: number) {
   try {
-    if (run) localStorage.setItem(key(courseId), JSON.stringify(run))
-    else localStorage.removeItem(key(courseId))
+    localStorage.removeItem(key(courseId))
   } catch {
-    // the quiz still works for this visit; it just cannot be picked up after a reload
+    // nothing to clear
   }
 }
