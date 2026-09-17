@@ -24,6 +24,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.context.ApplicationEventPublisher;
 
 class IngestServiceTest {
     CourseRepo courseRepo = mock(CourseRepo.class);
@@ -33,6 +34,7 @@ class IngestServiceTest {
     ReviewStateRepo reviewStateRepo = mock(ReviewStateRepo.class);
     FakeAiClient ai = new FakeAiClient();
     ExamPlanner examPlanner = mock(ExamPlanner.class);
+    ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
     Clock clock = Clock.fixed(Instant.parse("2026-09-01T12:00:00Z"), ZoneOffset.UTC);
     static final LocalDate TODAY = LocalDate.of(2026, 9, 1);
     // ingest only accepts bytes that start with the PDF magic, so every fixture that is meant to
@@ -56,7 +58,7 @@ class IngestServiceTest {
 
     private IngestService serviceWithDailyLimit(int newConceptsPerDay) {
         return new IngestService(courseRepo, materialRepo, conceptRepo, questionRepo, reviewStateRepo, ai, clock,
-            new AppStudyProps(newConceptsPerDay, 0.2), examPlanner);
+            new AppStudyProps(newConceptsPerDay, 0.2), examPlanner, events);
     }
 
     /** A valid payload of {@code n} distinct concepts, each carrying the sample question pair. */
@@ -87,6 +89,30 @@ class IngestServiceTest {
         ArgumentCaptor<ReviewState> rs = ArgumentCaptor.forClass(ReviewState.class);
         verify(reviewStateRepo, atLeastOnce()).save(rs.capture());
         return rs.getAllValues().stream().map(x -> x.dueDate).toList();
+    }
+
+
+    @Test
+    void acceptReturnsPendingWithoutCallingTheProvider() {
+        Material m = service.accept(1L, "week1.pdf", PDF);
+        assertEquals(MaterialStatus.PENDING, m.status);
+        assertEquals(0, ai.extractCalls);
+        verify(events).publishEvent(any(IngestRequested.class));
+        verify(conceptRepo, never()).save(any());
+    }
+
+    @Test
+    void processFinishesAPendingMaterial() {
+        Material pending = new Material();
+        pending.id = 9L;
+        pending.course = course;
+        pending.status = MaterialStatus.PENDING;
+        when(materialRepo.findById(9L)).thenReturn(Optional.of(pending));
+        ai.nextExtract = FakeAiClient.samplePayload();
+        Material m = service.process(9L, PDF);
+        assertEquals(MaterialStatus.INGESTED, m.status);
+        assertEquals(1, ai.extractCalls);
+        verify(conceptRepo, times(1)).save(any());
     }
 
     @Test

@@ -11,4 +11,6 @@ public interface MaterialRepo extends JpaRepository<Material, Long> {
 
     // the lectures an exam can cover, in the order they were uploaded
     List<Material> findByCourseIdAndStatusOrderByIdAsc(Long courseId, MaterialStatus status);
+
+    Optional<Material> findByIdAndCourseOwnerId(Long id, Long ownerId);
 }

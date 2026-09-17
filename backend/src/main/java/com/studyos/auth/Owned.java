@@ -3,10 +3,12 @@ package com.studyos.auth;
 import com.studyos.domain.Attempt;
 import com.studyos.domain.Course;
 import com.studyos.domain.Exam;
+import com.studyos.domain.Material;
 import com.studyos.domain.Question;
 import com.studyos.repo.AttemptRepo;
 import com.studyos.repo.CourseRepo;
 import com.studyos.repo.ExamRepo;
+import com.studyos.repo.MaterialRepo;
 import com.studyos.repo.QuestionRepo;
 import java.util.Optional;
 import org.springframework.http.HttpStatus;
@@ -24,12 +26,15 @@ public class Owned {
     private final QuestionRepo questions;
     private final AttemptRepo attempts;
     private final ExamRepo exams;
+    private final MaterialRepo materials;
 
-    public Owned(CourseRepo courses, QuestionRepo questions, AttemptRepo attempts, ExamRepo exams) {
+    public Owned(CourseRepo courses, QuestionRepo questions, AttemptRepo attempts, ExamRepo exams,
+                 MaterialRepo materials) {
         this.courses = courses;
         this.questions = questions;
         this.attempts = attempts;
         this.exams = exams;
+        this.materials = materials;
     }
 
     public Course course(Long ownerId, Long courseId) {
@@ -46,6 +51,10 @@ public class Owned {
 
     public Exam exam(Long ownerId, Long examId) {
         return found(exams.findByIdAndCourseOwnerId(examId, ownerId));
+    }
+
+    public Material material(Long ownerId, Long materialId) {
+        return found(materials.findByIdAndCourseOwnerId(materialId, ownerId));
     }
 
     private static <T> T found(Optional<T> row) {

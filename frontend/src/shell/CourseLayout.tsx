@@ -17,6 +17,8 @@ export interface CourseContext {
 
 export interface Ingest {
   uploading: boolean
+  /* idle | uploading (bytes on the wire) | processing (extraction in the background) */
+  phase: 'idle' | 'uploading' | 'processing'
   /* the last ingest's failure, until the next upload or the bank's next action clears it */
   error: string | null
   /* how many ingests have finished for this course; the bank reloads when it moves */
@@ -28,11 +30,14 @@ export interface Ingest {
 interface IngestState {
   courseId: number
   uploading: boolean
+  phase: 'idle' | 'uploading' | 'processing'
   error: string | null
   finished: number
 }
 
-const idle = (courseId: number): IngestState => ({ courseId, uploading: false, error: null, finished: 0 })
+const idle = (courseId: number): IngestState => (
+  { courseId, uploading: false, phase: 'idle', error: null, finished: 0 }
+)
 
 const tab = ({ isActive }: { isActive: boolean }) => `tab${isActive ? ' is-current' : ''}`
 
@@ -48,10 +53,19 @@ export default function CourseLayout() {
   const id = Number(courseId)
   const [ingestState, setIngestState] = useState<IngestState>(() => idle(id))
   const upload = useCallback(async (file: File) => {
-    setIngestState(s => ({ ...(s.courseId === id ? s : idle(id)), uploading: true, error: null }))
+    setIngestState(s => ({ ...(s.courseId === id ? s : idle(id)), uploading: true, phase: 'uploading', error: null }))
     let failure: string | null = null
     try {
-      const m = await api.upload(id, file)
+      let m = await api.upload(id, file)
+      // long decks finish in the background: poll until INGESTED or FAILED
+      if (m.status === 'PENDING') {
+        setIngestState(s => ({ ...(s.courseId === id ? s : idle(id)), uploading: true, phase: 'processing', error: null }))
+        for (;;) {
+          await new Promise(r => setTimeout(r, 1500))
+          m = await api.material(m.id)
+          if (m.status !== 'PENDING') break
+        }
+      }
       if (m.status === 'FAILED') failure = m.errorMessage ?? 'Ingest failed'
     } catch (e) {
       failure = String(e)
@@ -60,7 +74,7 @@ export default function CourseLayout() {
     await refresh()
     setIngestState(s => {
       const base = s.courseId === id ? s : idle(id)
-      return { ...base, uploading: false, error: failure, finished: base.finished + 1 }
+      return { ...base, uploading: false, phase: 'idle', error: failure, finished: base.finished + 1 }
     })
   }, [id, refresh])
   const clearIngestError = useCallback(() => setIngestState(s => ({ ...s, error: null })), [])
@@ -93,7 +107,7 @@ export default function CourseLayout() {
 
   const own = ingestState.courseId === course.id ? ingestState : idle(course.id)
   const ingest: Ingest = {
-    uploading: own.uploading, error: own.error, finished: own.finished, upload, clearError: clearIngestError,
+    uploading: own.uploading, phase: own.phase, error: own.error, finished: own.finished, upload, clearError: clearIngestError,
   }
 
   return (

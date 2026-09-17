@@ -28,6 +28,7 @@ vi.mock('../api', () => ({
     overview: vi.fn(),
     bank: vi.fn(),
     upload: vi.fn(),
+    material: vi.fn(),
     retire: vi.fn(),
     restore: vi.fn(),
     label: vi.fn(),
@@ -125,10 +126,10 @@ test('while the ingest runs the control says so and takes no second file', async
   await screen.findByRole('link', { name: /TCP handshake/ })
   const input = container.querySelector<HTMLInputElement>('input[type="file"]')!
   await userEvent.upload(input, new File(['%PDF-1.4'], 'week1.pdf', { type: 'application/pdf' }))
-  expect(input.closest('label')).toHaveTextContent('Ingesting…')
+  expect(input.closest('label')).toHaveTextContent('Uploading…')
   expect(input).toBeDisabled()
   // the text lives in a live region, so a screen reader hears the start and the end
-  expect(screen.getByRole('status')).toHaveTextContent('Ingesting…')
+  expect(screen.getByRole('status')).toHaveTextContent('Uploading…')
   land({ id: 2, filename: 'week1.pdf', status: 'INGESTED', errorMessage: null })
   await waitFor(() => expect(input.closest('label')).toHaveTextContent('Upload a lecture PDF'))
   expect(input).toBeEnabled()
@@ -160,13 +161,13 @@ test('an ingest in flight survives leaving the bank tab, and the list follows wh
   const overviewCalls = vi.mocked(api.overview).mock.calls.length
   const file = () => container.querySelector<HTMLInputElement>('input[type="file"]')!
   await userEvent.upload(file(), new File(['%PDF-1.4'], 'week1.pdf', { type: 'application/pdf' }))
-  expect(file().closest('label')).toHaveTextContent('Ingesting…')
+  expect(file().closest('label')).toHaveTextContent('Uploading…')
   await userEvent.click(screen.getByRole('link', { name: 'Study' }))
   await screen.findByText('Study stub')
   await userEvent.click(screen.getByRole('link', { name: 'Bank' }))
   await screen.findByRole('link', { name: /TCP handshake/ })
   // still running: the control says so and takes no second file
-  expect(file().closest('label')).toHaveTextContent('Ingesting…')
+  expect(file().closest('label')).toHaveTextContent('Uploading…')
   expect(file()).toBeDisabled()
   vi.mocked(api.bank).mockResolvedValueOnce([...bank, { id: 7, name: 'Routing', summary: 'tables', sourcePages: null, lecture: null, questions: [] }])
   land({ id: 2, filename: 'week1.pdf', status: 'INGESTED', errorMessage: null })
@@ -199,3 +200,20 @@ test('opening a row from the keyboard puts the caret on the open concept, its ca
   await userEvent.tab()
   expect(screen.getByLabelText('Answerable')).toHaveFocus()
 })
+
+test('polls until a pending ingest finishes', async () => {
+  vi.mocked(api.upload).mockResolvedValueOnce({ id: 2, filename: 'week1.pdf', status: 'PENDING', errorMessage: null })
+  vi.mocked(api.material)
+    .mockResolvedValueOnce({ id: 2, filename: 'week1.pdf', status: 'PENDING', errorMessage: null })
+    .mockResolvedValueOnce({ id: 2, filename: 'week1.pdf', status: 'INGESTED', errorMessage: null })
+  const { container } = renderBank('/courses/1/bank')
+  await screen.findByRole('link', { name: /TCP handshake/ })
+  const bankCalls = vi.mocked(api.bank).mock.calls.length
+  const input = container.querySelector<HTMLInputElement>('input[type="file"]')!
+  await userEvent.upload(input, new File(['%PDF-1.4'], 'week1.pdf', { type: 'application/pdf' }))
+  await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Ingesting…'))
+  await waitFor(() => expect(api.material).toHaveBeenCalled(), { timeout: 8000 })
+  await waitFor(() => expect(input.closest('label')).toHaveTextContent('Upload a lecture PDF'), { timeout: 8000 })
+  await waitFor(() => expect(vi.mocked(api.bank).mock.calls.length).toBe(bankCalls + 1), { timeout: 8000 })
+})
+

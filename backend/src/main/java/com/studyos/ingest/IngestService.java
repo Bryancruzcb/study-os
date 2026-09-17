@@ -22,6 +22,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,6 +37,7 @@ public class IngestService {
     private final Clock clock;
     private final AppStudyProps study;
     private final ExamPlanner examPlanner;
+    private final ApplicationEventPublisher events;
     private final ObjectMapper mapper = new ObjectMapper();
     // matches @Column(length = 2000) on Material.errorMessage
     private static final int ERROR_MESSAGE_MAX = 2000;
@@ -55,7 +57,7 @@ public class IngestService {
 
     public IngestService(CourseRepo courseRepo, MaterialRepo materialRepo, ConceptRepo conceptRepo,
                          QuestionRepo questionRepo, ReviewStateRepo reviewStateRepo, AiClient ai, Clock clock,
-                         AppStudyProps study, ExamPlanner examPlanner) {
+                         AppStudyProps study, ExamPlanner examPlanner, ApplicationEventPublisher events) {
         this.courseRepo = courseRepo;
         this.materialRepo = materialRepo;
         this.conceptRepo = conceptRepo;
@@ -65,13 +67,63 @@ public class IngestService {
         this.clock = clock;
         this.study = study;
         this.examPlanner = examPlanner;
+        this.events = events;
     }
 
+    /**
+     * Full sync ingest for tests and callers that want the finished Material in one shot.
+     * The HTTP upload path uses {@link #accept} so extraction can finish in the background.
+     */
     @Transactional
     public Material ingest(Long courseId, String filename, byte[] pdfBytes) {
+        Prepared prepared = prepare(courseId, filename, pdfBytes);
+        if (prepared.next() != Next.RUN) return prepared.material();
+        return complete(prepared.material(), pdfBytes);
+    }
+
+    /**
+     * Accept an upload: create or reuse a Material, refuse non-PDFs immediately, and when
+     * extraction is needed publish {@link IngestRequested} after commit so the request returns PENDING.
+     */
+    @Transactional
+    public Material accept(Long courseId, String filename, byte[] pdfBytes) {
+        Prepared prepared = prepare(courseId, filename, pdfBytes);
+        if (prepared.next() == Next.RUN) {
+            events.publishEvent(new IngestRequested(prepared.material().id, pdfBytes));
+        }
+        return prepared.material();
+    }
+
+    /** Finish a PENDING material: extract, persist the bank, mark INGESTED or FAILED. */
+    @Transactional
+    public Material process(Long materialId, byte[] pdfBytes) {
+        Material material = materialRepo.findById(materialId).orElseThrow();
+        if (material.status != MaterialStatus.PENDING) return material;
+        return complete(material, pdfBytes);
+    }
+
+    /** Last-resort FAILED write when background work throws outside the AiException path. */
+    @Transactional
+    public void fail(Long materialId, String message) {
+        Material material = materialRepo.findById(materialId).orElse(null);
+        if (material == null || material.status != MaterialStatus.PENDING) return;
+        material.status = MaterialStatus.FAILED;
+        material.errorMessage = truncateForColumn(message == null ? "ingest failed" : message);
+        materialRepo.save(material);
+    }
+
+    private enum Next { DONE, RUN }
+
+    private record Prepared(Material material, Next next) {}
+
+    // Hash lookup, FAILED reuse, PDF guard. RUN means extraction still has to happen on this row.
+    private Prepared prepare(Long courseId, String filename, byte[] pdfBytes) {
         String hash = sha256(pdfBytes);
         var existing = materialRepo.findByCourseIdAndFileHash(courseId, hash);
-        if (existing.isPresent() && existing.get().status != MaterialStatus.FAILED) return existing.get();
+        // INGESTED is a no-op; PENDING is already being worked, so do not start a second job
+        if (existing.isPresent() && existing.get().status != MaterialStatus.FAILED) {
+            return new Prepared(existing.get(), Next.DONE);
+        }
 
         Course course = courseRepo.findById(courseId).orElseThrow();
         Material material;
@@ -98,9 +150,14 @@ public class IngestService {
         if (notPdf != null) {
             material.status = MaterialStatus.FAILED;
             material.errorMessage = notPdf;
-            return materialRepo.save(material);
+            return new Prepared(materialRepo.save(material), Next.DONE);
         }
+        return new Prepared(material, Next.RUN);
+    }
 
+    private Material complete(Material material, byte[] pdfBytes) {
+        Course course = material.course;
+        Long courseId = course.id;
         IngestPayload payload;
         try {
             payload = extractWithOneRetry(pdfBytes, course.name);
@@ -151,6 +208,7 @@ public class IngestService {
         examPlanner.lectureAdded(ingested);
         return ingested;
     }
+
 
     // What the course already has booked on every day from `from` onwards, in one read. Days
     // before `from` are left out on purpose: an overdue concept is not due on any future day,
