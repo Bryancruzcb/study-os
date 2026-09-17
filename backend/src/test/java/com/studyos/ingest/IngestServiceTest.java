@@ -32,6 +32,8 @@ class IngestServiceTest {
     ConceptRepo conceptRepo = mock(ConceptRepo.class);
     QuestionRepo questionRepo = mock(QuestionRepo.class);
     ReviewStateRepo reviewStateRepo = mock(ReviewStateRepo.class);
+    AttemptRepo attemptRepo = mock(AttemptRepo.class);
+    ExamRepo examRepo = mock(ExamRepo.class);
     FakeAiClient ai = new FakeAiClient();
     ExamPlanner examPlanner = mock(ExamPlanner.class);
     ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
@@ -49,7 +51,9 @@ class IngestServiceTest {
         course.id = 1L;
         when(courseRepo.findById(1L)).thenReturn(Optional.of(course));
         when(materialRepo.findByCourseIdAndFileHash(any(), any())).thenReturn(Optional.empty());
+        when(materialRepo.findByCourseIdAndFilename(any(), any())).thenReturn(List.of());
         when(materialRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(examRepo.findByLectureId(any())).thenReturn(List.of());
         when(conceptRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(questionRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(reviewStateRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -57,8 +61,8 @@ class IngestServiceTest {
     }
 
     private IngestService serviceWithDailyLimit(int newConceptsPerDay) {
-        return new IngestService(courseRepo, materialRepo, conceptRepo, questionRepo, reviewStateRepo, ai, clock,
-            new AppStudyProps(newConceptsPerDay, 0.2), examPlanner, events);
+        return new IngestService(courseRepo, materialRepo, conceptRepo, questionRepo, reviewStateRepo,
+            attemptRepo, examRepo, ai, clock, new AppStudyProps(newConceptsPerDay, 0.2), examPlanner, events);
     }
 
     /** A valid payload of {@code n} distinct concepts, each carrying the sample question pair. */
@@ -451,5 +455,78 @@ class IngestServiceTest {
             good.name(), good.summary(), good.sourcePages(), List.of(good.questions().get(0), withNotes))));
         service.ingest(1L, "week1.pdf", PDF);
         assertNull(savedQuestions().get(1).optionExplanationsJson);
+    }
+
+    @Test
+    void reuploadWithSameFilenameReplacesThePriorLecture() {
+        Material prior = new Material();
+        prior.id = 11L;
+        prior.course = course;
+        prior.filename = "week1.pdf";
+        prior.status = MaterialStatus.INGESTED;
+        when(materialRepo.findByCourseIdAndFilename(1L, "week1.pdf")).thenReturn(List.of(prior));
+        ai.nextExtract = FakeAiClient.samplePayload();
+
+        Material m = service.ingest(1L, "week1.pdf", PDF);
+
+        assertEquals(MaterialStatus.INGESTED, m.status);
+        assertNotSame(prior, m);
+        verify(attemptRepo).deleteByQuestionConceptMaterialId(11L);
+        verify(questionRepo).deleteByConceptMaterialId(11L);
+        verify(reviewStateRepo).deleteByConceptMaterialId(11L);
+        verify(conceptRepo).deleteByMaterialId(11L);
+        verify(materialRepo).delete(prior);
+        // replace mid-ingest does not replan on its own; lectureAdded will after success
+        verify(examPlanner, never()).replan(any());
+        verify(examPlanner).lectureAdded(m);
+    }
+
+    @Test
+    void processBailsWhenMaterialWasDeletedDuringQueue() {
+        when(materialRepo.findById(11L)).thenReturn(Optional.empty());
+        assertNull(service.process(11L, PDF));
+        assertEquals(0, ai.extractCalls);
+        verify(conceptRepo, never()).save(any());
+    }
+
+    @Test
+    void processBailsWhenMaterialNoLongerPendingAfterExtract() {
+        Material pending = new Material();
+        pending.id = 11L;
+        pending.course = course;
+        pending.status = MaterialStatus.PENDING;
+        // first load in process(); second after extract in complete()
+        when(materialRepo.findById(11L))
+            .thenReturn(Optional.of(pending))
+            .thenReturn(Optional.empty());
+        ai.nextExtract = FakeAiClient.samplePayload();
+        assertNull(service.process(11L, PDF));
+        assertEquals(1, ai.extractCalls);
+        verify(conceptRepo, never()).save(any());
+        verify(examPlanner, never()).lectureAdded(any());
+    }
+
+    @Test
+    void deleteLectureRemovesItsGraphAndReplans() {
+        Material lecture = new Material();
+        lecture.id = 11L;
+        lecture.course = course;
+        lecture.filename = "week1.pdf";
+        Exam exam = new Exam();
+        exam.id = 4L;
+        exam.lectures.add(lecture);
+        when(materialRepo.findById(11L)).thenReturn(Optional.of(lecture));
+        when(examRepo.findByLectureId(11L)).thenReturn(List.of(exam));
+
+        service.deleteLecture(11L);
+
+        assertTrue(exam.lectures.isEmpty());
+        verify(examRepo).save(exam);
+        verify(attemptRepo).deleteByQuestionConceptMaterialId(11L);
+        verify(questionRepo).deleteByConceptMaterialId(11L);
+        verify(reviewStateRepo).deleteByConceptMaterialId(11L);
+        verify(conceptRepo).deleteByMaterialId(11L);
+        verify(materialRepo).delete(lecture);
+        verify(examPlanner).replan(1L);
     }
 }

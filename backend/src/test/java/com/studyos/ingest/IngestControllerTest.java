@@ -152,4 +152,16 @@ class IngestControllerTest {
             .andExpect(jsonPath("$.status").value("PENDING"));
     }
 
+    @Test
+    void anotherAccountsLectureCannotBeDeleted() throws Exception {
+        when(owned.material(SignedInMvc.ME.id(), 11L)).thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND));
+        mvc.perform(delete("/api/materials/11")).andExpect(status().isNotFound());
+        verifyNoInteractions(ingestService);
+    }
+
+    @Test
+    void deletingALectureAnswersWithNoContent() throws Exception {
+        mvc.perform(delete("/api/materials/11")).andExpect(status().isNoContent());
+        verify(ingestService).deleteLecture(11L);
+    }
 }

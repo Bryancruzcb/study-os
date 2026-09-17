@@ -94,6 +94,37 @@
   color: var(--ink-dim);
 }
 
+/* lectures already in the course: delete one, or re-upload the same filename to replace it */
+.lecture-manage {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.lecture-manage-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  padding: 8px 12px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.lecture-manage-name {
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+.lecture-manage-row .count {
+  margin-right: auto;
+}
+
 .concept {
   display: flex;
   flex-direction: column;

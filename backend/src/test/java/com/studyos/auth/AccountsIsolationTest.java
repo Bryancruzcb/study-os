@@ -67,6 +67,7 @@ class AccountsIsolationTest {
     Question aliceQuestion;
     Attempt aliceAttempt;
     Exam aliceExam;
+    Material aliceLecture;
 
     @BeforeEach
     void twoAccountsAndOneCourseFullOfAlicesWork() {
@@ -75,15 +76,15 @@ class AccountsIsolationTest {
         aliceCourse = course(alice, "CS 149");
         bobCourse = course(bob, "CS 158A");
 
-        Material lecture = new Material();
-        lecture.course = aliceCourse;
-        lecture.filename = "Lecture 1.pdf";
-        lecture.fileHash = "isolation-lecture";
-        lecture.status = MaterialStatus.INGESTED;
-        materials.save(lecture);
+        aliceLecture = new Material();
+        aliceLecture.course = aliceCourse;
+        aliceLecture.filename = "Lecture 1.pdf";
+        aliceLecture.fileHash = "isolation-lecture";
+        aliceLecture.status = MaterialStatus.INGESTED;
+        materials.save(aliceLecture);
         Concept concept = new Concept();
         concept.course = aliceCourse;
-        concept.material = lecture;
+        concept.material = aliceLecture;
         concept.name = "threads";
         concepts.save(concept);
         aliceQuestion = new Question();
@@ -108,7 +109,7 @@ class AccountsIsolationTest {
         aliceExam.course = aliceCourse;
         aliceExam.name = "Midterm";
         aliceExam.date = LocalDate.now().plusDays(30);
-        aliceExam.lectures.add(lecture);
+        aliceExam.lectures.add(aliceLecture);
         exams.save(aliceExam);
     }
 
@@ -118,6 +119,7 @@ class AccountsIsolationTest {
         long q = aliceQuestion.id;
         long a = aliceAttempt.id;
         long e = aliceExam.id;
+        long m = aliceLecture.id;
         String exam = "{\"name\":\"Final\",\"date\":\"2026-12-10\",\"lectureIds\":[]}";
         List<MockHttpServletRequestBuilder> probes = List.of(
             get("/api/courses/{id}/bank", c),
@@ -133,6 +135,7 @@ class AccountsIsolationTest {
             post("/api/courses/{id}/exams", c).contentType(APPLICATION_JSON).content(exam),
             put("/api/exams/{id}", e).contentType(APPLICATION_JSON).content(exam),
             delete("/api/exams/{id}", e),
+            delete("/api/materials/{id}", m),
             get("/api/study/next").param("courseId", String.valueOf(c)),
             get("/api/courses/{id}/quiz", c),
             get("/api/courses/{id}/quiz/progress", c),

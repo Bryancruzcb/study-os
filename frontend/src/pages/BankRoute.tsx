@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { NavLink, Outlet, useLocation, useOutletContext } from 'react-router-dom'
-import { api, type ConceptWithQuestions } from '../api'
+import { api, type ConceptWithQuestions, type Lecture } from '../api'
 import { plural } from '../plural'
 import type { CourseContext } from '../shell/CourseLayout'
 
@@ -19,8 +19,9 @@ const row = ({ isActive }: { isActive: boolean }) => `crow${isActive ? ' is-curr
    in the course context, so it outlives this tab. */
 export default function BankRoute() {
   const ctx = useOutletContext<CourseContext>()
-  const { course, slot, ingest } = ctx
+  const { course, slot, ingest, refresh } = ctx
   const [bank, setBank] = useState<ConceptWithQuestions[] | null>(null)
+  const [lectures, setLectures] = useState<Lecture[]>([])
   const [ownError, setOwnError] = useState<string | null>(null)
   // one alert for the bank's own failures and the ingest's; an action's fresh start
   // clears both, the way it did when one state held them
@@ -36,7 +37,9 @@ export default function BankRoute() {
 
   const reload = useCallback(async () => {
     try {
-      setBank(await api.bank(course.id))
+      const [nextBank, nextLectures] = await Promise.all([api.bank(course.id), api.lectures(course.id)])
+      setBank(nextBank)
+      setLectures(nextLectures)
     } catch (e) {
       setError(String(e))
     }
@@ -61,6 +64,17 @@ export default function BankRoute() {
     return ingest.upload(file)
   }
 
+  async function onDeleteLecture(id: number) {
+    setError(null)
+    try {
+      await api.deleteLecture(id)
+      await reload()
+      await refresh()
+    } catch (e) {
+      setError(String(e))
+    }
+  }
+
   return (
     <>
       {slot && createPortal(
@@ -78,11 +92,19 @@ export default function BankRoute() {
                 started or finished, and a text swap on a disabled control is otherwise silent */}
             <span role="status">{ingest.phase === 'uploading' ? 'Uploading…' : ingest.uploading ? 'Ingesting…' : 'Upload a lecture PDF'}</span>
           </label>
-          <small className="hint">PDF only</small>
+          <small className="hint">PDF only - same name replaces</small>
         </>,
         slot,
       )}
       {error && <p className="alert" role="alert">{error}</p>}
+      {lectures.length > 0 && (
+        <ul className="lecture-manage" aria-label="Lectures">
+          {lectures.map(lecture => (
+            <LectureDelete key={lecture.id} lecture={lecture} disabled={ingest.uploading}
+              onDelete={() => onDeleteLecture(lecture.id)} />
+          ))}
+        </ul>
+      )}
       <div className="split">
         <nav className="clist" aria-label="Concepts" ref={list}>
           {/* a real bank puts a few hundred rows between the head and the open concept; the
@@ -106,5 +128,37 @@ export default function BankRoute() {
         </section>
       </div>
     </>
+  )
+}
+
+/* one lecture with a delete that arms first, matching the exam form's confirm pattern */
+function LectureDelete({ lecture, disabled, onDelete }: {
+  lecture: Lecture
+  disabled: boolean
+  onDelete: () => Promise<void>
+}) {
+  const [confirming, setConfirming] = useState(false)
+  const [busy, setBusy] = useState(false)
+
+  return (
+    <li className="lecture-manage-row">
+      <span className="lecture-manage-name">{lecture.filename}</span>
+      <span className="count">{plural(lecture.concepts, 'topic')}</span>
+      {confirming ? (
+        <>
+          <button key="confirm" className="btn btn--danger btn--micro" type="button" disabled={busy || disabled}
+            onClick={async () => {
+              setBusy(true)
+              await onDelete()
+              setBusy(false)
+            }}>Confirm delete</button>
+          <button key="cancel" className="btn btn--secondary btn--micro" type="button" disabled={busy}
+            onClick={() => setConfirming(false)}>Cancel</button>
+        </>
+      ) : (
+        <button key="delete" className="btn btn--ghost btn--micro" type="button" disabled={busy || disabled}
+          onClick={() => setConfirming(true)}>Delete</button>
+      )}
+    </li>
   )
 }

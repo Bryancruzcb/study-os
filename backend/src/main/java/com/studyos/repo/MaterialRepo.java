@@ -12,5 +12,8 @@ public interface MaterialRepo extends JpaRepository<Material, Long> {
     // the lectures an exam can cover, in the order they were uploaded
     List<Material> findByCourseIdAndStatusOrderByIdAsc(Long courseId, MaterialStatus status);
 
+    // re-upload of an updated deck keeps the filename; this finds the prior copy to replace
+    List<Material> findByCourseIdAndFilename(Long courseId, String filename);
+
     Optional<Material> findByIdAndCourseOwnerId(Long id, Long ownerId);
 }

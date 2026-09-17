@@ -240,4 +240,5 @@ export const api = {
   createExam: (courseId: number, body: ExamInput) => post<Exam>(`/api/courses/${courseId}/exams`, body),
   updateExam: (examId: number, body: ExamInput) => put<Exam>(`/api/exams/${examId}`, body),
   deleteExam: (examId: number) => remove(`/api/exams/${examId}`),
+  deleteLecture: (materialId: number) => remove(`/api/materials/${materialId}`),
 }

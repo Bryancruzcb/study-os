@@ -7,6 +7,7 @@ import com.studyos.repo.*;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -59,6 +60,13 @@ public class IngestController {
     @GetMapping("/materials/{id}")
     public Material material(@AuthenticationPrincipal SignedIn me, @PathVariable Long id) {
         return owned.material(me.id(), id);
+    }
+
+    @DeleteMapping("/materials/{id}")
+    public ResponseEntity<Void> delete(@AuthenticationPrincipal SignedIn me, @PathVariable Long id) {
+        owned.material(me.id(), id);
+        ingestService.deleteLecture(id);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/courses/{courseId}/bank")
