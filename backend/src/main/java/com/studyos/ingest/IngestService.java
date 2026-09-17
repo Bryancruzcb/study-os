@@ -175,20 +175,25 @@ public class IngestService {
         try {
             payload = extractWithOneRetry(pdfBytes, course.name);
         } catch (AiException e) {
-            // may have been deleted/replaced while the model ran
-            Material still = materialRepo.findById(material.id).orElse(null);
-            if (still == null || still.status != MaterialStatus.PENDING) return still;
-            still.status = MaterialStatus.FAILED;
-            still.errorMessage = truncateForColumn(e.getMessage());
-            return materialRepo.save(still);
+            // may have been deleted/replaced while the model ran (skip when id unset — unit mocks)
+            if (material.id != null) {
+                Material still = materialRepo.findById(material.id).orElse(null);
+                if (still == null || still.status != MaterialStatus.PENDING) return still;
+                material = still;
+            }
+            material.status = MaterialStatus.FAILED;
+            material.errorMessage = truncateForColumn(e.getMessage());
+            return materialRepo.save(material);
         }
 
         // extraction is slow: delete/replace of this PENDING row may have won the race
-        Material current = materialRepo.findById(material.id).orElse(null);
-        if (current == null || current.status != MaterialStatus.PENDING) return current;
-        material = current;
-        course = material.course;
-        courseId = course.id;
+        if (material.id != null) {
+            Material current = materialRepo.findById(material.id).orElse(null);
+            if (current == null || current.status != MaterialStatus.PENDING) return current;
+            material = current;
+            course = material.course;
+            courseId = course.id;
+        }
 
         LocalDate today = LocalDate.now(clock);
         Map<LocalDate, Long> scheduled = scheduledPerDayFrom(courseId, today);
