@@ -65,8 +65,9 @@ username and password.
   plan's small CPU. The first page load after a quiet spell is slow; later ones are not.
 - Sign-ins last 14 days and survive the service stopping, because sessions are stored in
   the database.
-- There is no password reset yet. A friend who forgets their password has to make a new
-  account.
+- A friend who forgets their password can reset it from the sign-in form. On the public host
+  the invite code is required for the first step, the same gate as creating an account. There
+  is no email: the page keeps a one-time code for that visit and then asks for a new password.
 - To stop new sign-ups, change `APP_INVITE_CODE` in the Environment tab and save. Accounts
   that already exist keep working.
 - Upload a PDF. The app refuses PowerPoint and Word files and tells you to export them to

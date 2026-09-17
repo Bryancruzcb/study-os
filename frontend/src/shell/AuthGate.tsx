@@ -22,15 +22,20 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   return <>{children}</>
 }
 
-/* One card for both ways in. A friend's invite link opens it on Create account with the code
-   already filled in. */
+type Mode = 'signin' | 'signup' | 'forgot' | 'reset'
+
+/* One card for sign-in, sign-up, and password reset. A friend's invite link opens it on Create
+   account with the code already filled in. Forgot password asks for the username (and the invite
+   when the host requires one), keeps the one-time token in this card, and then asks for a new
+   password — there is no email, so the token never leaves the page. */
 function AuthForm() {
   const invite = getInvite()
-  const [signingUp, setSigningUp] = useState(invite !== null)
+  const [mode, setMode] = useState<Mode>(invite !== null ? 'signup' : 'signin')
   const [inviteRequired, setInviteRequired] = useState(false)
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [inviteCode, setInviteCode] = useState(invite ?? '')
+  const [resetToken, setResetToken] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
@@ -39,8 +44,11 @@ function AuthForm() {
     api.auth.config().then(config => setInviteRequired(config.inviteRequired)).catch(() => undefined)
   }, [])
 
-  const needsInvite = signingUp && inviteRequired
-  const ready = username.trim() !== '' && password !== '' && (!needsInvite || inviteCode.trim() !== '')
+  const needsInvite = (mode === 'signup' || mode === 'forgot') && inviteRequired
+  const ready =
+    mode === 'reset' ? password !== ''
+    : mode === 'forgot' ? username.trim() !== '' && (!needsInvite || inviteCode.trim() !== '')
+    : username.trim() !== '' && password !== '' && (!needsInvite || inviteCode.trim() !== '')
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -48,10 +56,24 @@ function AuthForm() {
     setPending(true)
     setError(null)
     try {
-      const name = signingUp
+      if (mode === 'forgot') {
+        const token = await api.auth.forgotPassword(username, inviteCode)
+        setResetToken(token)
+        setPassword('')
+        setMode('reset')
+        setPending(false)
+        return
+      }
+      if (mode === 'reset') {
+        if (!resetToken) throw new Error('That reset code was not accepted.')
+        const name = await api.auth.resetPassword(resetToken, password)
+        setUser(name)
+        return
+      }
+      const name = mode === 'signup'
         ? await api.auth.signup(username, password, inviteCode)
         : await api.auth.login(username, password)
-      if (signingUp) clearInvite()
+      if (mode === 'signup') clearInvite()
       setUser(name)
     } catch (err) {
       // the fields keep what was typed, so a refusal costs one correction
@@ -60,29 +82,40 @@ function AuthForm() {
     }
   }
 
-  function switchWay() {
-    setSigningUp(!signingUp)
+  function go(next: Mode) {
+    setMode(next)
     setError(null)
+    setPassword('')
+    if (next !== 'reset') setResetToken(null)
   }
+
+  const title =
+    mode === 'signup' ? 'Make an account. It starts empty, and only you see its courses.'
+    : mode === 'forgot' ? 'Enter your username to choose a new password.'
+    : mode === 'reset' ? 'Pick a new password. You will be signed in with it.'
+    : 'Sign in to your courses.'
 
   return (
     <main className="gate">
       <form className="gate-card" onSubmit={onSubmit}>
         <h2>Study OS</h2>
-        <p className="empty">
-          {signingUp ? 'Make an account. It starts empty, and only you see its courses.' : 'Sign in to your courses.'}
-        </p>
+        <p className="empty">{title}</p>
         {error && <p className="alert" role="alert">{error}</p>}
-        <label className="field">
-          <span className="field-label">Username</span>
-          <input className="input" autoComplete="username" autoCapitalize="none" spellCheck={false}
-            value={username} disabled={pending} onChange={e => setUsername(e.target.value)} />
-        </label>
-        <label className="field">
-          <span className="field-label">Password</span>
-          <input className="input" type="password" autoComplete={signingUp ? 'new-password' : 'current-password'}
-            value={password} disabled={pending} onChange={e => setPassword(e.target.value)} />
-        </label>
+        {mode !== 'reset' && (
+          <label className="field">
+            <span className="field-label">Username</span>
+            <input className="input" autoComplete="username" autoCapitalize="none" spellCheck={false}
+              value={username} disabled={pending} onChange={e => setUsername(e.target.value)} />
+          </label>
+        )}
+        {(mode === 'signin' || mode === 'signup' || mode === 'reset') && (
+          <label className="field">
+            <span className="field-label">{mode === 'reset' ? 'New password' : 'Password'}</span>
+            <input className="input" type="password"
+              autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+              value={password} disabled={pending} onChange={e => setPassword(e.target.value)} />
+          </label>
+        )}
         {needsInvite && (
           <label className="field">
             <span className="field-label">Invite code</span>
@@ -91,11 +124,31 @@ function AuthForm() {
           </label>
         )}
         <button className="btn" type="submit" disabled={!ready || pending}>
-          {signingUp ? 'Create account' : 'Sign in'}
+          {mode === 'signup' ? 'Create account'
+            : mode === 'forgot' ? 'Continue'
+            : mode === 'reset' ? 'Set new password'
+            : 'Sign in'}
         </button>
-        <button className="btn btn--ghost btn--micro gate-switch" type="button" disabled={pending} onClick={switchWay}>
-          {signingUp ? 'I already have an account' : 'Make an account'}
-        </button>
+        {mode === 'signin' && (
+          <>
+            <button className="btn btn--ghost btn--micro gate-switch" type="button" disabled={pending} onClick={() => go('forgot')}>
+              Forgot password?
+            </button>
+            <button className="btn btn--ghost btn--micro gate-switch" type="button" disabled={pending} onClick={() => go('signup')}>
+              Make an account
+            </button>
+          </>
+        )}
+        {mode === 'signup' && (
+          <button className="btn btn--ghost btn--micro gate-switch" type="button" disabled={pending} onClick={() => go('signin')}>
+            I already have an account
+          </button>
+        )}
+        {(mode === 'forgot' || mode === 'reset') && (
+          <button className="btn btn--ghost btn--micro gate-switch" type="button" disabled={pending} onClick={() => go('signin')}>
+            Back to sign in
+          </button>
+        )}
       </form>
     </main>
   )

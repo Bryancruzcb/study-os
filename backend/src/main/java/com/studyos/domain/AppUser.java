@@ -19,4 +19,9 @@ public class AppUser {
     public String passwordHash;
     @Column(nullable = false)
     public Instant createdAt;
+    /* one-time password-reset code: only the hash is kept, and only until it expires or is used */
+    @JsonIgnore
+    public String resetTokenHash;
+    @JsonIgnore
+    public Instant resetTokenExpiresAt;
 }

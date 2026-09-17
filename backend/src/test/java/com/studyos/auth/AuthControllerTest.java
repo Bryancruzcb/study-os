@@ -1,6 +1,7 @@
 package com.studyos.auth;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -59,6 +60,7 @@ class AuthControllerTest {
             user.id = 7L;
             return user;
         });
+        when(users.save(any())).thenAnswer(inv -> inv.getArgument(0));
     }
 
     @Test
@@ -143,11 +145,50 @@ class AuthControllerTest {
             .andExpect(status().isForbidden());
     }
 
+    @Test
+    void forgettingThenResettingSignsInWithTheNewPassword() throws Exception {
+        AppUser user = account("bryan", "old password");
+        when(users.findByUsername("bryan")).thenReturn(Optional.of(user));
+
+        MvcResult forgot = mvc.perform(post("/api/auth/forgot-password").with(csrf())
+                .contentType(APPLICATION_JSON)
+                .content(mapper.writeValueAsString(Map.of("username", "Bryan", "inviteCode", "let-me-in"))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.resetToken").isString())
+            .andExpect(jsonPath("$.resetToken", not("")))
+            .andReturn();
+        String token = mapper.readTree(forgot.getResponse().getContentAsString()).get("resetToken").asText();
+        when(users.findByResetTokenHash(user.resetTokenHash)).thenReturn(Optional.of(user));
+
+        MvcResult reset = mvc.perform(post("/api/auth/reset-password").with(csrf())
+                .contentType(APPLICATION_JSON)
+                .content(mapper.writeValueAsString(Map.of("token", token, "password", "new password"))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.username").value("bryan"))
+            .andReturn();
+        MockHttpSession session = (MockHttpSession) reset.getRequest().getSession(false);
+        mvc.perform(get("/api/auth/me").session(session))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.username").value("bryan"));
+        assertTrue(passwords.matches("new password", user.passwordHash));
+    }
+
+    @Test
+    void forgettingWithoutTheInviteIsA403() throws Exception {
+        mvc.perform(post("/api/auth/forgot-password").with(csrf())
+                .contentType(APPLICATION_JSON)
+                .content(mapper.writeValueAsString(Map.of("username", "bryan", "inviteCode", "guess"))))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.error").value("That invite code was not accepted."));
+        verify(users, never()).findByUsername(any());
+    }
+
     private AppUser account(String username, String password) {
         AppUser user = new AppUser();
         user.id = 7L;
         user.username = username;
         user.passwordHash = passwords.encode(password);
+        user.createdAt = Instant.parse("2026-09-13T12:00:00Z");
         return user;
     }
 
