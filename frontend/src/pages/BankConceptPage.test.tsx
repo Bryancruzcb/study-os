@@ -21,7 +21,9 @@ vi.mock('../api', () => ({
   api: {
     overview: vi.fn(),
     bank: vi.fn(),
+    lectures: vi.fn(),
     upload: vi.fn(),
+    deleteLecture: vi.fn(),
     retire: vi.fn(),
     restore: vi.fn(),
     label: vi.fn(),
@@ -32,6 +34,8 @@ beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(api.overview).mockResolvedValue([course])
   vi.mocked(api.bank).mockResolvedValue(concept([question({})]))
+  vi.mocked(api.lectures).mockResolvedValue([])
+  vi.mocked(api.deleteLecture).mockResolvedValue(undefined)
   vi.mocked(api.retire).mockResolvedValue(undefined)
   vi.mocked(api.restore).mockResolvedValue(undefined)
   vi.mocked(api.label).mockResolvedValue(undefined)

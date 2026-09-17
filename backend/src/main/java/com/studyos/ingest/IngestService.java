@@ -33,6 +33,8 @@ public class IngestService {
     private final ConceptRepo conceptRepo;
     private final QuestionRepo questionRepo;
     private final ReviewStateRepo reviewStateRepo;
+    private final AttemptRepo attemptRepo;
+    private final ExamRepo examRepo;
     private final AiClient ai;
     private final Clock clock;
     private final AppStudyProps study;
@@ -56,13 +58,16 @@ public class IngestService {
     private static final byte[] ZIP_MAGIC = {'P', 'K', 0x03, 0x04};
 
     public IngestService(CourseRepo courseRepo, MaterialRepo materialRepo, ConceptRepo conceptRepo,
-                         QuestionRepo questionRepo, ReviewStateRepo reviewStateRepo, AiClient ai, Clock clock,
-                         AppStudyProps study, ExamPlanner examPlanner, ApplicationEventPublisher events) {
+                         QuestionRepo questionRepo, ReviewStateRepo reviewStateRepo, AttemptRepo attemptRepo,
+                         ExamRepo examRepo, AiClient ai, Clock clock, AppStudyProps study,
+                         ExamPlanner examPlanner, ApplicationEventPublisher events) {
         this.courseRepo = courseRepo;
         this.materialRepo = materialRepo;
         this.conceptRepo = conceptRepo;
         this.questionRepo = questionRepo;
         this.reviewStateRepo = reviewStateRepo;
+        this.attemptRepo = attemptRepo;
+        this.examRepo = examRepo;
         this.ai = ai;
         this.clock = clock;
         this.study = study;
@@ -97,8 +102,9 @@ public class IngestService {
     /** Finish a PENDING material: extract, persist the bank, mark INGESTED or FAILED. */
     @Transactional
     public Material process(Long materialId, byte[] pdfBytes) {
-        Material material = materialRepo.findById(materialId).orElseThrow();
-        if (material.status != MaterialStatus.PENDING) return material;
+        Material material = materialRepo.findById(materialId).orElse(null);
+        // deleted/replaced while this job was queued, or already finished elsewhere
+        if (material == null || material.status != MaterialStatus.PENDING) return material;
         return complete(material, pdfBytes);
     }
 
@@ -123,6 +129,13 @@ public class IngestService {
         // INGESTED is a no-op; PENDING is already being worked, so do not start a second job
         if (existing.isPresent() && existing.get().status != MaterialStatus.FAILED) {
             return new Prepared(existing.get(), Next.DONE);
+        }
+
+        // an updated PDF usually keeps its name: drop every other copy of that name in the course
+        // so re-upload replaces instead of leaving a second lecture beside the first
+        for (Material prior : materialRepo.findByCourseIdAndFilename(courseId, filename)) {
+            if (existing.isPresent() && prior.id.equals(existing.get().id)) continue;
+            removeLecture(prior);
         }
 
         Course course = courseRepo.findById(courseId).orElseThrow();
@@ -162,10 +175,20 @@ public class IngestService {
         try {
             payload = extractWithOneRetry(pdfBytes, course.name);
         } catch (AiException e) {
-            material.status = MaterialStatus.FAILED;
-            material.errorMessage = truncateForColumn(e.getMessage());
-            return materialRepo.save(material);
+            // may have been deleted/replaced while the model ran
+            Material still = materialRepo.findById(material.id).orElse(null);
+            if (still == null || still.status != MaterialStatus.PENDING) return still;
+            still.status = MaterialStatus.FAILED;
+            still.errorMessage = truncateForColumn(e.getMessage());
+            return materialRepo.save(still);
         }
+
+        // extraction is slow: delete/replace of this PENDING row may have won the race
+        Material current = materialRepo.findById(material.id).orElse(null);
+        if (current == null || current.status != MaterialStatus.PENDING) return current;
+        material = current;
+        course = material.course;
+        courseId = course.id;
 
         LocalDate today = LocalDate.now(clock);
         Map<LocalDate, Long> scheduled = scheduledPerDayFrom(courseId, today);
@@ -209,6 +232,33 @@ public class IngestService {
         return ingested;
     }
 
+
+    /** Deletes a lecture and everything drawn from it: concepts, questions, attempts, review
+     *  states, and its place on any exam. The course is then replanned.
+     *  QuizProgress for the course is left alone: its orderJson/answersJson may still name
+     *  question ids that no longer exist; the quiz UI already has to tolerate missing ids. */
+    @Transactional
+    public void deleteLecture(Long materialId) {
+        Material lecture = materialRepo.findById(materialId).orElseThrow();
+        Long courseId = lecture.course.id;
+        removeLecture(lecture);
+        examPlanner.replan(courseId);
+    }
+
+    // drops the lecture's graph and its exam covers; the caller replans when the course still exists
+    private void removeLecture(Material lecture) {
+        Long materialId = lecture.id;
+        for (Exam exam : examRepo.findByLectureId(materialId)) {
+            exam.lectures.removeIf(m -> m.id.equals(materialId));
+            examRepo.save(exam);
+        }
+        // FK order: attempts -> questions -> review states -> concepts -> material
+        attemptRepo.deleteByQuestionConceptMaterialId(materialId);
+        questionRepo.deleteByConceptMaterialId(materialId);
+        reviewStateRepo.deleteByConceptMaterialId(materialId);
+        conceptRepo.deleteByMaterialId(materialId);
+        materialRepo.delete(lecture);
+    }
 
     // What the course already has booked on every day from `from` onwards, in one read. Days
     // before `from` are left out on purpose: an overdue concept is not due on any future day,

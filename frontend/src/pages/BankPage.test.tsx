@@ -27,8 +27,10 @@ vi.mock('../api', () => ({
   api: {
     overview: vi.fn(),
     bank: vi.fn(),
+    lectures: vi.fn(),
     upload: vi.fn(),
     material: vi.fn(),
+    deleteLecture: vi.fn(),
     retire: vi.fn(),
     restore: vi.fn(),
     label: vi.fn(),
@@ -39,6 +41,10 @@ beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(api.overview).mockResolvedValue([course])
   vi.mocked(api.bank).mockResolvedValue(bank)
+  vi.mocked(api.lectures).mockResolvedValue([
+    { id: 11, filename: 'Lecture 3.pdf', concepts: 1 },
+  ])
+  vi.mocked(api.deleteLecture).mockResolvedValue(undefined)
 })
 
 test('lists every concept with its active count, linking to it', async () => {
@@ -217,3 +223,24 @@ test('polls until a pending ingest finishes', async () => {
   await waitFor(() => expect(vi.mocked(api.bank).mock.calls.length).toBe(bankCalls + 1), { timeout: 8000 })
 })
 
+test('deleting a lecture removes it and refreshes the bank', async () => {
+  const { container } = renderBank('/courses/1/bank')
+  await screen.findByRole('link', { name: /TCP handshake/ })
+  expect(screen.getByText('Lecture 3.pdf')).toBeInTheDocument()
+  const bankCalls = vi.mocked(api.bank).mock.calls.length
+  const overviewCalls = vi.mocked(api.overview).mock.calls.length
+  await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
+  expect(api.deleteLecture).not.toHaveBeenCalled()
+  vi.mocked(api.lectures).mockResolvedValueOnce([])
+  await userEvent.click(screen.getByRole('button', { name: 'Confirm delete' }))
+  await waitFor(() => expect(api.deleteLecture).toHaveBeenCalledWith(11))
+  await waitFor(() => expect(vi.mocked(api.bank).mock.calls.length).toBe(bankCalls + 1))
+  await waitFor(() => expect(vi.mocked(api.overview).mock.calls.length).toBe(overviewCalls + 1))
+  expect(container.querySelector('.lecture-manage')).toBeNull()
+})
+
+test('the upload hint says a same-name upload replaces', async () => {
+  const { container } = renderBank('/courses/1/bank')
+  await screen.findByRole('link', { name: /TCP handshake/ })
+  expect(container.querySelector('.hint')).toHaveTextContent('same name replaces')
+})
