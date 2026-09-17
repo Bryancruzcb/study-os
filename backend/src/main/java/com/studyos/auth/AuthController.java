@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.*;
 /**
  * Sign-up, sign-in and sign-out for the page's own form. Signing in here does by hand what a login
  * filter would do: a fresh session id, the identity saved into the session, and a new CSRF token.
+ * Password reset is the same form's forgot and set-new-password steps, with a one-time token.
  */
 @RestController
 @RequestMapping("/api/auth")
@@ -43,6 +44,8 @@ public class AuthController {
 
     public record Credentials(String username, String password) {}
     public record Signup(String username, String password, String inviteCode) {}
+    public record Forgot(String username, String inviteCode) {}
+    public record Reset(String token, String password) {}
 
     /* whether the sign-up form has to ask for an invite code */
     @GetMapping("/config")
@@ -75,6 +78,19 @@ public class AuthController {
             throw new AuthProblem(HttpStatus.UNAUTHORIZED, "Wrong username or password.");
         }
         return signIn(authService.signedIn(username), request, response);
+    }
+
+    @PostMapping("/forgot-password")
+    public Map<String, String> forgot(@RequestBody Forgot body) {
+        String token = authService.requestReset(body.username(), body.inviteCode());
+        return Map.of("resetToken", token);
+    }
+
+    @PostMapping("/reset-password")
+    public Map<String, String> reset(@RequestBody Reset body, HttpServletRequest request,
+                                     HttpServletResponse response) {
+        AppUser user = authService.resetPassword(body.token(), body.password());
+        return signIn(authService.signedIn(user), request, response);
     }
 
     @PostMapping("/logout")

@@ -12,6 +12,8 @@ vi.mock('../api', () => ({
       config: vi.fn(),
       login: vi.fn(),
       signup: vi.fn(),
+      forgotPassword: vi.fn(),
+      resetPassword: vi.fn(),
       logout: vi.fn(),
     },
   },
@@ -93,4 +95,24 @@ test('a session that ends takes the pages down and brings the form back', async 
   act(() => markSignedOut())
   expect(screen.queryByText('the pages')).not.toBeInTheDocument()
   expect(await screen.findByLabelText('Username')).toBeInTheDocument()
+})
+
+test('forgetting a password then setting a new one signs the account in', async () => {
+  const user = userEvent.setup()
+  auth.forgotPassword.mockResolvedValue('reset-token-one')
+  auth.resetPassword.mockResolvedValue('bryan')
+  gate()
+
+  await user.click(await screen.findByRole('button', { name: 'Forgot password?' }))
+  await user.type(screen.getByLabelText('Username'), 'Bryan')
+  await user.click(screen.getByRole('button', { name: 'Continue' }))
+
+  expect(auth.forgotPassword).toHaveBeenCalledWith('Bryan', '')
+  expect(await screen.findByLabelText('New password')).toBeInTheDocument()
+  await user.type(screen.getByLabelText('New password'), 'new password')
+  await user.click(screen.getByRole('button', { name: 'Set new password' }))
+
+  expect(auth.resetPassword).toHaveBeenCalledWith('reset-token-one', 'new password')
+  expect(await screen.findByText('the pages')).toBeInTheDocument()
+  expect(getUser()).toBe('bryan')
 })

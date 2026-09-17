@@ -12,6 +12,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -32,6 +33,7 @@ class AuthServiceTest {
             user.id = 7L;
             return user;
         });
+        when(users.save(any())).thenAnswer(inv -> inv.getArgument(0));
     }
 
     private AuthService service(String inviteCode) {
@@ -85,5 +87,69 @@ class AuthServiceTest {
         doThrow(new DataIntegrityViolationException("duplicate key")).when(users).saveAndFlush(any());
         AuthProblem taken = assertThrows(AuthProblem.class, () -> service("").signup("bryan", "correct horse", null));
         assertEquals(HttpStatus.CONFLICT, taken.status);
+    }
+
+    @Test
+    void requestingAResetStoresOnlyAHashAndReturnsTheRawTokenOnce() {
+        AppUser user = existing("bryan", "old password");
+        when(users.findByUsername("bryan")).thenReturn(Optional.of(user));
+
+        String token = service("").requestReset("Bryan", null);
+
+        assertNotNull(token);
+        assertEquals(64, token.length());
+        assertNotNull(user.resetTokenHash);
+        assertNotEquals(token, user.resetTokenHash);
+        assertEquals(Instant.parse("2026-09-13T13:00:00Z"), user.resetTokenExpiresAt);
+        when(users.findByResetTokenHash(user.resetTokenHash)).thenReturn(Optional.of(user));
+
+        AppUser reset = service("").resetPassword(token, "new password");
+        assertTrue(passwords.matches("new password", reset.passwordHash));
+        assertNull(reset.resetTokenHash);
+        assertNull(reset.resetTokenExpiresAt);
+    }
+
+    @Test
+    void aResetNeedsTheInviteWhenOneIsConfigured() {
+        AuthService invited = service("let-me-in");
+        AuthProblem wrong = assertThrows(AuthProblem.class, () -> invited.requestReset("bryan", "guess"));
+        assertEquals(HttpStatus.FORBIDDEN, wrong.status);
+        verify(users, never()).findByUsername(any());
+    }
+
+    @Test
+    void aMissingAccountOrASpentTokenIsTurnedAway() {
+        when(users.findByUsername("nobody")).thenReturn(Optional.empty());
+        AuthProblem missing = assertThrows(AuthProblem.class, () -> service("").requestReset("nobody", null));
+        assertEquals(HttpStatus.NOT_FOUND, missing.status);
+
+        AuthProblem spent = assertThrows(AuthProblem.class, () -> service("").resetPassword("deadbeef", "new password"));
+        assertEquals(HttpStatus.BAD_REQUEST, spent.status);
+        assertEquals("That reset code was not accepted.", spent.getMessage());
+    }
+
+
+    @Test
+    void anExpiredTokenFromRequestResetIsRefusedAndCleared() {
+        AppUser user = existing("bryan", "old password");
+        when(users.findByUsername("bryan")).thenReturn(Optional.of(user));
+        AuthService svc = service("");
+        String token = svc.requestReset("bryan", null);
+        user.resetTokenExpiresAt = Instant.parse("2026-09-13T11:00:00Z");
+        when(users.findByResetTokenHash(user.resetTokenHash)).thenReturn(Optional.of(user));
+
+        AuthProblem expired = assertThrows(AuthProblem.class, () -> svc.resetPassword(token, "new password"));
+        assertEquals(HttpStatus.BAD_REQUEST, expired.status);
+        assertNull(user.resetTokenHash);
+        assertNull(user.resetTokenExpiresAt);
+    }
+
+    private AppUser existing(String username, String password) {
+        AppUser user = new AppUser();
+        user.id = 7L;
+        user.username = username;
+        user.passwordHash = passwords.encode(password);
+        user.createdAt = Instant.parse("2026-09-13T12:00:00Z");
+        return user;
     }
 }

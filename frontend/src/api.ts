@@ -174,6 +174,18 @@ export const api = {
     login: (username: string, password: string) => account('/api/auth/login', { username, password }),
     signup: (username: string, password: string, inviteCode: string) =>
       account('/api/auth/signup', { username, password, inviteCode }),
+    /* starts a reset: returns the one-time token the set-new-password step sends back */
+    forgotPassword: async (username: string, inviteCode: string): Promise<string> => {
+      const res = await send('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, inviteCode }),
+      })
+      if (!res.ok) throw await refusal(res)
+      return (await readJson<{ resetToken: string }>(res, '/api/auth/forgot-password')).resetToken
+    },
+    resetPassword: (token: string, password: string) =>
+      account('/api/auth/reset-password', { token, password }),
     logout: async (): Promise<void> => {
       await send('/api/auth/logout', { method: 'POST' })
     },

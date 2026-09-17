@@ -60,3 +60,24 @@ test('a refused sign-in throws the sentence the server wrote', async () => {
 
   await expect(api.auth.login('bryan', 'wrong horse')).rejects.toThrow('Wrong username or password.')
 })
+
+test('forgetting a password posts the username and returns the reset token', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockImplementation(() =>
+    Promise.resolve(json({ resetToken: 'token-one' }))))
+
+  await expect(api.auth.forgotPassword('Bryan', 'let-me-in')).resolves.toBe('token-one')
+  const [url, init] = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0]
+  expect(url).toBe('/api/auth/forgot-password')
+  expect(JSON.parse((init as RequestInit).body as string)).toEqual({
+    username: 'Bryan',
+    inviteCode: 'let-me-in',
+  })
+})
+
+test('a refused reset throws the sentence the server wrote', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockImplementation(() =>
+    Promise.resolve(json({ error: 'That reset code was not accepted.' }, 400))))
+
+  await expect(api.auth.resetPassword('dead', 'new password')).rejects.toThrow(
+    'That reset code was not accepted.')
+})
