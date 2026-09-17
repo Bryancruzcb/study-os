@@ -53,7 +53,12 @@ public class IngestController {
     public Material upload(@AuthenticationPrincipal SignedIn me, @PathVariable Long courseId,
                            @RequestParam("file") MultipartFile file) throws IOException {
         owned.course(me.id(), courseId);
-        return ingestService.ingest(courseId, file.getOriginalFilename(), file.getBytes());
+        return ingestService.accept(courseId, file.getOriginalFilename(), file.getBytes());
+    }
+
+    @GetMapping("/materials/{id}")
+    public Material material(@AuthenticationPrincipal SignedIn me, @PathVariable Long id) {
+        return owned.material(me.id(), id);
     }
 
     @GetMapping("/courses/{courseId}/bank")

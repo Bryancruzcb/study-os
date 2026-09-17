@@ -63,7 +63,7 @@ class IngestControllerTest {
         Material m = new Material();
         m.status = MaterialStatus.INGESTED;
         m.course = course;
-        when(ingestService.ingest(eq(1L), eq("w1.pdf"), any())).thenReturn(m);
+        when(ingestService.accept(eq(1L), eq("w1.pdf"), any())).thenReturn(m);
         mvc.perform(multipart("/api/courses/1/materials")
                 .file(new MockMultipartFile("file", "w1.pdf", "application/pdf", new byte[] {1})))
             .andExpect(status().isOk())
@@ -138,4 +138,18 @@ class IngestControllerTest {
         mvc.perform(post("/api/questions/9/restore")).andExpect(status().isOk());
         verify(questionRepo).save(argThat(saved -> saved.status == QuestionStatus.ACTIVE));
     }
+
+    @Test
+    void getMaterialReturnsOwnedRow() throws Exception {
+        Material m = new Material();
+        m.id = 4L;
+        m.filename = "week1.pdf";
+        m.status = MaterialStatus.PENDING;
+        when(owned.material(SignedInMvc.ME.id(), 4L)).thenReturn(m);
+        mvc.perform(get("/api/materials/4"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.id").value(4))
+            .andExpect(jsonPath("$.status").value("PENDING"));
+    }
+
 }

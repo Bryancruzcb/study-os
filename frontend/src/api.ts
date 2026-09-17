@@ -182,6 +182,7 @@ export const api = {
   createCourse: (name: string, term: string) => post<Course>('/api/courses', { name, term }),
   bank: (courseId: number) => get<ConceptWithQuestions[]>(`/api/courses/${courseId}/bank`),
   upload: (courseId: number, file: File) => uploadFile<Material>(`/api/courses/${courseId}/materials`, file),
+  material: (id: number) => get<Material>(`/api/materials/${id}`),
   retire: (questionId: number) => post(`/api/questions/${questionId}/retire`, {}),
   restore: (questionId: number) => post(`/api/questions/${questionId}/restore`, {}),
   label: (questionId: number, body: { answerable: boolean; correctAnswer: boolean; unambiguous: boolean }) =>

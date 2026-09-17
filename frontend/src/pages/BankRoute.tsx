@@ -76,7 +76,7 @@ export default function BankRoute() {
               }} />
             {/* a live region: the swap to Ingesting… and back is the only sign that an ingest
                 started or finished, and a text swap on a disabled control is otherwise silent */}
-            <span role="status">{ingest.uploading ? 'Ingesting…' : 'Upload a lecture PDF'}</span>
+            <span role="status">{ingest.phase === 'uploading' ? 'Uploading…' : ingest.uploading ? 'Ingesting…' : 'Upload a lecture PDF'}</span>
           </label>
           <small className="hint">PDF only</small>
         </>,
