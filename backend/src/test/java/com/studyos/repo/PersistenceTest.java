@@ -11,6 +11,7 @@ import com.studyos.domain.Material;
 import com.studyos.domain.Question;
 import com.studyos.domain.QuestionStatus;
 import com.studyos.domain.QuestionType;
+import com.studyos.domain.QuizProgress;
 import com.studyos.domain.ReviewState;
 import com.studyos.domain.Verdict;
 import java.time.Instant;
@@ -48,6 +49,7 @@ class PersistenceTest {
     @Autowired AttemptRepo attempts;
     @Autowired ReviewStateRepo reviewStates;
     @Autowired ExamRepo exams;
+    @Autowired QuizProgressRepo quizProgress;
     @Autowired AppUserRepo users;
 
     private AppUser owner(String username) {
@@ -311,6 +313,37 @@ class PersistenceTest {
         assertThat(attempts.findByIdAndQuestionConceptCourseOwnerId(a.id, bob.id)).isEmpty();
         assertThat(exams.findByIdAndCourseOwnerId(e.id, alice.id)).isPresent();
         assertThat(exams.findByIdAndCourseOwnerId(e.id, bob.id)).isEmpty();
+
+        QuizProgress progress = new QuizProgress();
+        progress.course = mine;
+        progress.orderJson = "[" + q.id + "]";
+        progress.answersJson = "{}";
+        progress.finished = false;
+        quizProgress.save(progress);
+        assertThat(quizProgress.findByCourseId(mine.id)).isPresent();
+        assertThat(quizProgress.findByCourseIdAndCourseOwnerId(mine.id, alice.id)).isPresent();
+        assertThat(quizProgress.findByCourseIdAndCourseOwnerId(mine.id, bob.id)).isEmpty();
+    }
+
+    @Test
+    void aCourseHoldsOnlyOneQuizProgressRow() {
+        Course c = course("CS 149");
+        QuizProgress first = new QuizProgress();
+        first.course = c;
+        first.orderJson = "[1]";
+        first.answersJson = "{}";
+        first.finished = false;
+        quizProgress.save(first);
+        quizProgress.flush();
+
+        QuizProgress second = new QuizProgress();
+        second.course = c;
+        second.orderJson = "[2]";
+        second.answersJson = "{}";
+        second.finished = true;
+        assertThatThrownBy(() -> {
+            quizProgress.saveAndFlush(second);
+        }).isInstanceOf(DataIntegrityViolationException.class);
     }
 
     // --- the counts behind the course overview ---------------------------------------

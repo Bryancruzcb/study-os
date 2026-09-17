@@ -8,7 +8,10 @@ import QuizPage from './QuizPage'
 const course = { id: 1, name: 'CS 149', term: 'Fall 2026', concepts: 3, questions: 3, dueToday: 2 }
 
 vi.mock('../api', () => ({
-  api: { overview: vi.fn(), quiz: vi.fn(), review: vi.fn() },
+  api: {
+    overview: vi.fn(), quiz: vi.fn(), review: vi.fn(),
+    quizProgress: vi.fn(), saveQuizProgress: vi.fn(), clearQuizProgress: vi.fn(),
+  },
 }))
 
 // jsdom cannot lay out an SVG, so the diagram stands in as a figure carrying its label
@@ -49,6 +52,9 @@ beforeEach(() => {
   vi.spyOn(Math, 'random').mockReturnValue(0.999)
   vi.mocked(api.overview).mockResolvedValue([course])
   vi.mocked(api.quiz).mockResolvedValue([mc, sa, tlb])
+  vi.mocked(api.quizProgress).mockResolvedValue(null)
+  vi.mocked(api.saveQuizProgress).mockImplementation(async (_id, run) => run)
+  vi.mocked(api.clearQuizProgress).mockResolvedValue(undefined)
   vi.mocked(api.review).mockImplementation(async id => reviews[id])
 })
 
@@ -74,6 +80,9 @@ test('the setup covers every lecture and starts a quiz of every question in the 
   expect(screen.getByText('Lecture 3.pdf · slide 3')).toBeInTheDocument()
   expect(answeredFigure()).toHaveTextContent('0')
   expect(api.quiz).toHaveBeenCalledWith(1)
+  await waitFor(() => expect(api.saveQuizProgress).toHaveBeenCalledWith(1, expect.objectContaining({
+    order: [9, 10, 11], finished: false,
+  })))
 })
 
 test('unticking a lecture leaves its questions out, and no lectures is no quiz', async () => {
@@ -185,18 +194,20 @@ test('the last answer leads to the results: the score, lectures weakest first, a
 })
 
 test('a quiz left halfway picks up at its next question, and ending it early scores only what was answered', async () => {
-  localStorage.setItem('studyos.quiz.1', JSON.stringify({
+  const halfway = {
     order: [11, 9, 10], answers: { 11: { picked: 1, text: '', correct: false } }, finished: false,
-  }))
+  }
+  vi.mocked(api.quizProgress).mockResolvedValueOnce(halfway)
   renderInCourse(<QuizPage />, 'quiz')
   expect(await screen.findByText(mc.prompt)).toBeInTheDocument()
   expect(screen.getByText('Question 2 of 3')).toBeInTheDocument()
+  expect(api.quizProgress).toHaveBeenCalledWith(1)
 
   await userEvent.click(screen.getByRole('button', { name: 'End quiz' }))
   expect(await screen.findByRole('heading', { name: 'Quiz ended' })).toBeInTheDocument()
   expect(scoreTiles().getByText('0 / 1')).toBeInTheDocument()
   expect(screen.getByText(/2 questions unanswered/)).toBeInTheDocument()
-  expect(JSON.parse(localStorage.getItem('studyos.quiz.1')!).finished).toBe(true)
+  await waitFor(() => expect(api.saveQuizProgress).toHaveBeenCalledWith(1, expect.objectContaining({ finished: true })))
 
   // nothing was fetched for it this visit, so its why loads when it opens
   await userEvent.click(screen.getByText(tlb.prompt))
@@ -206,6 +217,18 @@ test('a quiz left halfway picks up at its next question, and ending it early sco
 
   await userEvent.click(screen.getByRole('button', { name: 'New quiz' }))
   expect(await screen.findByRole('heading', { name: 'Quiz' })).toHaveFocus()
+  await waitFor(() => expect(api.clearQuizProgress).toHaveBeenCalledWith(1))
+})
+
+test('a leftover localStorage run migrates onto the account once', async () => {
+  const leftover = {
+    order: [11, 9, 10], answers: { 11: { picked: 1, text: '', correct: false } }, finished: false,
+  }
+  localStorage.setItem('studyos.quiz.1', JSON.stringify(leftover))
+  renderInCourse(<QuizPage />, 'quiz')
+  expect(await screen.findByText(mc.prompt)).toBeInTheDocument()
+  expect(screen.getByText('Question 2 of 3')).toBeInTheDocument()
+  await waitFor(() => expect(api.saveQuizProgress).toHaveBeenCalledWith(1, leftover))
   expect(localStorage.getItem('studyos.quiz.1')).toBeNull()
 })
 

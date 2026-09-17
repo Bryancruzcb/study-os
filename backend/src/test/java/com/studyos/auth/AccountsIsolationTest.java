@@ -135,6 +135,10 @@ class AccountsIsolationTest {
             delete("/api/exams/{id}", e),
             get("/api/study/next").param("courseId", String.valueOf(c)),
             get("/api/courses/{id}/quiz", c),
+            get("/api/courses/{id}/quiz/progress", c),
+            put("/api/courses/{id}/quiz/progress", c).contentType(APPLICATION_JSON)
+                .content("{\"order\":[1],\"answers\":{},\"finished\":false}"),
+            delete("/api/courses/{id}/quiz/progress", c),
             get("/api/questions/{id}/review", q),
             post("/api/study/answer").contentType(APPLICATION_JSON).content("{\"questionId\":" + q + ",\"answerIndex\":0}"),
             post("/api/study/attempts/{id}/override", a),
@@ -189,6 +193,16 @@ class AccountsIsolationTest {
         mvc.perform(get("/api/courses/{id}/quiz", aliceCourse.id).with(as(alice)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[0].id").value(aliceQuestion.id.intValue()));
+        mvc.perform(get("/api/courses/{id}/quiz/progress", aliceCourse.id).with(as(alice)))
+            .andExpect(status().isNoContent());
+        mvc.perform(put("/api/courses/{id}/quiz/progress", aliceCourse.id).with(as(alice)).with(csrf())
+                .contentType(APPLICATION_JSON)
+                .content("{\"order\":[" + aliceQuestion.id + "],\"answers\":{},\"finished\":false}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.order[0]").value(aliceQuestion.id.intValue()));
+        mvc.perform(get("/api/courses/{id}/quiz/progress", aliceCourse.id).with(as(alice)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.order[0]").value(aliceQuestion.id.intValue()));
         mvc.perform(get("/api/questions/{id}/review", aliceQuestion.id).with(as(alice)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.id").value(aliceQuestion.id.intValue()));

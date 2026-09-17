@@ -39,6 +39,17 @@ export interface Material {
 export interface StudyQuestion { id: number; conceptId: number; topic: string | null; lecture: string | null; type: 'MC' | 'SHORT_ANSWER'; prompt: string; options: string[]; sourcePages: string | null }
 /* a question in the quiz, with the id of the lecture it came from, which the quiz narrows by */
 export interface QuizQuestion extends StudyQuestion { lectureId: number }
+export interface QuizAnswer {
+  picked: number | null
+  text: string
+  correct: boolean
+}
+/* A quiz as the page keeps it between visits. Persisted per course on the server. */
+export interface QuizRun {
+  order: number[]
+  answers: Record<number, QuizAnswer>
+  finished: boolean
+}
 /* What the quiz reveals once a question is answered: the key, and why each answer is right or
    wrong according to the slides. optionExplanations runs in option order and is empty for a short
    answer; explanation and diagram (Mermaid source) are null on a question nobody has explained yet. */
@@ -209,6 +220,17 @@ export const api = {
   override: (attemptId: number) => post<Attempt>(`/api/study/attempts/${attemptId}/override`, {}),
   selfGrade: (attemptId: number, correct: boolean) => post<Attempt>(`/api/study/attempts/${attemptId}/self-grade`, { correct }),
   quiz: (courseId: number) => get<QuizQuestion[]>(`/api/courses/${courseId}/quiz`),
+  /* the saved quiz run for this course, or null when none has been started yet */
+  quizProgress: async (courseId: number): Promise<QuizRun | null> => {
+    const url = `/api/courses/${courseId}/quiz/progress`
+    const res = await send(url)
+    if (res.status === 204) return null
+    if (!res.ok) throw new Error(`${res.status} ${url}`)
+    return readJson<QuizRun>(res, url)
+  },
+  saveQuizProgress: (courseId: number, run: QuizRun) =>
+    put<QuizRun>(`/api/courses/${courseId}/quiz/progress`, run),
+  clearQuizProgress: (courseId: number) => remove(`/api/courses/${courseId}/quiz/progress`),
   review: (questionId: number) => get<QuestionReview>(`/api/questions/${questionId}/review`),
   dashboard: (courseId: number) => get<Dashboard>(`/api/dashboard?courseId=${courseId}`),
   evalReport: () => get<EvalReport>('/api/eval/report'),
