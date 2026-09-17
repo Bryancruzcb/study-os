@@ -221,9 +221,9 @@ required), then a new password. There is no email step; the reset token stays in
 browser for that visit.
 
 The static project page at https://bryancruzcb.github.io/study-os/ is published from
-`site/` whenever that tree changes on `master`. An optional live demo of the app itself
-can be stood up on Render with Neon Postgres; the steps, invite sharing, and the free-tier
-cold-start quirks are in [docs/DEPLOY.md](docs/DEPLOY.md).
+`site/` whenever that tree changes on `master`. A public live demo runs at https://study-os-7o9j.onrender.com (invite code required).
+The steps to stand up your own copy on Render with Neon Postgres, plus invite sharing and
+the free-tier cold-start quirks, are in [docs/DEPLOY.md](docs/DEPLOY.md).
 
 Uploads must be PDFs. Anything else is refused on its first bytes, before the upload
 reaches Claude, so uploading a PowerPoint deck costs nothing and comes back telling me to

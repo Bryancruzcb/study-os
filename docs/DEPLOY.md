@@ -4,6 +4,9 @@ The live demo is one Docker image on Render's free plan, with its database on Ne
 The image serves the React page and the API from the same address. The deployed copy has its
 own empty database, so nothing in it touches the copy on your own machine.
 
+The public demo is at https://study-os-7o9j.onrender.com. Sign-up still needs the invite
+code from that service's Render Environment tab (see §4).
+
 Everyone who uses the demo has their own account, and an account sees only its own courses.
 Uploads and short-answer grading spend Anthropic credit, so creating an account needs an invite
 code. You share the code inside the link, so a friend never has to type it.
@@ -51,7 +54,9 @@ After this, every push to `master` deploys again once CI passes.
 ## 4. Make your account, then share the link
 
 1. In Render, open the service's **Environment** tab and copy `APP_INVITE_CODE`.
-2. Open `https://<your-service>.onrender.com/#invite=<the code>` and create your own account.
+2. Open `https://study-os-7o9j.onrender.com/#invite=<the code>` (or
+   `https://<your-service>.onrender.com/#invite=<the code>` for your own deploy) and create
+   your own account.
 3. Send your friends the same link. It opens on **Create account** with the invite code
    already filled in. Each friend picks a username and a password and starts with no courses.
 
