@@ -172,10 +172,11 @@ It needs Java 21 or newer, Maven, Node (CI uses 26) and Docker.
     cd frontend && npm install && npm run dev
 
 Open http://localhost:5173. The Vite dev server proxies `/api` to the backend on port
-8080. Compose starts the Postgres the backend expects: database, user and password all
-`studyos`, on port 5432. A local Postgres set up the same way works too. Hibernate
-creates the tables on the first run, and adds the ones a later version brings without
-touching the data.
+8080. The first visit shows a sign-in / create-account form; locally the invite code is
+blank, so you can create an account right away. Compose starts the Postgres the backend
+expects: database, user and password all `studyos`, on port 5432. A local Postgres set up
+the same way works too. Hibernate creates the tables on the first run, and adds the ones a
+later version brings without touching the data.
 
 The API key is read from the environment at run time and is never stored in the repo.
 Everything else is in `backend/src/main/resources/application.yml`: the two models under
@@ -212,19 +213,29 @@ build. A second workflow publishes the project page from `site/` and
 
 ## Limits
 
-This is v1 and it is built for one person: me. There are no accounts and no auth, so
-anyone who can reach the port can use it. It runs on my laptop, and only the static
-project page is published. Uploads must be PDFs. Anything else is refused on its first
-bytes, before the upload reaches Claude, so uploading a PowerPoint deck costs nothing and
-comes back telling me to export it first. Files are capped at 32MB. Ingest is one call
-per file with no progress and no background queue, so a long deck takes a while and the
-upload request waits for it.
+Accounts exist. Sign-up needs a username, a password, and (when `APP_INVITE_CODE` is set)
+an invite code; the share link puts the code in `#invite=` so a friend never has to type
+it. Each account owns only its own courses. Locally the invite code is blank, so sign-up
+is open. A forgotten password is reset from the sign-in form: username (and invite when
+required), then a new password. There is no email step; the reset token stays in the
+browser for that visit.
 
-A lecture cannot be deleted or replaced yet. An edited PDF posted again is a different
-file, so it comes in as a second lecture beside the first, and the old copy's questions
-can only be retired one at a time. Exam pacing counts topics, not how long they take, so
+The static project page at https://bryancruzcb.github.io/study-os/ is published from
+`site/` whenever that tree changes on `master`. An optional live demo of the app itself
+can be stood up on Render with Neon Postgres; the steps, invite sharing, and the free-tier
+cold-start quirks are in [docs/DEPLOY.md](docs/DEPLOY.md).
+
+Uploads must be PDFs. Anything else is refused on its first bytes, before the upload
+reaches Claude, so uploading a PowerPoint deck costs nothing and comes back telling me to
+export it first. Files are capped at 32MB. Upload returns as soon as the file is stored;
+extraction runs in the background and the bank polls until the lecture is ready or failed.
+
+A lecture can be deleted from the bank. Uploading again under the same filename replaces
+the old lecture (and its concepts, questions, and review state); a different hash under a
+new name still adds a second lecture. Exam pacing counts topics, not how long they take, so
 a dense lecture's topics get the same share of a day as a light one's. Deleting an exam
 leaves its topics on the days its last plan gave them.
 
-A quiz's progress lives in the browser it was taken in, so it does not follow me to
-another machine.
+A quiz's progress is saved on the account for that course, so it follows me across
+browsers. A retake overwrites the previous run. The quiz still does not record study
+attempts or move review dates.
