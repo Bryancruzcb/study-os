@@ -4,9 +4,14 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.studyos.ai.AiClient;
 import com.studyos.ai.AiException;
+import com.studyos.ai.ConceptFocus;
 import com.studyos.ai.ConceptPayload;
+import com.studyos.ai.GeneratePayload;
+import com.studyos.ai.GeneratedQuestionPayload;
 import com.studyos.ai.IngestPayload;
 import com.studyos.ai.QuestionPayload;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import com.studyos.config.AppStudyProps;
 import com.studyos.domain.*;
 import com.studyos.exam.ExamPlanner;
@@ -35,6 +40,7 @@ public class IngestService {
     private final ReviewStateRepo reviewStateRepo;
     private final AttemptRepo attemptRepo;
     private final ExamRepo examRepo;
+    private final MaterialPdfRepo materialPdfRepo;
     private final AiClient ai;
     private final Clock clock;
     private final AppStudyProps study;
@@ -59,8 +65,8 @@ public class IngestService {
 
     public IngestService(CourseRepo courseRepo, MaterialRepo materialRepo, ConceptRepo conceptRepo,
                          QuestionRepo questionRepo, ReviewStateRepo reviewStateRepo, AttemptRepo attemptRepo,
-                         ExamRepo examRepo, AiClient ai, Clock clock, AppStudyProps study,
-                         ExamPlanner examPlanner, ApplicationEventPublisher events) {
+                         ExamRepo examRepo, MaterialPdfRepo materialPdfRepo, AiClient ai, Clock clock,
+                         AppStudyProps study, ExamPlanner examPlanner, ApplicationEventPublisher events) {
         this.courseRepo = courseRepo;
         this.materialRepo = materialRepo;
         this.conceptRepo = conceptRepo;
@@ -68,6 +74,7 @@ public class IngestService {
         this.reviewStateRepo = reviewStateRepo;
         this.attemptRepo = attemptRepo;
         this.examRepo = examRepo;
+        this.materialPdfRepo = materialPdfRepo;
         this.ai = ai;
         this.clock = clock;
         this.study = study;
@@ -128,7 +135,12 @@ public class IngestService {
         var existing = materialRepo.findByCourseIdAndFileHash(courseId, hash);
         // INGESTED is a no-op; PENDING is already being worked, so do not start a second job
         if (existing.isPresent() && existing.get().status != MaterialStatus.FAILED) {
-            return new Prepared(existing.get(), Next.DONE);
+            Material kept = existing.get();
+            // older lectures may lack stored bytes; a re-upload of the same PDF fills them in
+            if (materialPdfRepo.findById(kept.id).isEmpty()) {
+                keepPdf(kept.id, pdfBytes);
+            }
+            return new Prepared(kept, Next.DONE);
         }
 
         // an updated PDF usually keeps its name: drop every other copy of that name in the course
@@ -155,6 +167,7 @@ public class IngestService {
             material.fileHash = hash;
         }
         material = materialRepo.save(material);
+        if (material.id != null) keepPdf(material.id, pdfBytes);
 
         // The guard sits below the hash lookup, not above it, so a rejection travels the same
         // FAILED-row contract as a provider failure: the bank page already renders errorMessage,
@@ -262,6 +275,7 @@ public class IngestService {
         questionRepo.deleteByConceptMaterialId(materialId);
         reviewStateRepo.deleteByConceptMaterialId(materialId);
         conceptRepo.deleteByMaterialId(materialId);
+        materialPdfRepo.deleteByMaterialId(materialId);
         materialRepo.delete(lecture);
     }
 
@@ -418,6 +432,130 @@ public class IngestService {
         } catch (JsonProcessingException e) {
             throw new AiException("could not serialize question fields: " + e.getMessage(), e);
         }
+    }
+
+
+    /**
+     * On-demand bank generation: more questions for selected concepts, from each concept's
+     * lecture PDF only (same slides-only rule as ingest).
+     */
+    @Transactional
+    public List<Question> generateMore(Long courseId, List<Long> conceptIds, int count, String types) {
+        if (conceptIds == null || conceptIds.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pick at least one concept.");
+        }
+        if (count < 1 || count > 20) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ask for between 1 and 20 questions.");
+        }
+        if (!isGenerateTypes(types)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "types must be MC, SHORT_ANSWER, or BOTH.");
+        }
+        Course course = courseRepo.findById(courseId).orElseThrow();
+        List<Concept> concepts = conceptRepo.findAllById(conceptIds);
+        if (concepts.size() != conceptIds.size()
+                || concepts.stream().anyMatch(c -> !c.course.id.equals(courseId))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Every concept must belong to this course.");
+        }
+
+        Map<Long, List<Concept>> byMaterial = concepts.stream()
+            .collect(Collectors.groupingBy(c -> c.material.id));
+        int totalConcepts = concepts.size();
+        int remaining = count;
+        List<Long> materialOrder = byMaterial.keySet().stream().sorted().toList();
+        List<Question> saved = new java.util.ArrayList<>();
+        for (int i = 0; i < materialOrder.size(); i++) {
+            Long materialId = materialOrder.get(i);
+            List<Concept> group = byMaterial.get(materialId);
+            int n = (i == materialOrder.size() - 1)
+                ? remaining
+                : Math.max(1, (count * group.size()) / totalConcepts);
+            if (n > remaining) n = remaining;
+            if (n <= 0) continue;
+            remaining -= n;
+            MaterialPdf pdf = materialPdfRepo.findById(materialId).orElse(null);
+            if (pdf == null || pdf.bytes == null || pdf.bytes.length == 0) {
+                String name = group.get(0).material.filename;
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Re-upload " + name + " so Study OS can keep the slides for generating more questions.");
+            }
+            List<ConceptFocus> focus = group.stream()
+                .map(c -> new ConceptFocus(c.id, c.name, c.summary, c.sourcePages))
+                .toList();
+            GeneratePayload payload = generateWithOneRetry(pdf.bytes, course.name, focus, n, types);
+            Map<Long, Concept> byId = group.stream().collect(Collectors.toMap(c -> c.id, c -> c));
+            for (GeneratedQuestionPayload qp : payload.questions()) {
+                Concept concept = byId.get(qp.conceptId());
+                if (concept == null) {
+                    throw new AiException("generated question for unknown conceptId: " + qp.conceptId());
+                }
+                if (!isQuestionType(qp.type())) {
+                    throw new AiException("invalid question type: " + qp.type());
+                }
+                validateGeneratedFields(qp);
+                Question q = new Question();
+                q.concept = concept;
+                q.type = QuestionType.valueOf(qp.type());
+                q.prompt = qp.prompt();
+                q.optionsJson = qp.options() == null ? null : writeJson(qp.options());
+                q.correctIndex = qp.correctIndex();
+                q.modelAnswer = qp.modelAnswer();
+                q.rubric = qp.rubric();
+                q.sourcePages = qp.sourcePages() == null ? null
+                    : qp.sourcePages().stream().map(String::valueOf).collect(Collectors.joining(","));
+                q.explanation = usableText(qp.explanation(), EXPLANATION_MAX);
+                q.optionExplanationsJson = usableOptionExplanations(q.type, toQuestionPayload(qp));
+                q.diagram = usableDiagram(qp.diagram());
+                saved.add(questionRepo.save(q));
+            }
+        }
+        return saved;
+    }
+
+    private void keepPdf(Long materialId, byte[] pdfBytes) {
+        MaterialPdf row = materialPdfRepo.findById(materialId).orElseGet(MaterialPdf::new);
+        row.materialId = materialId;
+        row.bytes = pdfBytes;
+        materialPdfRepo.save(row);
+    }
+
+    private GeneratePayload generateWithOneRetry(byte[] pdfBytes, String courseName,
+                                                 List<ConceptFocus> concepts, int count, String types) {
+        try {
+            return validateGenerate(ai.generateMore(pdfBytes, courseName, concepts, count, types), concepts);
+        } catch (AiException first) {
+            return validateGenerate(ai.generateMore(pdfBytes, courseName, concepts, count, types), concepts);
+        }
+    }
+
+    private static GeneratePayload validateGenerate(GeneratePayload payload, List<ConceptFocus> concepts) {
+        if (payload == null || payload.questions() == null || payload.questions().isEmpty()) {
+            throw new AiException("generation returned no questions");
+        }
+        var ids = concepts.stream().map(ConceptFocus::id).collect(Collectors.toSet());
+        for (GeneratedQuestionPayload qp : payload.questions()) {
+            if (qp.conceptId() == null || !ids.contains(qp.conceptId())) {
+                throw new AiException("generated question for unknown conceptId: " + qp.conceptId());
+            }
+            if (!isQuestionType(qp.type())) {
+                throw new AiException("invalid question type: " + qp.type());
+            }
+            validateGeneratedFields(qp);
+        }
+        return payload;
+    }
+
+    private static boolean isGenerateTypes(String types) {
+        return "MC".equals(types) || "SHORT_ANSWER".equals(types) || "BOTH".equals(types);
+    }
+
+    private static void validateGeneratedFields(GeneratedQuestionPayload qp) {
+        validateFieldsForType(toQuestionPayload(qp));
+    }
+
+    private static QuestionPayload toQuestionPayload(GeneratedQuestionPayload qp) {
+        return new QuestionPayload(qp.type(), qp.prompt(), qp.options(), qp.correctIndex(),
+            qp.modelAnswer(), qp.rubric(), qp.sourcePages(), qp.explanation(),
+            qp.optionExplanations(), qp.diagram());
     }
 
     private static String sha256(byte[] bytes) {

@@ -230,3 +230,24 @@
   gap: 14px;
   padding: 14px 0 18px;
 }
+
+.quiz-available {
+  margin: 0 0 12px;
+  color: var(--ink-dim);
+  font-size: 14px;
+}
+
+.quiz-more {
+  margin: 12px 0 0;
+  font-size: 13px;
+}
+
+.quiz-more-link {
+  color: var(--ink-dim);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.quiz-more-link:hover {
+  color: var(--ink);
+}

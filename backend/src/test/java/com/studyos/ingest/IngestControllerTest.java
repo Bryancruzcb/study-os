@@ -164,4 +164,30 @@ class IngestControllerTest {
         mvc.perform(delete("/api/materials/11")).andExpect(status().isNoContent());
         verify(ingestService).deleteLecture(11L);
     }
+
+    @Test
+    void generateDelegatesToService() throws Exception {
+        Question q = new Question();
+        q.id = 9L;
+        q.type = QuestionType.MC;
+        q.prompt = "What opens a TCP connection?";
+        when(ingestService.generateMore(eq(1L), eq(List.of(5L)), eq(2), eq("MC"))).thenReturn(List.of(q));
+        mvc.perform(post("/api/courses/1/bank/generate")
+                .contentType("application/json")
+                .content("{\"conceptIds\":[5],\"count\":2,\"types\":\"MC\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.length()").value(1))
+            .andExpect(jsonPath("$[0].id").value(9))
+            .andExpect(jsonPath("$[0].prompt").value("What opens a TCP connection?"));
+    }
+
+    @Test
+    void generateIntoAnotherAccountsCourseIsNotFound() throws Exception {
+        when(owned.course(SignedInMvc.ME.id(), 2L)).thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND));
+        mvc.perform(post("/api/courses/2/bank/generate")
+                .contentType("application/json")
+                .content("{\"conceptIds\":[5],\"count\":1,\"types\":\"BOTH\"}"))
+            .andExpect(status().isNotFound());
+        verifyNoInteractions(ingestService);
+    }
 }

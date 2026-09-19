@@ -79,6 +79,15 @@ public class IngestController {
             .toList();
     }
 
+    public record GenerateRequest(List<Long> conceptIds, int count, String types) {}
+
+    @PostMapping("/courses/{courseId}/bank/generate")
+    public List<Question> generate(@AuthenticationPrincipal SignedIn me, @PathVariable Long courseId,
+                                   @RequestBody GenerateRequest req) {
+        owned.course(me.id(), courseId);
+        return ingestService.generateMore(courseId, req.conceptIds(), req.count(), req.types());
+    }
+
     @PostMapping("/questions/{id}/retire")
     public Map<String, String> retire(@AuthenticationPrincipal SignedIn me, @PathVariable Long id) {
         owned.question(me.id(), id);

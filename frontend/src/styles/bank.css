@@ -237,3 +237,75 @@
   border-color: var(--glow-line);
   box-shadow: var(--glow);
 }
+
+/* generate-more: pick concepts in the list, set count/types above the split */
+.bank-generate {
+  margin: 0 0 24px;
+  padding: 20px 22px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+}
+
+.bank-generate-title {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.bank-generate .lede {
+  margin: 0 0 16px;
+  color: var(--ink-dim);
+  font-size: 15px;
+}
+
+.bank-generate-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px 28px;
+  align-items: flex-end;
+  margin-bottom: 14px;
+}
+
+.bank-generate-row .field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bank-generate-row .input {
+  width: 5.5rem;
+}
+
+.bank-generate-types {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.bank-generate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.crow-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.crow-wrap .crow {
+  flex: 1;
+  min-width: 0;
+}
+
+.crow-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 28px;
+  padding: 0 2px;
+}

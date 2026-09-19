@@ -253,3 +253,14 @@ test('a quiz that fails to load shows the alert', async () => {
   renderInCourse(<QuizPage />, 'quiz')
   expect(await screen.findByRole('alert')).toHaveTextContent('500 /api/courses/1/quiz')
 })
+
+test('the setup shows how many questions are available and links to generate in the bank', async () => {
+  renderInCourse(<QuizPage />, 'quiz')
+  expect(await screen.findByText('3 questions available for this selection.')).toBeInTheDocument()
+  const link = screen.getByRole('link', { name: 'Need more? Generate in Bank' })
+  expect(link).toHaveAttribute('href', '/courses/1/bank?concepts=1,2,3')
+  await userEvent.click(screen.getByRole('checkbox', { name: /Paging\.pdf/ }))
+  expect(screen.getByText('2 questions available for this selection.')).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: 'Need more? Generate in Bank' }))
+    .toHaveAttribute('href', '/courses/1/bank?concepts=1,2')
+})

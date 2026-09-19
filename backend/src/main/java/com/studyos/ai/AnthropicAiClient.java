@@ -103,6 +103,77 @@ public class AnthropicAiClient implements AiClient {
         }
     }
 
+
+    @Override
+    public GeneratePayload generateMore(byte[] pdfBytes, String courseName, List<ConceptFocus> concepts,
+                                        int count, String types) {
+        String conceptLines = concepts.stream()
+            .map(c -> "- id=%d name=%s summary=%s sourcePages=%s"
+                .formatted(c.id(), c.name(), c.summary(),
+                    c.sourcePages() == null ? "" : c.sourcePages()))
+            .collect(java.util.stream.Collectors.joining("\n"));
+        String typeRule = switch (types) {
+            case "MC" -> "Every question must be type \"MC\".";
+            case "SHORT_ANSWER" -> "Every question must be type \"SHORT_ANSWER\".";
+            default -> "Mix types: \"MC\" and \"SHORT_ANSWER\".";
+        };
+        String prompt = """
+            These are lecture slides for the course "%s". The student already has these concepts
+            from this deck and wants %d NEW questions added under them (do not invent new concepts):
+
+            %s
+
+            %s For "MC": 4 options, correctIndex 0-3, modelAnswer/rubric null. For "SHORT_ANSWER":
+            options/correctIndex null, a model answer, and a 2-3 bullet grading rubric. Assign each
+            question to one of the concept ids above (conceptId). Every question must be answerable
+            from the slides alone, and its sourcePages must point at the pages that answer it.
+
+            Every question also gets the explanations a quiz shows once it is answered, written
+            only from these slides: leave out anything the slides do not say. Cite pages as
+            "slide N" (one slide is one page). Plain sentences, no markdown.
+            - explanation: why the keyed answer is right, citing at least one slide. For a
+              SHORT_ANSWER question, also say what a wrong or incomplete answer misses, using the
+              rubric's points.
+            - optionExplanations: MC only, null for SHORT_ANSWER. One note per option, in option
+              order, on why the slides make that option right or wrong. Do not open a note with a
+              verdict word such as Correct or Wrong, and do not refer to options by letter.
+            - diagram: Mermaid source only when a structure, flow, sequence or state change on the
+              slides makes the answer clearer, otherwise null. Its first line is exactly
+              "flowchart TD", "flowchart LR", "sequenceDiagram" or "stateDiagram-v2"; at most about
+              12 nodes; quote any label with punctuation, like A["fork()"]; no styling, click
+              handlers or init directives.
+            """.formatted(courseName, count, conceptLines, typeRule);
+        try {
+            DocumentBlockParam doc = DocumentBlockParam.builder()
+                .source(Base64PdfSource.builder()
+                    .data(Base64.getEncoder().encodeToString(pdfBytes))
+                    .build())
+                .build();
+            StructuredMessageCreateParams<GeneratePayload> params = MessageCreateParams.builder()
+                .model(models.generation())
+                .maxTokens(EXTRACT_MAX_TOKENS)
+                .outputConfig(GeneratePayload.class)
+                .addUserMessageOfBlockParams(List.of(
+                    ContentBlockParam.ofDocument(doc),
+                    ContentBlockParam.ofText(TextBlockParam.builder().text(prompt).build())))
+                .build();
+            MessageAccumulator accumulator = MessageAccumulator.create();
+            try (StreamResponse<RawMessageStreamEvent> stream = client.messages().createStreaming(params)) {
+                stream.stream().forEach(accumulator::accumulate);
+            }
+            requireFinished(accumulator.message());
+            return accumulator.message(GeneratePayload.class).content().stream()
+                .flatMap(cb -> cb.text().stream())
+                .findFirst()
+                .map(t -> t.text())
+                .orElseThrow(() -> new AiException("empty generate response"));
+        } catch (AiException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new AiException("generate failed: " + e.getMessage(), e);
+        }
+    }
+
     @Override
     public GradePayload grade(String questionPrompt, String modelAnswer, String rubric, String givenAnswer) {
         String prompt = """
