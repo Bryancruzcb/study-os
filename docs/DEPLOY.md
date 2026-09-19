@@ -22,7 +22,7 @@ code. You share the code inside the link, so a friend never has to type it.
    - `SPRING_DATASOURCE_USERNAME`: `neondb_owner`
    - `SPRING_DATASOURCE_PASSWORD`: the password from the URL
 
-You do not need to create any tables. The app creates its schema on first start.
+You do not need to create any tables. Flyway applies V1 on an empty database; an existing database is baselined and left as-is.
 
 ## 2. API key with a spending cap (Anthropic)
 
@@ -77,3 +77,42 @@ username and password.
   that already exist keep working.
 - Upload a PDF. The app refuses PowerPoint and Word files and tells you to export them to
   PDF first.
+
+## Schema and backups
+
+Hibernate no longer updates the schema on boot. Flyway applies
+`backend/src/main/resources/db/migration/`. The first file is a baseline of the tables
+that used to be created with `ddl-auto=update`.
+
+- A new empty database (local compose, a fresh Neon project) runs V1 and is done.
+- The existing demo database already has those tables. Flyway sees a non-empty schema
+  with no history table, baselines it at version 1, and leaves the rows alone.
+- Later schema changes are new `V2__...sql` files. Do not edit V1.
+
+### Weekly dump
+
+Workflow `.github/workflows/backup.yml` runs every Sunday. It no-ops until this
+repository secret exists:
+
+1. In Neon, copy the connection string (the `postgresql://...` URL, not the JDBC one).
+2. GitHub → study-os → Settings → Secrets and variables → Actions → New repository secret.
+3. Name `NEON_DATABASE_URL`, paste the URL.
+4. Actions → Backup Neon → Run workflow, once, to confirm an artifact appears.
+
+Restore on a throwaway database, never onto the live one first:
+
+    pg_restore --no-owner --no-acl --dbname="$NEON_DATABASE_URL" studyos-YYYYMMDD.dump
+
+Artifacts expire after 90 days.
+
+### Uptime
+
+`.github/workflows/uptime.yml` curls `https://study-os-7o9j.onrender.com/api/ping` every
+six hours and waits through a free-tier cold start. A red run means the demo did not
+answer 200 after about three minutes.
+
+### Protect master
+
+GitHub → Settings → Branches → Add branch protection rule for `master`: require the
+`CI` workflow to pass, and disallow force pushes. Render already waits on checks;
+protection stops a push that skipped them.
