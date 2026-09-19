@@ -17,7 +17,14 @@ spring:
   jpa:
     open-in-view: false
     hibernate:
-      ddl-auto: update
+      # schema comes from Flyway (see db/migration). Existing hosts with tables already
+      # present are baselined; Hibernate no longer invents columns on boot.
+      ddl-auto: none
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 1
+    baseline-description: schema as of Hibernate ddl-auto=update
   servlet:
     multipart:
       max-file-size: 32MB

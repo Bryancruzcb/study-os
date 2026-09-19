@@ -1,0 +1,34 @@
+# Weekly pg_dump of the live Neon database. Skips when NEON_DATABASE_URL is unset
+# so the workflow stays green before the secret exists.
+name: Backup Neon
+on:
+  schedule:
+    - cron: "12 9 * * 0"
+  workflow_dispatch:
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dump
+        env:
+          NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+        run: |
+          if [ -z "$NEON_DATABASE_URL" ]; then
+            echo "NEON_DATABASE_URL secret is not set; nothing to dump."
+            exit 0
+          fi
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+          mkdir -p backup
+          stamp=$(date -u +%Y%m%dT%H%M%SZ)
+          pg_dump --no-owner --no-acl --format=custom \
+            --file="backup/studyos-${stamp}.dump" \
+            "$NEON_DATABASE_URL"
+          ls -lh backup
+      - uses: actions/upload-artifact@v4
+        if: hashFiles('backup/*') != ''
+        with:
+          name: studyos-neon-dump
+          path: backup/
+          retention-days: 90

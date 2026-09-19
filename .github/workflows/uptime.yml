@@ -1,0 +1,25 @@
+# Wakes the free Render demo and checks /api/ping. Cold start can take a minute.
+name: Uptime
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: /api/ping on the live demo
+        run: |
+          url="https://study-os-7o9j.onrender.com/api/ping"
+          for i in $(seq 1 40); do
+            code=$(curl -sS -o /tmp/ping-body -w "%{http_code}" --max-time 20 "$url" || true)
+            echo "try $i -> $code"
+            if [ "$code" = "200" ]; then
+              cat /tmp/ping-body || true
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "demo did not answer 200 in time"
+          exit 1

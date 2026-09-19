@@ -9,5 +9,34 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U studyos"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # same image Render runs. `docker compose up --build` is the local prod path.
+  # hot-reload still works the old way: start only db, then Maven + Vite.
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/studyos
+      SPRING_DATASOURCE_USERNAME: studyos
+      SPRING_DATASOURCE_PASSWORD: studyos
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-unused}
+      APP_INVITE_CODE: ${APP_INVITE_CODE:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 90s
+
 volumes:
   pgdata:
