@@ -26,11 +26,15 @@ export default function BankRoute() {
   const [bank, setBank] = useState<ConceptWithQuestions[] | null>(null)
   const [lectures, setLectures] = useState<Lecture[]>([])
   const [ownError, setOwnError] = useState<string | null>(null)
-  const [picked, setPicked] = useState<Set<number>>(() => new Set())
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [picked, setPicked] = useState<Set<number>>(() => {
+    const raw = searchParams.get('concepts')
+    if (!raw) return new Set()
+    return new Set(raw.split(',').map(s => Number(s)).filter(n => Number.isFinite(n) && n > 0))
+  })
   const [count, setCount] = useState(5)
   const [types, setTypes] = useState<GenerateTypes>('BOTH')
   const [generating, setGenerating] = useState(false)
-  const [searchParams, setSearchParams] = useSearchParams()
   // one alert for the bank's own failures and the ingest's; an action's fresh start
   // clears both, the way it did when one state held them
   const { clearError } = ingest
