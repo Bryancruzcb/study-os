@@ -359,15 +359,34 @@ function Setup({ questions, landing, onStart }: {
               </div>
             </fieldset>
           )}
+          <p className="quiz-available" aria-live="polite">
+            {plural(pool, 'question')} available for this selection.
+          </p>
           <div className="actions">
             <button className="btn" disabled={pool === 0} onClick={() => onStart(buildQuiz(questions, picked, chosen))}>
               Start the quiz · {plural(chosen ?? pool, 'question')}
             </button>
           </div>
+          {pool > 0 && (
+            <p className="quiz-more">
+              <Link className="quiz-more-link" to={`../bank?concepts=${conceptIdsFor(questions, picked)}`}>
+                Need more? Generate in Bank
+              </Link>
+            </p>
+          )}
         </>
       )}
     </section>
   )
+}
+
+/* concept ids covered by the lectures currently checked on the setup */
+function conceptIdsFor(questions: readonly QuizQuestion[], picked: Set<number>): string {
+  const ids = new Set<number>()
+  for (const q of questions) {
+    if (picked.has(q.lectureId)) ids.add(q.conceptId)
+  }
+  return [...ids].sort((a, b) => a - b).join(',')
 }
 
 /* An answered multiple-choice question: every option marked, each with why the slides make it

@@ -31,6 +31,7 @@ vi.mock('../api', () => ({
     upload: vi.fn(),
     material: vi.fn(),
     deleteLecture: vi.fn(),
+    generateMore: vi.fn(),
     retire: vi.fn(),
     restore: vi.fn(),
     label: vi.fn(),
@@ -243,4 +244,28 @@ test('the upload hint says a same-name upload replaces', async () => {
   const { container } = renderBank('/courses/1/bank')
   await screen.findByRole('link', { name: /TCP handshake/ })
   expect(container.querySelector('.hint')).toHaveTextContent('same name replaces')
+})
+
+test('generate more asks the API for the checked concepts and refreshes the bank', async () => {
+  vi.mocked(api.generateMore).mockResolvedValueOnce([])
+  renderBank('/courses/1/bank/5')
+  await screen.findByRole('heading', { level: 2, name: 'TCP handshake' })
+  expect(screen.getByRole('heading', { name: 'Generate more questions' })).toBeInTheDocument()
+  await userEvent.click(screen.getByRole('checkbox', { name: 'Generate for TCP handshake' }))
+  const bankCalls = vi.mocked(api.bank).mock.calls.length
+  await userEvent.click(screen.getByRole('button', { name: /Generate · 5 questions/ }))
+  await waitFor(() => expect(api.generateMore).toHaveBeenCalledWith(1, {
+    conceptIds: [5], count: 5, types: 'BOTH',
+  }))
+  await waitFor(() => expect(vi.mocked(api.bank).mock.calls.length).toBe(bankCalls + 1))
+})
+
+test('a quiz handoff pre-checks concepts from the URL, then clears the query', async () => {
+  renderBank('/courses/1/bank/5?concepts=5,6')
+  await screen.findByRole('heading', { level: 2, name: 'TCP handshake' })
+  expect(screen.getByRole('checkbox', { name: 'Generate for TCP handshake' })).toBeChecked()
+  expect(screen.getByRole('checkbox', { name: 'Generate for Sockets' })).toBeChecked()
+  await waitFor(() => {
+    expect(window.location.search).not.toContain('concepts=')
+  })
 })

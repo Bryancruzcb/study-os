@@ -34,6 +34,7 @@ class IngestServiceTest {
     ReviewStateRepo reviewStateRepo = mock(ReviewStateRepo.class);
     AttemptRepo attemptRepo = mock(AttemptRepo.class);
     ExamRepo examRepo = mock(ExamRepo.class);
+    MaterialPdfRepo materialPdfRepo = mock(MaterialPdfRepo.class);
     FakeAiClient ai = new FakeAiClient();
     ExamPlanner examPlanner = mock(ExamPlanner.class);
     ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
@@ -57,12 +58,15 @@ class IngestServiceTest {
         when(conceptRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(questionRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(reviewStateRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(materialPdfRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(materialPdfRepo.findById(any())).thenReturn(Optional.empty());
         service = serviceWithDailyLimit(8);
     }
 
     private IngestService serviceWithDailyLimit(int newConceptsPerDay) {
         return new IngestService(courseRepo, materialRepo, conceptRepo, questionRepo, reviewStateRepo,
-            attemptRepo, examRepo, ai, clock, new AppStudyProps(newConceptsPerDay, 0.2), examPlanner, events);
+            attemptRepo, examRepo, materialPdfRepo, ai, clock, new AppStudyProps(newConceptsPerDay, 0.2),
+            examPlanner, events);
     }
 
     /** A valid payload of {@code n} distinct concepts, each carrying the sample question pair. */
@@ -528,5 +532,68 @@ class IngestServiceTest {
         verify(conceptRepo).deleteByMaterialId(11L);
         verify(materialRepo).delete(lecture);
         verify(examPlanner).replan(1L);
+    }
+
+    @Test
+    void generateMoreAddsQuestionsUnderTheConcept() {
+        Material lecture = new Material();
+        lecture.id = 11L;
+        lecture.filename = "Lecture 3.pdf";
+        lecture.course = course;
+        Concept concept = new Concept();
+        concept.id = 5L;
+        concept.course = course;
+        concept.material = lecture;
+        concept.name = "TCP handshake";
+        concept.summary = "Three-way handshake";
+        concept.sourcePages = "3,4";
+        when(conceptRepo.findAllById(List.of(5L))).thenReturn(List.of(concept));
+        MaterialPdf pdf = new MaterialPdf();
+        pdf.materialId = 11L;
+        pdf.bytes = PDF;
+        when(materialPdfRepo.findById(11L)).thenReturn(Optional.of(pdf));
+        ai.nextGenerate = FakeAiClient.sampleGenerate(5L);
+
+        List<Question> saved = service.generateMore(1L, List.of(5L), 1, "MC");
+
+        assertEquals(1, saved.size());
+        assertEquals(QuestionType.MC, saved.get(0).type);
+        assertEquals(concept, saved.get(0).concept);
+        assertEquals(1, ai.generateCalls);
+    }
+
+    @Test
+    void generateMoreRefusesWhenTheLecturePdfWasNotKept() {
+        Material lecture = new Material();
+        lecture.id = 11L;
+        lecture.filename = "Lecture 3.pdf";
+        lecture.course = course;
+        Concept concept = new Concept();
+        concept.id = 5L;
+        concept.course = course;
+        concept.material = lecture;
+        concept.name = "TCP handshake";
+        when(conceptRepo.findAllById(List.of(5L))).thenReturn(List.of(concept));
+        when(materialPdfRepo.findById(11L)).thenReturn(Optional.empty());
+
+        var err = assertThrows(org.springframework.web.server.ResponseStatusException.class,
+            () -> service.generateMore(1L, List.of(5L), 1, "BOTH"));
+        assertTrue(err.getReason().contains("Re-upload Lecture 3.pdf"));
+        assertEquals(0, ai.generateCalls);
+    }
+
+    @Test
+    void acceptKeepsThePdfBytesForLaterGeneration() {
+        when(materialRepo.save(any())).thenAnswer(inv -> {
+            Material m = inv.getArgument(0);
+            if (m.id == null) m.id = 42L;
+            return m;
+        });
+        Material accepted = service.accept(1L, "w1.pdf", PDF);
+        assertEquals(MaterialStatus.PENDING, accepted.status);
+        ArgumentCaptor<MaterialPdf> pdf = ArgumentCaptor.forClass(MaterialPdf.class);
+        verify(materialPdfRepo).save(pdf.capture());
+        assertEquals(42L, pdf.getValue().materialId);
+        assertArrayEquals(PDF, pdf.getValue().bytes);
     }
 }

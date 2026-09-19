@@ -204,6 +204,9 @@ export const api = {
   overview: () => get<CourseOverview[]>('/api/courses/overview'),
   createCourse: (name: string, term: string) => post<Course>('/api/courses', { name, term }),
   bank: (courseId: number) => get<ConceptWithQuestions[]>(`/api/courses/${courseId}/bank`),
+  /* more questions for selected concepts, written from those lectures' slides only */
+  generateMore: (courseId: number, body: { conceptIds: number[]; count: number; types: 'MC' | 'SHORT_ANSWER' | 'BOTH' }) =>
+    post<Question[]>(`/api/courses/${courseId}/bank/generate`, body),
   upload: (courseId: number, file: File) => uploadFile<Material>(`/api/courses/${courseId}/materials`, file),
   material: (id: number) => get<Material>(`/api/materials/${id}`),
   retire: (questionId: number) => post(`/api/questions/${questionId}/retire`, {}),
