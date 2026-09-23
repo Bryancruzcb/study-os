@@ -1,11 +1,15 @@
 package com.studyos.course;
 
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.studyos.auth.Owned;
 import com.studyos.auth.SignedInMvc;
 import com.studyos.domain.Course;
 import com.studyos.domain.QuestionStatus;
@@ -25,6 +29,9 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.test.web.servlet.MockMvc;
 import com.studyos.exam.ExamPlanner;
 
@@ -42,6 +49,8 @@ class CourseControllerTest {
     @MockBean QuestionRepo questionRepo;
     @MockBean ReviewStateRepo reviewStateRepo;
     @MockBean ExamPlanner examPlanner;
+    @MockBean Owned owned;
+    @MockBean CourseService courseService;
 
     private static Course course(long id, String name, String term) {
         Course c = new Course();
@@ -77,6 +86,50 @@ class CourseControllerTest {
             .andExpect(jsonPath("$[1].concepts").value(248))
             .andExpect(jsonPath("$[1].questions").value(844))
             .andExpect(jsonPath("$[1].dueToday").value(16));
+    }
+
+    @Test
+    void anArchivedCourseStaysInTheListFlagged() throws Exception {
+        Course old = course(5L, "CS 46A", "Fall 2025");
+        old.archived = true;
+        when(courseRepo.findByOwnerIdOrderByIdAsc(SignedInMvc.ME.id())).thenReturn(List.of(
+            old, course(6L, "CS 149", "Fall 2026")));
+
+        mvc.perform(get("/api/courses/overview"))
+            .andExpect(jsonPath("$[0].archived").value(true))
+            .andExpect(jsonPath("$[1].archived").value(false));
+    }
+
+    @Test
+    void archivingAndRestoringSetTheFlagOnTheOwnCourse() throws Exception {
+        Course c = course(2L, "CS 149", "Fall 2026");
+        when(owned.course(SignedInMvc.ME.id(), 2L)).thenReturn(c);
+
+        mvc.perform(put("/api/courses/2/archived").contentType(MediaType.APPLICATION_JSON).content("{\"archived\":true}"))
+            .andExpect(status().isNoContent());
+        verify(courseService).setArchived(c, true);
+        mvc.perform(put("/api/courses/2/archived").contentType(MediaType.APPLICATION_JSON).content("{\"archived\":false}"))
+            .andExpect(status().isNoContent());
+        verify(courseService).setArchived(c, false);
+    }
+
+    @Test
+    void deletingTheOwnCourseAnswersWithNoContent() throws Exception {
+        Course c = course(2L, "CS 149", "Fall 2026");
+        when(owned.course(SignedInMvc.ME.id(), 2L)).thenReturn(c);
+
+        mvc.perform(delete("/api/courses/2")).andExpect(status().isNoContent());
+        verify(courseService).delete(c);
+    }
+
+    @Test
+    void anotherAccountsCourseCannotBeArchivedOrDeleted() throws Exception {
+        when(owned.course(SignedInMvc.ME.id(), 9L)).thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND));
+
+        mvc.perform(put("/api/courses/9/archived").contentType(MediaType.APPLICATION_JSON).content("{\"archived\":true}"))
+            .andExpect(status().isNotFound());
+        mvc.perform(delete("/api/courses/9")).andExpect(status().isNotFound());
+        verifyNoInteractions(courseService);
     }
 
     @Test

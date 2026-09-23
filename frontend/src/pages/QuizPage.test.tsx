@@ -5,7 +5,7 @@ import { api, type QuestionReview, type QuizQuestion } from '../api'
 import { renderInCourse } from '../test/render'
 import QuizPage from './QuizPage'
 
-const course = { id: 1, name: 'CS 149', term: 'Fall 2026', concepts: 3, questions: 3, dueToday: 2 }
+const course = { id: 1, name: 'CS 149', term: 'Fall 2026', concepts: 3, questions: 3, dueToday: 2, archived: false }
 
 vi.mock('../api', () => ({
   api: {

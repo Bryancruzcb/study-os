@@ -16,4 +16,7 @@ public interface MaterialRepo extends JpaRepository<Material, Long> {
     List<Material> findByCourseIdAndFilename(Long courseId, String filename);
 
     Optional<Material> findByIdAndCourseOwnerId(Long id, Long ownerId);
+
+    // every lecture in the course whatever its status, so deleting the course leaves none behind
+    List<Material> findByCourseId(Long courseId);
 }

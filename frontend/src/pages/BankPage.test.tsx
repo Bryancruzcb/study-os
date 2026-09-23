@@ -5,7 +5,7 @@ import { vi } from 'vitest'
 import { api } from '../api'
 import { renderBank, renderBankInBrowser } from '../test/render'
 
-const course = { id: 1, name: 'CS 158A', term: 'Fall 2026', concepts: 2, questions: 3, dueToday: 2 }
+const course = { id: 1, name: 'CS 158A', term: 'Fall 2026', concepts: 2, questions: 3, dueToday: 2, archived: false }
 
 const bank = [
   {

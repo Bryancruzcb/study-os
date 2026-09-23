@@ -8,6 +8,8 @@ export interface CourseOverview {
   concepts: number
   questions: number
   dueToday: number
+  // off the home grid and out of the due totals, listed under Archived instead
+  archived: boolean
 }
 export interface Question {
   id: number
@@ -158,6 +160,16 @@ async function put<T = unknown>(url: string, body: unknown): Promise<T> {
   return readJson<T>(res, url)
 }
 
+/* a PUT that answers 204 with no body */
+async function putEmpty(url: string, body: unknown): Promise<void> {
+  const res = await send(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error(`${res.status} ${url}`)
+}
+
 /* a delete answers 204 with no body, so there is nothing to read */
 async function remove(url: string): Promise<void> {
   const res = await send(url, { method: 'DELETE' })
@@ -203,6 +215,9 @@ export const api = {
   },
   overview: () => get<CourseOverview[]>('/api/courses/overview'),
   createCourse: (name: string, term: string) => post<Course>('/api/courses', { name, term }),
+  setArchived: (courseId: number, archived: boolean) => putEmpty(`/api/courses/${courseId}/archived`, { archived }),
+  /* the course and everything in it: lectures, questions, attempts, exams, the saved quiz */
+  deleteCourse: (courseId: number) => remove(`/api/courses/${courseId}`),
   bank: (courseId: number) => get<ConceptWithQuestions[]>(`/api/courses/${courseId}/bank`),
   /* more questions for selected concepts, written from those lectures' slides only */
   generateMore: (courseId: number, body: { conceptIds: number[]; count: number; types: 'MC' | 'SHORT_ANSWER' | 'BOTH' }) =>
