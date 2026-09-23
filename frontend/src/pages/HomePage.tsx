@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { plural } from '../plural'
 import Atmosphere from '../shell/Atmosphere'
+import CourseActions from '../shell/CourseActions'
 import Nav from '../shell/Nav'
 import { dueSplit, useCourses } from '../shell/courses'
 
@@ -10,7 +11,7 @@ import { dueSplit, useCourses } from '../shell/courses'
 const WASHES = 5
 
 export default function HomePage() {
-  const { courses, error } = useCourses()
+  const { courses: all, error, refresh } = useCourses()
   const navigate = useNavigate()
   const [creating, setCreating] = useState(false)
   const [name, setName] = useState('')
@@ -33,6 +34,9 @@ export default function HomePage() {
     }
   }, [creating])
 
+  // archived courses leave the grid and the due totals and wait in their own list below
+  const courses = all && all.filter(c => !c.archived)
+  const archived = (all ?? []).filter(c => c.archived)
   const list = courses ?? []
   const due = list.reduce((n, c) => n + c.dueToday, 0)
   const newest = list[list.length - 1]
@@ -90,7 +94,7 @@ export default function HomePage() {
             )}
             {courses && courses.length === 0 && (
               <>
-                <h1>No courses yet.</h1>
+                <h1>{archived.length > 0 ? 'No active courses.' : 'No courses yet.'}</h1>
                 <p className="lede">Add one below and upload a lecture PDF.</p>
               </>
             )}
@@ -145,6 +149,20 @@ export default function HomePage() {
                 </button>
               )}
             </div>
+          </section>
+        )}
+        {archived.length > 0 && (
+          <section className="archived">
+            <h2>Archived</h2>
+            <ul className="archived-list">
+              {archived.map(c => (
+                <li key={c.id} className="archived-row">
+                  <Link className="archived-name" to={`/courses/${c.id}/bank`}>{c.name}</Link>
+                  <span className="count">{c.term} · {plural(c.concepts, 'concept')} · {plural(c.questions, 'question')}</span>
+                  <CourseActions course={c} onArchived={refresh} onDeleted={refresh} />
+                </li>
+              ))}
+            </ul>
           </section>
         )}
       </main>

@@ -5,7 +5,7 @@ import { api, type AnsweredAttempt, type Attempt, type StudyQuestion } from '../
 import { renderInCourse } from '../test/render'
 import StudyPage from './StudyPage'
 
-const course = { id: 1, name: 'CS 158A', term: 'Fall 2026', concepts: 39, questions: 139, dueToday: 16 }
+const course = { id: 1, name: 'CS 158A', term: 'Fall 2026', concepts: 39, questions: 139, dueToday: 16, archived: false }
 
 vi.mock('../api', () => ({
   api: {
@@ -82,7 +82,7 @@ test('the head figure shows what is left and the overview is refetched after an 
   expect(screen.getByText('left today').previousElementSibling).toHaveTextContent('16')
   const fill = () => figure.parentElement!.querySelector<HTMLElement>('.bar > span')!
   expect(fill().style.width).toBe('0%')
-  vi.mocked(api.overview).mockResolvedValueOnce([{ ...course, dueToday: 15 }])
+  vi.mocked(api.overview).mockResolvedValueOnce([{ ...course, dueToday: 15, archived: false }])
   await userEvent.click(screen.getByRole('button', { name: '3' }))
   await waitFor(() => expect(api.overview).toHaveBeenCalledTimes(2))
   await waitFor(() => expect(screen.getByText('left today').previousElementSibling).toHaveTextContent('15'))
@@ -93,7 +93,7 @@ test('the head figure shows what is left and the overview is refetched after an 
 })
 
 test('with nothing due at the start of the visit there is no bar to fill', async () => {
-  vi.mocked(api.overview).mockResolvedValue([{ ...course, dueToday: 0 }])
+  vi.mocked(api.overview).mockResolvedValue([{ ...course, dueToday: 0, archived: false }])
   await renderWithQuestion()
   const figure = screen.getByText('left today').closest('.figure')!
   expect(figure).toHaveTextContent('0')

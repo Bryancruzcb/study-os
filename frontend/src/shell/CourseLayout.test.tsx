@@ -9,8 +9,10 @@ import CourseLayout, { type CourseContext } from './CourseLayout'
 vi.mock('../api', () => ({
   api: {
     overview: vi.fn().mockResolvedValue([
-      { id: 2, name: 'CS 149', term: 'Fall 2026', concepts: 248, questions: 844, dueToday: 16 },
+      { id: 2, name: 'CS 149', term: 'Fall 2026', concepts: 248, questions: 844, dueToday: 16, archived: false },
     ]),
+    setArchived: vi.fn().mockResolvedValue(undefined),
+    deleteCourse: vi.fn().mockResolvedValue(undefined),
   },
 }))
 
@@ -82,8 +84,8 @@ function Probe() {
 
 test('a course switch starts the page over', async () => {
   vi.mocked(api.overview).mockResolvedValueOnce([
-    { id: 2, name: 'CS 149', term: 'Fall 2026', concepts: 248, questions: 844, dueToday: 16 },
-    { id: 3, name: 'CS 158A', term: 'Fall 2026', concepts: 39, questions: 139, dueToday: 16 },
+    { id: 2, name: 'CS 149', term: 'Fall 2026', concepts: 248, questions: 844, dueToday: 16, archived: false },
+    { id: 3, name: 'CS 158A', term: 'Fall 2026', concepts: 39, questions: 139, dueToday: 16, archived: false },
   ])
   renderAt('/courses/2/study', <Probe />)
   expect(await screen.findByText('started on CS 149')).toBeInTheDocument()
@@ -95,8 +97,33 @@ test('a course switch starts the page over', async () => {
 
 test('the head reads a count of one as singular', async () => {
   vi.mocked(api.overview).mockResolvedValueOnce([
-    { id: 2, name: 'CS 149', term: 'Fall 2026', concepts: 1, questions: 1, dueToday: 0 },
+    { id: 2, name: 'CS 149', term: 'Fall 2026', concepts: 1, questions: 1, dueToday: 0, archived: false },
   ])
   renderAt('/courses/2/study')
   expect(await screen.findByText('Fall 2026 · 1 concept · 1 question')).toBeInTheDocument()
+})
+
+test('Archive from the course head puts the course away and goes home', async () => {
+  renderAt('/courses/2/study')
+  await userEvent.click(await screen.findByRole('button', { name: 'Archive' }))
+  expect(api.setArchived).toHaveBeenCalledWith(2, true)
+  expect(await screen.findByText('home page')).toBeInTheDocument()
+})
+
+test('an archived course still opens, says so, and offers Restore', async () => {
+  vi.mocked(api.overview).mockResolvedValueOnce([
+    { id: 2, name: 'CS 149', term: 'Fall 2026', concepts: 248, questions: 844, dueToday: 16, archived: true },
+  ])
+  renderAt('/courses/2/study')
+  expect(await screen.findByText('Archived · Fall 2026 · 248 concepts · 844 questions')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Restore' })).toBeInTheDocument()
+  expect(screen.getByText('study page')).toBeInTheDocument()
+})
+
+test('Delete from the course head confirms, deletes, and goes home', async () => {
+  renderAt('/courses/2/study')
+  await userEvent.click(await screen.findByRole('button', { name: 'Delete course' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Delete forever' }))
+  expect(api.deleteCourse).toHaveBeenCalledWith(2)
+  expect(await screen.findByText('home page')).toBeInTheDocument()
 })

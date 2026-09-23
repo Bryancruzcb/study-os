@@ -4,7 +4,7 @@ import { vi } from 'vitest'
 import { api, type ConceptWithQuestions, type Question } from '../api'
 import { renderBank } from '../test/render'
 
-const course = { id: 1, name: 'CS 158A', term: 'Fall 2026', concepts: 1, questions: 2, dueToday: 1 }
+const course = { id: 1, name: 'CS 158A', term: 'Fall 2026', concepts: 1, questions: 2, dueToday: 1, archived: false }
 
 function question(over: Partial<Question>): Question {
   return {

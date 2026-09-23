@@ -261,3 +261,17 @@
     margin-top: 28px;
   }
 }
+
+/* Archive / Restore / Delete, under the course name and on each archived row */
+.course-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.course-actions-warn {
+  color: var(--ink-soft);
+  font-size: 14px;
+}

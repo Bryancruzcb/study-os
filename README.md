@@ -236,6 +236,11 @@ new name still adds a second lecture. Exam pacing counts topics, not how long th
 a dense lecture's topics get the same share of a day as a light one's. Deleting an exam
 leaves its topics on the days its last plan gave them.
 
+A finished class can be archived from its page. It leaves the home grid and the due count
+and waits under Archived at the bottom of the home page, where it can be opened, restored,
+or deleted. Deleting a course removes everything in it (lectures, questions, attempts,
+exams, the saved quiz) and asks twice first, because nothing brings it back.
+
 A quiz's progress is saved on the account for that course, so it follows me across
 browsers. A retake overwrites the previous run. The quiz still does not record study
 attempts or move review dates.

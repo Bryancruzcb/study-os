@@ -7,14 +7,16 @@ import { dueSplit } from '../shell/courses'
 import HomePage from './HomePage'
 
 const overview = [
-  { id: 1, name: 'CS 47', term: 'Spring 2026', concepts: 18, questions: 55, dueToday: 11 },
-  { id: 2, name: 'CS 149', term: 'Fall 2026', concepts: 248, questions: 844, dueToday: 16 },
+  { id: 1, name: 'CS 47', term: 'Spring 2026', concepts: 18, questions: 55, dueToday: 11, archived: false },
+  { id: 2, name: 'CS 149', term: 'Fall 2026', concepts: 248, questions: 844, dueToday: 16, archived: false },
 ]
 
 vi.mock('../api', () => ({
   api: {
     overview: vi.fn(),
     createCourse: vi.fn(),
+    setArchived: vi.fn().mockResolvedValue(undefined),
+    deleteCourse: vi.fn().mockResolvedValue(undefined),
     evalReport: vi.fn().mockResolvedValue({
       labeled: 31, pctAnswerable: 1, pctCorrectAnswer: 0.97, pctUnambiguous: 0.94,
       gradedShortAnswers: 1, graderAgreement: 1,
@@ -47,7 +49,7 @@ test('dueSplit names every course', () => {
   expect(dueSplit([])).toBe('')
   expect(dueSplit([overview[0]])).toBe('11 in CS 47')
   expect(dueSplit(overview)).toBe('11 in CS 47 and 16 in CS 149')
-  expect(dueSplit([...overview, { id: 3, name: 'CS 158A', term: 'Fall 2026', concepts: 39, questions: 139, dueToday: 16 }]))
+  expect(dueSplit([...overview, { id: 3, name: 'CS 158A', term: 'Fall 2026', concepts: 39, questions: 139, dueToday: 16, archived: false }]))
     .toBe('11 in CS 47, 16 in CS 149 and 16 in CS 158A')
 })
 
@@ -162,9 +164,62 @@ test('says Loading until the overview lands, with no grid and no alert yet', () 
 
 test('counts read as singular when there is one of a thing', async () => {
   vi.mocked(api.overview).mockResolvedValueOnce([
-    { id: 3, name: 'CS 158A', term: 'Fall 2026', concepts: 1, questions: 1, dueToday: 1 },
+    { id: 3, name: 'CS 158A', term: 'Fall 2026', concepts: 1, questions: 1, dueToday: 1, archived: false },
   ])
   renderHome()
   expect(await screen.findByText('Fall 2026 · 1 course')).toBeInTheDocument()
   expect(screen.getByRole('link', { name: /CS 158A/ })).toHaveTextContent('1 concept · 1 question')
+})
+
+const withArchived = [
+  ...overview,
+  { id: 3, name: 'CS 46A', term: 'Fall 2025', concepts: 40, questions: 120, dueToday: 9, archived: true },
+]
+
+test('an archived course leaves the grid and the due total and is listed under Archived', async () => {
+  vi.mocked(api.overview).mockResolvedValue(withArchived)
+  renderHome()
+  expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('27 due today.')
+  expect(screen.getByText('Fall 2026 · 2 courses')).toBeInTheDocument()
+  expect(screen.queryByRole('link', { name: /CS 46A/ })).toHaveAttribute('href', '/courses/3/bank')
+  expect(screen.getByRole('heading', { name: 'Archived' })).toBeInTheDocument()
+  expect(screen.getByText('Fall 2025 · 40 concepts · 120 questions')).toBeInTheDocument()
+})
+
+test('no Archived section when nothing is archived', async () => {
+  renderHome()
+  await screen.findByRole('link', { name: /CS 149/ })
+  expect(screen.queryByRole('heading', { name: 'Archived' })).not.toBeInTheDocument()
+})
+
+test('Restore puts an archived course back and reloads the list', async () => {
+  vi.mocked(api.overview).mockResolvedValueOnce(withArchived).mockResolvedValueOnce(overview)
+  renderHome()
+  await userEvent.click(await screen.findByRole('button', { name: 'Restore' }))
+  expect(api.setArchived).toHaveBeenCalledWith(3, false)
+  await waitFor(() => expect(screen.queryByRole('heading', { name: 'Archived' })).not.toBeInTheDocument())
+})
+
+test('Delete arms first, names what goes, and only deletes on the second click', async () => {
+  vi.mocked(api.overview).mockResolvedValueOnce(withArchived).mockResolvedValueOnce(overview)
+  renderHome()
+  await userEvent.click(await screen.findByRole('button', { name: 'Delete course' }))
+  expect(api.deleteCourse).not.toHaveBeenCalled()
+  expect(screen.getByText(/Delete CS 46A and its 120 questions\? This can't be undone\./)).toBeInTheDocument()
+  await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+  expect(screen.getByRole('button', { name: 'Restore' })).toBeInTheDocument()
+  await userEvent.click(screen.getByRole('button', { name: 'Delete course' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Delete forever' }))
+  expect(api.deleteCourse).toHaveBeenCalledWith(3)
+  await waitFor(() => expect(screen.queryByText(/CS 46A/)).not.toBeInTheDocument())
+})
+
+test('a failed delete keeps the course and shows why', async () => {
+  vi.mocked(api.overview).mockResolvedValue(withArchived)
+  vi.mocked(api.deleteCourse).mockRejectedValueOnce(new Error('500 /api/courses/3'))
+  renderHome()
+  await userEvent.click(await screen.findByRole('button', { name: 'Delete course' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Delete forever' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('500 /api/courses/3')
+  expect(screen.getByRole('link', { name: /CS 46A/ })).toBeInTheDocument()
 })
