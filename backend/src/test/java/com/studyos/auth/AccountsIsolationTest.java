@@ -3,6 +3,7 @@ package com.studyos.auth;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
@@ -142,6 +143,8 @@ class AccountsIsolationTest {
             put("/api/courses/{id}/quiz/progress", c).contentType(APPLICATION_JSON)
                 .content("{\"order\":[1],\"answers\":{},\"finished\":false}"),
             delete("/api/courses/{id}/quiz/progress", c),
+            put("/api/courses/{id}/archived", c).contentType(APPLICATION_JSON).content("{\"archived\":true}"),
+            delete("/api/courses/{id}", c),
             get("/api/questions/{id}/review", q),
             post("/api/study/answer").contentType(APPLICATION_JSON).content("{\"questionId\":" + q + ",\"answerIndex\":0}"),
             post("/api/study/attempts/{id}/override", a),
@@ -159,7 +162,43 @@ class AccountsIsolationTest {
         assertEquals("Midterm", exams.findById(e).orElseThrow().name);
         assertTrue(materials.findByCourseIdAndFileHash(c, "isolation-lecture").isPresent());
         assertEquals(1, attempts.findByQuestionConceptId(aliceQuestion.concept.id).size());
+        assertFalse(courses.findById(c).orElseThrow().archived);
         verifyNoInteractions(ai);
+    }
+
+    @Test
+    void theOwnerArchivesRestoresAndDeletesACourseWithEverythingInIt() throws Exception {
+        long c = aliceCourse.id;
+        mvc.perform(put("/api/courses/{id}/quiz/progress", c).with(as(alice)).with(csrf())
+                .contentType(APPLICATION_JSON)
+                .content("{\"order\":[" + aliceQuestion.id + "],\"answers\":{},\"finished\":false}"))
+            .andExpect(status().isOk());
+
+        mvc.perform(put("/api/courses/{id}/archived", c).with(as(alice)).with(csrf())
+                .contentType(APPLICATION_JSON).content("{\"archived\":true}"))
+            .andExpect(status().isNoContent());
+        mvc.perform(get("/api/courses/overview").with(as(alice)))
+            .andExpect(jsonPath("$[0].archived").value(true));
+        mvc.perform(put("/api/courses/{id}/archived", c).with(as(alice)).with(csrf())
+                .contentType(APPLICATION_JSON).content("{\"archived\":false}"))
+            .andExpect(status().isNoContent());
+        mvc.perform(get("/api/courses/overview").with(as(alice)))
+            .andExpect(jsonPath("$[0].archived").value(false));
+
+        long concept = aliceQuestion.concept.id;
+        mvc.perform(delete("/api/courses/{id}", c).with(as(alice)).with(csrf()))
+            .andExpect(status().isNoContent());
+        // flushed, so a foreign key the delete missed fails here rather than at a commit the test never makes
+        courses.flush();
+        assertTrue(courses.findById(c).isEmpty());
+        assertTrue(materials.findById(aliceLecture.id).isEmpty());
+        assertTrue(concepts.findById(concept).isEmpty());
+        assertTrue(questions.findById(aliceQuestion.id).isEmpty());
+        assertTrue(attempts.findById(aliceAttempt.id).isEmpty());
+        assertTrue(exams.findById(aliceExam.id).isEmpty());
+        assertTrue(courses.findById(bobCourse.id).isPresent());
+        mvc.perform(get("/api/courses/overview").with(as(alice)))
+            .andExpect(jsonPath("$.length()").value(0));
     }
 
     @Test

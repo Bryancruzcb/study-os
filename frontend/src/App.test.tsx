@@ -3,7 +3,7 @@ import { vi } from 'vitest'
 import { api } from './api'
 import App from './App'
 
-const overview = [{ id: 2, name: 'CS 149', term: 'Fall 2026', concepts: 248, questions: 844, dueToday: 16 }]
+const overview = [{ id: 2, name: 'CS 149', term: 'Fall 2026', concepts: 248, questions: 844, dueToday: 16, archived: false }]
 
 vi.mock('./api', () => ({
   api: {
@@ -14,7 +14,7 @@ vi.mock('./api', () => ({
       logout: vi.fn().mockResolvedValue(undefined),
     },
     overview: vi.fn().mockResolvedValue([
-      { id: 2, name: 'CS 149', term: 'Fall 2026', concepts: 248, questions: 844, dueToday: 16 },
+      { id: 2, name: 'CS 149', term: 'Fall 2026', concepts: 248, questions: 844, dueToday: 16, archived: false },
     ]),
     // the bare-course-path test renders the study tab, whose queue call must resolve, not throw
     next: vi.fn().mockResolvedValue(null),

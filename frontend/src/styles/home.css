@@ -158,3 +158,38 @@
   display: flex;
   gap: 8px;
 }
+
+/* courses put away: a plain list under the grid, each with Restore and Delete */
+.archived {
+  margin-top: 48px;
+}
+
+.archived h2 {
+  font-size: 22px;
+  letter-spacing: -0.03em;
+}
+
+.archived-list {
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+
+.archived-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.archived-name {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.archived-row .course-actions {
+  margin: 0 0 0 auto;
+}

@@ -1,7 +1,8 @@
 import { useCallback, useState } from 'react'
-import { Link, NavLink, Outlet, useLocation, useParams } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { api, type CourseOverview } from '../api'
 import { plural } from '../plural'
+import CourseActions from './CourseActions'
 import { useCourses } from './courses'
 
 export interface CourseContext {
@@ -46,6 +47,7 @@ const tab = ({ isActive }: { isActive: boolean }) => `tab${isActive ? ' is-curre
 export default function CourseLayout() {
   const { courseId } = useParams()
   const { pathname } = useLocation()
+  const navigate = useNavigate()
   const { courses, error, refresh } = useCourses()
   const [slot, setSlot] = useState<HTMLDivElement | null>(null)
   // tagged with its course: this layout stays mounted across a course switch, and an
@@ -115,8 +117,12 @@ export default function CourseLayout() {
       <header className="course-head">
         <div>
           <Link className="course-back" to="/">← All courses</Link>
-          <p className="eyebrow">{course.term} · {plural(course.concepts, 'concept')} · {plural(course.questions, 'question')}</p>
+          <p className="eyebrow">{course.archived && 'Archived · '}{course.term} · {plural(course.concepts, 'concept')} · {plural(course.questions, 'question')}</p>
           <h1>{course.name}</h1>
+          {/* archiving sends you home, where the course now sits under Archived; restoring keeps you here */}
+          <CourseActions course={course}
+            onArchived={archived => (archived ? navigate('/') : refresh())}
+            onDeleted={() => navigate('/')} />
           <nav className="tabs" aria-label="Course">
             <NavLink to="study" className={tab}>Study</NavLink>
             <NavLink to="quiz" className={tab}>Quiz</NavLink>

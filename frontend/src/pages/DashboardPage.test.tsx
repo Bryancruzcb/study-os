@@ -9,7 +9,7 @@ vi.mock('../api', () => ({
   api: {
     overview: vi.fn().mockResolvedValue([
       // deliberately not the schedule's own dueToday below: the tile reads the overview
-      { id: 1, name: 'CS 158A', term: 'Fall 2026', concepts: 39, questions: 139, dueToday: 7 },
+      { id: 1, name: 'CS 158A', term: 'Fall 2026', concepts: 39, questions: 139, dueToday: 7, archived: false },
     ]),
     dashboard: vi.fn(),
     exams: vi.fn().mockResolvedValue([]),

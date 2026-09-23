@@ -263,6 +263,13 @@ public class IngestService {
         examPlanner.replan(courseId);
     }
 
+    /** Drops every lecture in the course with its concepts, questions, attempts and review
+     *  states, and without replanning, because the caller is deleting the course itself. */
+    @Transactional
+    public void dropLecturesOf(Long courseId) {
+        for (Material lecture : materialRepo.findByCourseId(courseId)) removeLecture(lecture);
+    }
+
     // drops the lecture's graph and its exam covers; the caller replans when the course still exists
     private void removeLecture(Material lecture) {
         Long materialId = lecture.id;
