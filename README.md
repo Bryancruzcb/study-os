@@ -91,8 +91,10 @@ right".*
   I have already ingested is recognized by its hash and handed back as it is, so I do not
   pay to read it twice. A failed extraction is retried once, then the material is marked
   FAILED, so there are no silent partial ingests; uploading that same file again retries
-  it. Lectures can come in one at a time as they are released: each upload adds its
-  concepts beside the ones already there and leaves my progress on those alone.
+  it. A cited slide outside that PDF's pages takes the same path. The lecture stores the
+  page count PDFBox read from the file. Lectures can come in one at a time as they are
+  released: each upload adds its concepts beside the ones already there and leaves my
+  progress on those alone.
 - Study: SM-2-lite scheduling per concept. A new concept starts with a 1 day interval and
   ease 2.5, due on the first day from today that is still under
   `app.study.new-concepts-per-day` (8) for its course, so a big upload fills the calendar
@@ -192,7 +194,7 @@ Everything else is in `backend/src/main/resources/application.yml`: the two mode
     mvn -f backend/pom.xml test
     cd frontend && npm install && npm test
 
-171 backend tests and 211 frontend tests. Neither suite calls the Claude API or needs a
+175 backend tests and 211 frontend tests. Neither suite calls the Claude API or needs a
 database, so no key is needed to run them.
 
 One suite is deliberately not in that number. `PersistenceTest`, 12 tests, runs against

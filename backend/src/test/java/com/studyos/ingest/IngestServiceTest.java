@@ -7,12 +7,16 @@ import static org.mockito.Mockito.*;
 import com.studyos.ai.AiException;
 import com.studyos.ai.ConceptPayload;
 import com.studyos.ai.FakeAiClient;
+import com.studyos.ai.GeneratePayload;
+import com.studyos.ai.GeneratedQuestionPayload;
 import com.studyos.ai.IngestPayload;
 import com.studyos.ai.QuestionPayload;
 import com.studyos.config.AppStudyProps;
 import com.studyos.domain.*;
 import com.studyos.exam.ExamPlanner;
 import com.studyos.repo.*;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
@@ -21,6 +25,8 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -40,9 +46,8 @@ class IngestServiceTest {
     ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
     Clock clock = Clock.fixed(Instant.parse("2026-09-01T12:00:00Z"), ZoneOffset.UTC);
     static final LocalDate TODAY = LocalDate.of(2026, 9, 1);
-    // ingest only accepts bytes that start with the PDF magic, so every fixture that is meant to
-    // reach the provider has to carry it
-    static final byte[] PDF = "%PDF-1.7\nnot a real document".getBytes(StandardCharsets.UTF_8);
+    // four real pages: the sample payload cites slides 3 and 4, and a citation past this fails
+    static final byte[] PDF = pdfWithPages(4);
     static final byte[] PPTX = {'P', 'K', 0x03, 0x04, 0x14, 0x00, 0x06, 0x00};
     IngestService service;
     Course course = new Course();
@@ -119,6 +124,7 @@ class IngestServiceTest {
         ai.nextExtract = FakeAiClient.samplePayload();
         Material m = service.process(9L, PDF);
         assertEquals(MaterialStatus.INGESTED, m.status);
+        assertEquals(4, m.pageCount);
         assertEquals(1, ai.extractCalls);
         verify(conceptRepo, times(1)).save(any());
     }
@@ -128,6 +134,7 @@ class IngestServiceTest {
         ai.nextExtract = FakeAiClient.samplePayload();
         Material m = service.ingest(1L, "week1.pdf", PDF);
         assertEquals(MaterialStatus.INGESTED, m.status);
+        assertEquals(4, m.pageCount);
         verify(conceptRepo, times(1)).save(any());
         verify(questionRepo, times(2)).save(any());
         ArgumentCaptor<ReviewState> rs = ArgumentCaptor.forClass(ReviewState.class);
@@ -559,6 +566,7 @@ class IngestServiceTest {
         assertEquals(1, saved.size());
         assertEquals(QuestionType.MC, saved.get(0).type);
         assertEquals(concept, saved.get(0).concept);
+        assertEquals(4, lecture.pageCount);
         assertEquals(1, ai.generateCalls);
     }
 
@@ -591,9 +599,92 @@ class IngestServiceTest {
         });
         Material accepted = service.accept(1L, "w1.pdf", PDF);
         assertEquals(MaterialStatus.PENDING, accepted.status);
+        assertEquals(4, accepted.pageCount);
         ArgumentCaptor<MaterialPdf> pdf = ArgumentCaptor.forClass(MaterialPdf.class);
         verify(materialPdfRepo).save(pdf.capture());
         assertEquals(42L, pdf.getValue().materialId);
         assertArrayEquals(PDF, pdf.getValue().bytes);
+    }
+
+    @Test
+    void citedSlidePastTheDeckRetriesOnceThenFails() {
+        ConceptPayload good = FakeAiClient.samplePayload().concepts().get(0);
+        QuestionPayload cited = good.questions().get(0);
+        QuestionPayload pastTheDeck = new QuestionPayload(cited.type(), cited.prompt(), cited.options(),
+            cited.correctIndex(), cited.modelAnswer(), cited.rubric(), List.of(5),
+            cited.explanation(), cited.optionExplanations(), cited.diagram());
+        ai.nextExtract = new IngestPayload(List.of(new ConceptPayload(
+            good.name(), good.summary(), good.sourcePages(), List.of(pastTheDeck, good.questions().get(1)))));
+        Material m = service.ingest(1L, "week1.pdf", PDF);
+        assertEquals(MaterialStatus.FAILED, m.status);
+        assertTrue(m.errorMessage.contains("slide 5"), m.errorMessage);
+        assertTrue(m.errorMessage.contains("4 pages"), m.errorMessage);
+        assertEquals(4, m.pageCount);
+        assertEquals(2, ai.extractCalls);
+        verify(conceptRepo, never()).save(any());
+    }
+
+    @Test
+    void conceptSlidePastTheDeckRetriesOnceThenFails() {
+        ConceptPayload good = FakeAiClient.samplePayload().concepts().get(0);
+        ai.nextExtract = new IngestPayload(List.of(new ConceptPayload(
+            good.name(), good.summary(), List.of(0), good.questions())));
+        Material m = service.ingest(1L, "week1.pdf", PDF);
+        assertEquals(MaterialStatus.FAILED, m.status);
+        assertTrue(m.errorMessage.contains("slide 0"), m.errorMessage);
+        assertEquals(2, ai.extractCalls);
+        verify(conceptRepo, never()).save(any());
+    }
+
+    @Test
+    void unreadablePdfFailsBeforeTheProvider() {
+        ai.nextExtract = FakeAiClient.samplePayload();
+        Material m = service.ingest(1L, "week1.pdf",
+            "%PDF-1.7\nnot a real document".getBytes(StandardCharsets.UTF_8));
+        assertEquals(MaterialStatus.FAILED, m.status);
+        assertTrue(m.errorMessage.contains("page count"), m.errorMessage);
+        assertEquals(0, ai.extractCalls);
+        verify(conceptRepo, never()).save(any());
+        verify(events, never()).publishEvent(any());
+    }
+
+    @Test
+    void generateMoreRejectsACitedSlidePastTheDeck() {
+        Material lecture = new Material();
+        lecture.id = 11L;
+        lecture.filename = "Lecture 3.pdf";
+        lecture.course = course;
+        Concept concept = new Concept();
+        concept.id = 5L;
+        concept.course = course;
+        concept.material = lecture;
+        concept.name = "TCP handshake";
+        when(conceptRepo.findAllById(List.of(5L))).thenReturn(List.of(concept));
+        MaterialPdf pdf = new MaterialPdf();
+        pdf.materialId = 11L;
+        pdf.bytes = PDF;
+        when(materialPdfRepo.findById(11L)).thenReturn(Optional.of(pdf));
+        ai.nextGenerate = new GeneratePayload(List.of(new GeneratedQuestionPayload(
+            5L, "MC", "What opens a TCP connection?", List.of("FIN", "SYN"), 1, null, null, List.of(9),
+            null, null, null)));
+
+        AiException err = assertThrows(AiException.class,
+            () -> service.generateMore(1L, List.of(5L), 1, "MC"));
+        assertTrue(err.getMessage().contains("slide 9"), err.getMessage());
+        assertTrue(err.getMessage().contains("4 pages"), err.getMessage());
+        assertEquals(2, ai.generateCalls);
+        verify(questionRepo, never()).save(any());
+        assertEquals(4, lecture.pageCount);
+    }
+
+    private static byte[] pdfWithPages(int pages) {
+        try (PDDocument doc = new PDDocument();
+             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            for (int i = 0; i < pages; i++) doc.addPage(new PDPage());
+            doc.save(out);
+            return out.toByteArray();
+        } catch (IOException e) {
+            throw new ExceptionInInitializerError(e);
+        }
     }
 }
