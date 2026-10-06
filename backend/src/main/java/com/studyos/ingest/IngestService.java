@@ -16,6 +16,7 @@ import com.studyos.config.AppStudyProps;
 import com.studyos.domain.*;
 import com.studyos.exam.ExamPlanner;
 import com.studyos.repo.*;
+import java.io.IOException;
 import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -27,6 +28,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -178,15 +181,30 @@ public class IngestService {
             material.errorMessage = notPdf;
             return new Prepared(materialRepo.save(material), Next.DONE);
         }
+        try {
+            material.pageCount = pdfPageCount(pdfBytes);
+        } catch (AiException e) {
+            material.status = MaterialStatus.FAILED;
+            material.errorMessage = truncateForColumn(e.getMessage());
+            return new Prepared(materialRepo.save(material), Next.DONE);
+        }
         return new Prepared(material, Next.RUN);
     }
 
     private Material complete(Material material, byte[] pdfBytes) {
         Course course = material.course;
         Long courseId = course.id;
+        final int pages;
+        try {
+            pages = pdfPageCount(pdfBytes);
+        } catch (AiException e) {
+            material.status = MaterialStatus.FAILED;
+            material.errorMessage = truncateForColumn(e.getMessage());
+            return materialRepo.save(material);
+        }
         IngestPayload payload;
         try {
-            payload = extractWithOneRetry(pdfBytes, course.name);
+            payload = extractWithOneRetry(pdfBytes, course.name, pages);
         } catch (AiException e) {
             // may have been deleted/replaced while the model ran (skip when id unset — unit mocks)
             if (material.id != null) {
@@ -194,6 +212,7 @@ public class IngestService {
                 if (still == null || still.status != MaterialStatus.PENDING) return still;
                 material = still;
             }
+            material.pageCount = pages;
             material.status = MaterialStatus.FAILED;
             material.errorMessage = truncateForColumn(e.getMessage());
             return materialRepo.save(material);
@@ -207,6 +226,7 @@ public class IngestService {
             course = material.course;
             courseId = course.id;
         }
+        material.pageCount = pages;
 
         LocalDate today = LocalDate.now(clock);
         Map<LocalDate, Long> scheduled = scheduledPerDayFrom(courseId, today);
@@ -335,22 +355,49 @@ public class IngestService {
         return Arrays.equals(bytes, 0, magic.length, magic, 0, magic.length);
     }
 
-    private IngestPayload extractWithOneRetry(byte[] pdfBytes, String courseName) {
+    private IngestPayload extractWithOneRetry(byte[] pdfBytes, String courseName, int pageCount) {
         try {
-            return validate(ai.extract(pdfBytes, courseName));
+            return validate(ai.extract(pdfBytes, courseName), pageCount);
         } catch (AiException first) {
-            return validate(ai.extract(pdfBytes, courseName));
+            return validate(ai.extract(pdfBytes, courseName), pageCount);
+        }
+    }
+
+    // PDFBox is the page count. A lecture deck is usually compressed, so counting "/Type /Page"
+    // in the bytes misses the pages the model is citing.
+    private static int pdfPageCount(byte[] pdfBytes) {
+        try (PDDocument doc = Loader.loadPDF(pdfBytes)) {
+            int n = doc.getNumberOfPages();
+            if (n < 1) {
+                throw new AiException("This PDF has no pages. Export it again and upload that.");
+            }
+            return n;
+        } catch (IOException e) {
+            throw new AiException("Could not read the page count of this PDF. Export it again and upload that.");
+        }
+    }
+
+    // The model names the slides. A number the file does not have is not a source, so it takes
+    // the same retry-then-FAILED path as a payload that cannot be stored.
+    private static void requireCitedPages(List<Integer> pages, int pageCount, String where) {
+        if (pages == null) return;
+        for (Integer page : pages) {
+            if (page == null || page < 1 || page > pageCount) {
+                throw new AiException(where + " cites slide " + page + ", and this PDF has "
+                    + pageCount + (pageCount == 1 ? " page" : " pages"));
+            }
         }
     }
 
     // A payload that passes the provider's schema can still be unmappable (the schema does not
     // constrain question type). Reject it here so it takes the same retry-then-FAILED path as a
     // provider failure instead of escaping the mapping loop and rolling the Material back.
-    private static IngestPayload validate(IngestPayload payload) {
+    private static IngestPayload validate(IngestPayload payload, int pageCount) {
         if (payload == null || payload.concepts() == null || payload.concepts().isEmpty()) {
             throw new AiException("extraction returned no concepts");
         }
         for (ConceptPayload cp : payload.concepts()) {
+            requireCitedPages(cp.sourcePages(), pageCount, "concept " + cp.name());
             if (cp.questions() == null || cp.questions().isEmpty()) {
                 throw new AiException("concept has no questions: " + cp.name());
             }
@@ -359,6 +406,7 @@ public class IngestService {
                     throw new AiException("invalid question type: " + qp.type());
                 }
                 validateFieldsForType(qp);
+                requireCitedPages(qp.sourcePages(), pageCount, describe(qp));
             }
         }
         return payload;
@@ -485,10 +533,19 @@ public class IngestService {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Re-upload " + name + " so Study OS can keep the slides for generating more questions.");
             }
+            final int pages;
+            try {
+                pages = pdfPageCount(pdf.bytes);
+            } catch (AiException e) {
+                String name = group.get(0).material.filename;
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Could not read the page count of " + name + ". Re-upload it.");
+            }
+            group.get(0).material.pageCount = pages;
             List<ConceptFocus> focus = group.stream()
                 .map(c -> new ConceptFocus(c.id, c.name, c.summary, c.sourcePages))
                 .toList();
-            GeneratePayload payload = generateWithOneRetry(pdf.bytes, course.name, focus, n, types);
+            GeneratePayload payload = generateWithOneRetry(pdf.bytes, course.name, focus, n, types, pages);
             Map<Long, Concept> byId = group.stream().collect(Collectors.toMap(c -> c.id, c -> c));
             for (GeneratedQuestionPayload qp : payload.questions()) {
                 Concept concept = byId.get(qp.conceptId());
@@ -526,15 +583,19 @@ public class IngestService {
     }
 
     private GeneratePayload generateWithOneRetry(byte[] pdfBytes, String courseName,
-                                                 List<ConceptFocus> concepts, int count, String types) {
+                                                 List<ConceptFocus> concepts, int count, String types,
+                                                 int pageCount) {
         try {
-            return validateGenerate(ai.generateMore(pdfBytes, courseName, concepts, count, types), concepts);
+            return validateGenerate(ai.generateMore(pdfBytes, courseName, concepts, count, types),
+                concepts, pageCount);
         } catch (AiException first) {
-            return validateGenerate(ai.generateMore(pdfBytes, courseName, concepts, count, types), concepts);
+            return validateGenerate(ai.generateMore(pdfBytes, courseName, concepts, count, types),
+                concepts, pageCount);
         }
     }
 
-    private static GeneratePayload validateGenerate(GeneratePayload payload, List<ConceptFocus> concepts) {
+    private static GeneratePayload validateGenerate(GeneratePayload payload, List<ConceptFocus> concepts,
+                                                    int pageCount) {
         if (payload == null || payload.questions() == null || payload.questions().isEmpty()) {
             throw new AiException("generation returned no questions");
         }
@@ -547,6 +608,7 @@ public class IngestService {
                 throw new AiException("invalid question type: " + qp.type());
             }
             validateGeneratedFields(qp);
+            requireCitedPages(qp.sourcePages(), pageCount, describe(toQuestionPayload(qp)));
         }
         return payload;
     }
