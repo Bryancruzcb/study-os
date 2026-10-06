@@ -151,8 +151,10 @@ right".*
   correct answer, unambiguous). The eval page reports the share of labeled questions
   that pass each one, and lists the questions that fail, each linked to its card in the
   bank.
-- Grader: agreement = 1 - overridden / graded, counted over the short answers the
-  grader actually judged. Reported on the same page.
+- Grader: agreement = 1 - overridden / graded, over this account's attempts whose grader
+  verdict is set and is not PENDING. `EvalService.report` loads them with
+  `AttemptRepo.findByQuestionConceptCourseOwnerIdAndGraderVerdictIsNotNull` and drops
+  PENDING when the eval page loads.
 
 Both numbers only cover what I have labeled and answered so far. With nothing labeled
 the page says so instead of showing 0%. One narrowing worth knowing when reading the
@@ -166,17 +168,19 @@ once I leave the study page and the visit's history goes with it.
 
 It needs Java 21 or newer, Maven, Node (CI uses 26) and Docker.
 
-    docker compose up -d
+    docker compose up -d db
     export ANTHROPIC_API_KEY=...   # PowerShell: $env:ANTHROPIC_API_KEY="..."
     mvn -f backend/pom.xml spring-boot:run
     cd frontend && npm install && npm run dev
 
 Open http://localhost:5173. The Vite dev server proxies `/api` to the backend on port
 8080. The first visit shows a sign-in / create-account form; locally the invite code is
-blank, so you can create an account right away. Compose starts the Postgres the backend
-expects: database, user and password all `studyos`, on port 5432. A local Postgres set up
-the same way works too. Hibernate creates the tables on the first run, and adds the ones a
-later version brings without touching the data.
+blank, so you can create an account right away. `docker compose up -d db` starts the
+Postgres the backend expects: database, user and password all `studyos`, on port 5432. A
+local Postgres set up the same way works too. Flyway owns the schema, and
+`spring.jpa.hibernate.ddl-auto` is `none`. On an empty database Flyway applies the scripts
+in `backend/src/main/resources/db/migration`. A database that already has tables is
+baselined at version 1 and left as it is.
 
 The API key is read from the environment at run time and is never stored in the repo.
 Everything else is in `backend/src/main/resources/application.yml`: the two models under
@@ -188,7 +192,7 @@ Everything else is in `backend/src/main/resources/application.yml`: the two mode
     mvn -f backend/pom.xml test
     cd frontend && npm install && npm test
 
-115 backend tests and 180 frontend tests. Neither suite calls the Claude API or needs a
+171 backend tests and 211 frontend tests. Neither suite calls the Claude API or needs a
 database, so no key is needed to run them.
 
 One suite is deliberately not in that number. `PersistenceTest`, 12 tests, runs against
