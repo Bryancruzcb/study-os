@@ -24,14 +24,16 @@ today, and the dashboard's weakest concepts and lecture bars](docs/walkthrough.g
 *The app end to end, recorded against a copy of my own data. The answers and the exam
 given on camera went into that copy, so the numbers move the way they would for real
 while my actual schedule stayed as it was. The preview is a compressed GIF; click it for
-the full-quality video.*
+the full-quality video. It was recorded before the October 2026 redesign, so the screens
+in it look older than the screenshots below.*
 
-![The Study OS home: one tile per course with its due-today count and the size of its
-bank, the middle tile lit where the pointer rests](docs/screenshots/courses.jpg)
+![The Study OS home: the total due today as a serif headline, then one tile per course,
+each with a tinted top, its due-today count and the size of its bank, and a dashed tile
+for a new course](docs/screenshots/courses.jpg)
 
 *Home. Each class is a tile; the number is what the schedule wants from me today, and
-the dashed tile after the courses makes a new one. Cards and buttons catch a light that
-follows the pointer, and the pill in the top bar slides to the page I am on.*
+the dashed tile after the courses makes a new one. The pill in the top bar slides to the
+page I am on, and the moon beside my name switches to the dark theme.*
 
 ![A quiz question on fork() after a wrong pick: four options, the picked one red and the
 right one green, each with a sentence from the slides on why, then the Incorrect verdict
@@ -46,8 +48,8 @@ schedule.*
 
 ![The question bank: the course's concept list on the left with the open concept filled
 dark, and on the right that concept's lecture file and slides above its question cards,
-each tagged with its type and the slides it came from, with three pill-toggle labels, a
-save button and a retire link](docs/screenshots/bank.jpg)
+each tagged with its type and the slides it came from, with three pill-toggle labels and
+a retire link](docs/screenshots/bank.jpg)
 
 *The bank. The list on the left is every concept the course's lectures produced. The open
 one names the lecture file and slides it came from, and every question card carries its
@@ -56,19 +58,23 @@ how I judge the generator. Retire is a quiet link that asks for a confirm, becau
 sat next to the label button I retired two questions by misclicking. A question I decided
 was bad is struck through rather than deleted, and I can put it back.*
 
-![The dashboard: an exams card with a midterm two weeks out, the new topics and reviews
-it puts on today, how many of its topics are started and the day new topics give way to
-review, then four figure tiles for due today, percent correct, concepts to work on and
-concepts not started, and the concepts whose last answer was wrong with their lecture
-and slides](docs/screenshots/dashboard.jpg)
+![The dashboard: a midterm two weeks out, then the headline "Today: 22 new topics and 1
+review." with the line that adds it up to 23 due today, a green Start studying button,
+four small figures for due today, percent correct with the answers behind it, concepts
+to work on and concepts not started, a peach card listing the concepts whose last answer
+was wrong with their lecture and slides, and the start of a dotted path of lectures, each
+with its own icon](docs/screenshots/dashboard.jpg)
 
-*The schedule for one course. The exam card says what today holds: the new topics its
-plan puts on today, the reviews due, how much of its material is started, and the day
-new topics stop so the days left are for review. The tiles say where I stand. Below them
-are the concepts I got wrong last time, weakest first, each with the slides to reread.
-Further down, every lecture is one row whose bar splits its concepts into right last
-time, to work on, and not started; opening the row lists them, and the lectures come
-eight to a page.*
+*The schedule for one course. The headline is what the nearest exam's plan puts on
+today, and the line under it says how that adds up against everything due, the day new
+topics stop so the days left are for review, and what the exam covers. Start studying
+opens the queue. The figures say where I stand, and the percent correct names the number
+of graded answers behind it. The card beside them lists the concepts I got wrong last
+time, weakest first, each with the slides to reread. Further down, every lecture sits on
+one path in the order I uploaded them, with a bar that splits its concepts into right last
+time, to work on, and not started, and a link that opens the concepts themselves. Each
+lecture's icon and tint are picked from its filename, and "Pick up here" marks the first
+lecture with something to work on.*
 
 ![The evaluation page: three question checks over 31 labeled questions, passing 31, 30
 and 29 of them, with the two questions that failed the clarity check listed under it,
@@ -139,13 +145,16 @@ right".*
   answered in this visit to override or self-grade them there), Quiz (above), Bank
   (upload a PDF, open a concept, label its questions, retire bad ones behind a confirm
   step and restore them when I misclick), and Dashboard (the course's exams, added,
-  edited and deleted there, each with what today holds for it and when new topics give
-  way to review, how many concepts are due, the share of graded answers I got right, the
-  five weakest concepts to work on next, and a row per lecture with a bar of how its
-  concepts stand that opens to the concepts themselves, eight lectures to a page).
+  edited and deleted there, the nearest one leading with what today holds for it and when
+  new topics give way to review, how many concepts are due, the share of graded answers I
+  got right, the five weakest concepts to work on next, and every lecture on one path with
+  a bar of how its concepts stand that opens to the concepts themselves).
   Every question names its concept, the lecture file and the slides it came from, so I
   can check it against the source. Eval (the report below) is global, and it grades the
   app rather than me.
+- Look: light by default with a matching dark theme. It follows the system setting until
+  the moon or sun button in the top bar picks one, and the browser remembers the pick.
+  The style rules (palette, type, components, motion) are in [DESIGN.md](DESIGN.md).
 
 ## Evaluation
 
@@ -194,7 +203,7 @@ Everything else is in `backend/src/main/resources/application.yml`: the two mode
     mvn -f backend/pom.xml test
     cd frontend && npm install && npm test
 
-175 backend tests and 211 frontend tests. Neither suite calls the Claude API or needs a
+175 backend tests and 219 frontend tests. Neither suite calls the Claude API or needs a
 database, so no key is needed to run them.
 
 One suite is deliberately not in that number. `PersistenceTest`, 12 tests, runs against
