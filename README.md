@@ -61,9 +61,8 @@ was bad is struck through rather than deleted, and I can put it back.*
 ![The dashboard: a midterm two weeks out, then the headline "Today: 22 new topics and 1
 review." with the line that adds it up to 23 due today, a green Start studying button,
 four small figures for due today, percent correct with the answers behind it, concepts
-to work on and concepts not started, a peach card listing the concepts whose last answer
-was wrong with their lecture and slides, and the start of a dotted path of lectures, each
-with its own icon](docs/screenshots/dashboard.jpg)
+to work on and concepts not started, and a peach card listing the concepts whose last
+answer was wrong with their lecture and slides](docs/screenshots/dashboard.jpg)
 
 *The schedule for one course. The headline is what the nearest exam's plan puts on
 today, and the line under it says how that adds up against everything due, the day new
