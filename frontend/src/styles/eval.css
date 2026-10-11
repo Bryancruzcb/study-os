@@ -75,7 +75,7 @@
 
 .quality-score b,
 .calibration-score b {
-  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: 16px;
 }
 
@@ -113,7 +113,8 @@
 }
 
 .review-list summary {
-  color: var(--accent-strong);
+  min-height: 32px;
+  color: var(--link);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -136,8 +137,8 @@
 .review-items span {
   display: block;
   margin-top: 2px;
-  font-family: var(--font-mono);
-  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
   color: var(--ink-dim);
 }
 

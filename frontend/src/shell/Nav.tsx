@@ -2,15 +2,16 @@ import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } fr
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { api, type EvalReport } from '../api'
 import { getUser, onAuthChange, setUser } from '../auth'
+import ThemeToggle from './ThemeToggle'
 
 /* The segment that was current in the last nav drawn. Home renders its own nav and every
    other page renders the frame's, so moving between them mounts a fresh nav; it starts
    its pill under this segment and slides from there, instead of appearing already moved. */
 let lastSegment: number | null = null
 
-/* The floating nav pill from the landing page. The readout is chrome: a failed load
-   leaves the pill with the brand and links alone rather than raising an alert over
-   whichever page the user actually came for. */
+/* The top bar: the wordmark, the two places, then the readout, who is signed in and the
+   theme. The readout is chrome: a failed load leaves the bar without it rather than
+   raising an alert over whichever page the user actually came for. */
 export default function Nav() {
   const { pathname } = useLocation()
   const user = useSyncExternalStore(onAuthChange, getUser)
@@ -77,19 +78,22 @@ export default function Nav() {
           aria-current={inCourses ? 'page' : undefined}>Courses</Link>
         <NavLink to="/eval" className={({ isActive }) => (isActive ? 'is-current' : undefined)}>Evaluation</NavLink>
       </span>
-      {report && (
-        <span className="readout">
-          <span>{report.labeled} labeled</span>
-          <span>{report.gradedShortAnswers} graded</span>
-          {report.gradedShortAnswers > 0 && <span>{Math.round(report.graderAgreement * 100)}% agreement</span>}
-        </span>
-      )}
-      {user && (
-        <span className="nav-account">
-          <span className="nav-user">{user}</span>
-          <button className="btn btn--ghost btn--micro" type="button" onClick={signOut}>Sign out</button>
-        </span>
-      )}
+      <span className="nav-end">
+        {report && (
+          <span className="readout">
+            <span>{report.labeled} labeled</span>
+            <span>{report.gradedShortAnswers} graded</span>
+            {report.gradedShortAnswers > 0 && <span>{Math.round(report.graderAgreement * 100)}% agreement</span>}
+          </span>
+        )}
+        {user && (
+          <span className="nav-account">
+            <span className="nav-user">{user}</span>
+            <button className="btn btn--ghost btn--micro" type="button" onClick={signOut}>Sign out</button>
+          </span>
+        )}
+        <ThemeToggle />
+      </span>
     </nav>
   )
 }

@@ -22,10 +22,8 @@
 
 .clist-head {
   padding: 10px 14px 12px;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
   color: var(--ink-dim);
 }
 
@@ -83,7 +81,7 @@
 
 /* the upload control is a primary pill wrapping the real file input */
 .upload:has(input:focus-visible) {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus);
   outline-offset: 3px;
 }
 
@@ -94,14 +92,17 @@
   color: var(--ink-dim);
 }
 
-/* lectures already in the course: delete one, or re-upload the same filename to replace it */
+/* lectures already in the course, one card with a row each: delete one, or re-upload the
+   same filename to replace it */
 .lecture-manage {
   display: flex;
   flex-direction: column;
-  gap: 6px;
   margin: 0 0 16px;
-  padding: 0;
+  padding: 4px 18px;
   list-style: none;
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
 }
 
 .lecture-manage-row {
@@ -109,11 +110,13 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 10px;
-  min-height: 36px;
-  padding: 8px 12px;
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
+  min-height: 44px;
+  padding: 4px 0;
+  border-top: 1px solid var(--line);
+}
+
+.lecture-manage-row:first-child {
+  border-top: 0;
 }
 
 .lecture-manage-name {
@@ -232,10 +235,10 @@
   }
 }
 
-/* the question a link from the evaluation page named: the glow the app uses for "this one" */
+/* the question a link from the evaluation page named: ringed in the accent */
 .qcard.is-target {
-  border-color: var(--glow-line);
-  box-shadow: var(--glow);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent), var(--shadow-card);
 }
 
 /* generate-more: pick concepts in the list, set count/types above the split */
@@ -307,5 +310,12 @@
   align-items: center;
   justify-content: center;
   flex: 0 0 28px;
+  min-height: 44px;
   padding: 0 2px;
+  cursor: pointer;
+}
+
+.crow-check input {
+  width: 18px;
+  height: 18px;
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState, useSyncExternalStore, type FormEvent, type ReactNode } from 'react'
 import { api } from '../api'
 import { clearInvite, getInvite, getUser, onAuthChange, setUser } from '../auth'
+import ThemeToggle from './ThemeToggle'
 
 /* The pages render only for a signed-in account. The first thing the page does is ask the server
    whose session this is; until it answers nothing shows, and when the answer is nobody, or a later
@@ -98,7 +99,10 @@ function AuthForm() {
   return (
     <main className="gate">
       <form className="gate-card" onSubmit={onSubmit}>
-        <h2>Study OS</h2>
+        <div className="gate-top">
+          <h2>Study OS</h2>
+          <ThemeToggle />
+        </div>
         <p className="empty">{title}</p>
         {error && <p className="alert" role="alert">{error}</p>}
         {mode !== 'reset' && (

@@ -1,14 +1,15 @@
 import { useLayoutEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api'
+import Icon from '../icons'
+import { TINTS } from '../lectures'
 import { plural } from '../plural'
-import Atmosphere from '../shell/Atmosphere'
 import CourseActions from '../shell/CourseActions'
 import Nav from '../shell/Nav'
 import { dueSplit, useCourses } from '../shell/courses'
 
-/* five washes cycle by id, so courses made one after the other never share one */
-const WASHES = 5
+/* the six tints cycle by id, so courses made one after the other never share one */
+const tint = (id: number) => `tint-${(id % TINTS) + 1}`
 
 export default function HomePage() {
   const { courses: all, error, refresh } = useCourses()
@@ -80,26 +81,23 @@ export default function HomePage() {
 
   return (
     <>
-      <div className="band">
-        <Atmosphere />
-        <div className="wrap">
-          <Nav />
-          <header className="hero">
-            {courses && courses.length > 0 && (
-              <>
-                <p className="eyebrow">{newest?.term} · {plural(courses.length, 'course')}</p>
-                <h1>{due} due today.</h1>
-                <p className="lede">{dueSplit(courses)}. Pick a class to start the queue.</p>
-              </>
-            )}
-            {courses && courses.length === 0 && (
-              <>
-                <h1>{archived.length > 0 ? 'No active courses.' : 'No courses yet.'}</h1>
-                <p className="lede">Add one below and upload a lecture PDF.</p>
-              </>
-            )}
-          </header>
-        </div>
+      <div className="wrap">
+        <Nav />
+        <header className="hero">
+          {courses && courses.length > 0 && (
+            <>
+              <p className="eyebrow">{newest?.term} · {plural(courses.length, 'course')}</p>
+              <h1>{due} due today.</h1>
+              <p className="lede">{dueSplit(courses)}. Pick a class to start the queue.</p>
+            </>
+          )}
+          {courses && courses.length === 0 && (
+            <>
+              <h1>{archived.length > 0 ? 'No active courses.' : 'No courses yet.'}</h1>
+              <p className="lede">Add one below and upload a lecture PDF.</p>
+            </>
+          )}
+        </header>
       </div>
       <main className="wrap home">
         {shown && <p className="alert" role="alert">{shown}</p>}
@@ -110,7 +108,7 @@ export default function HomePage() {
             <div className="grid">
               {courses.map(c => (
                 <Link key={c.id} className="tile" to={`/courses/${c.id}/study`}>
-                  <span className={`tile-wash wash-${c.id % WASHES}`}>
+                  <span className={`tile-wash ${tint(c.id)}`}>
                     <span className="tile-code">{c.name}</span>
                     <span className="tile-term">{c.term}</span>
                   </span>
@@ -143,8 +141,7 @@ export default function HomePage() {
                 </form>
               ) : (
                 <button ref={newTile} className="tile tile--new" type="button" onClick={openForm}>
-                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor"
-                    strokeWidth="1.8" aria-hidden="true"><path d="M10 4v12M4 10h12" /></svg>
+                  <Icon name="plus" size={20} />
                   New course
                 </button>
               )}
