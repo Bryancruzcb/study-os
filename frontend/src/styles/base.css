@@ -4,42 +4,46 @@
   box-sizing: border-box;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
   background: var(--page);
   color: var(--ink);
   font-family: var(--font-sans);
-  font-size: 15px;
-  line-height: 1.6;
+  font-size: 16px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* headings are set in Fraunces, the warm serif; everything else is Figtree */
 h1,
 h2,
 h3 {
   margin: 0;
-  line-height: 1.1;
-  letter-spacing: -0.03em;
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
   text-wrap: balance;
 }
 
 h1 {
   font-size: 40px;
-  font-weight: 700;
-  letter-spacing: -0.04em;
+  letter-spacing: -0.02em;
 }
 
 h2 {
-  font-size: 26px;
-  font-weight: 700;
+  font-size: 28px;
 }
 
 h3 {
-  font-size: 19px;
-  font-weight: 600;
+  font-size: 20px;
   line-height: 1.2;
-  letter-spacing: -0.015em;
 }
 
 p {
@@ -54,12 +58,13 @@ ul {
 }
 
 a {
-  color: var(--accent-strong);
+  color: var(--link);
   text-decoration: none;
 }
 
 a:hover {
   text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 button {
@@ -69,9 +74,14 @@ button {
 /* the class names are the regions a script puts the caret on: the verdict band after a
    grade, the open concept after the skip link, the prompt or the empty state after Next
    question, a card's mark after a save or a confirmed retire */
-:where(a, button, input, select, textarea, .verdict, .detail, .prompt, .empty, .mark):focus-visible {
-  outline: 2px solid var(--accent);
+:where(a, button, input, select, textarea, summary, .verdict, .detail, .prompt, .empty, .mark, h1, h2):focus-visible {
+  outline: 2px solid var(--focus);
   outline-offset: 3px;
+  border-radius: 6px;
+}
+
+.icon {
+  flex: none;
 }
 
 /* out of sight, still in the accessibility tree and the tab order */
@@ -95,26 +105,28 @@ button {
   font-weight: 500;
 }
 
+/* numbers that line up */
+.num,
+.count,
+.figure > b,
+.figure-tile > b {
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---- type roles ---------------------------------------------------------- */
 
 .eyebrow {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+  font-size: 14px;
+  font-weight: 600;
   color: var(--accent-strong);
 }
 
 .count {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  letter-spacing: 0.02em;
+  font-size: 14px;
   color: var(--ink-dim);
 }
 
-/* a measured number with its label: the landing page's .figure, inline, and the tile
-   that stacks one inside a card */
+/* a measured number with its label: big in Fraunces, the label small beneath or beside it */
 .figure {
   display: flex;
   align-items: baseline;
@@ -123,36 +135,47 @@ button {
 
 .figure > b,
 .figure-tile > b {
-  font-family: var(--font-mono);
-  font-size: 32px;
+  font-family: var(--font-display);
+  font-size: 30px;
   font-weight: 600;
-  line-height: 1;
-  letter-spacing: -0.04em;
+  line-height: 1.05;
 }
 
 .figure > span,
 .figure-tile > span {
-  font-size: 12px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-size: 14px;
   color: var(--ink-dim);
 }
 
 .figures {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 20px;
+  gap: 16px;
 }
 
 .figure-tile {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 22px;
+  gap: 8px;
+  padding: 20px 22px;
   background: var(--card);
-  border: 1px solid var(--line);
   border-radius: var(--radius);
   box-shadow: var(--shadow-card);
+}
+
+/* a card on a page: the quiz's setup and results */
+.dash-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px;
+  border-radius: var(--radius);
+  background: var(--card);
+  box-shadow: var(--shadow-card);
+}
+
+.dash-title {
+  font-size: 26px;
 }
 
 /* the tile's number is a row of its own, so the grader tile's n sits on its baseline */
@@ -164,49 +187,49 @@ button {
 
 /* a sample too small to trust wears the flag colour on its border and its n */
 .figure-tile--flag {
-  border-color: var(--flag);
+  outline: 1px solid var(--flag);
 }
 
 .figure-n {
-  font-family: var(--font-mono);
-  font-size: 13px;
+  font-family: var(--font-sans);
+  font-size: 14px;
   font-weight: 600;
-  letter-spacing: 0;
   color: var(--flag);
 }
 
 .lede {
-  font-size: 17px;
+  font-size: 18px;
   color: var(--ink-soft);
 }
 
 .empty {
-  font-size: 15px;
+  font-size: 16px;
   color: var(--ink-soft);
 }
 
 .hint {
-  font-size: 12px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-size: 13px;
+  font-weight: 600;
   color: var(--ink-dim);
 }
 
 /* ---- controls ------------------------------------------------------------ */
 
+/* the primary button: the green pill, with dark ink on it */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   min-height: 44px;
-  padding: 11px 22px;
-  border: 1px solid var(--ink-fill);
+  padding: 10px 22px;
+  border: 1px solid var(--accent);
   border-radius: var(--radius-pill);
-  background: var(--ink-fill);
-  color: var(--on-fill);
-  font-size: 15px;
-  font-weight: 600;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.2;
   text-decoration: none;
   cursor: pointer;
   transition:
@@ -216,9 +239,9 @@ button {
 }
 
 .btn:hover:not(:disabled) {
-  border-color: var(--ink-fill-hover);
-  background: var(--ink-fill-hover);
-  color: var(--on-fill);
+  border-color: var(--accent-hover);
+  background: var(--accent-hover);
+  color: var(--on-accent);
   text-decoration: none;
 }
 
@@ -229,23 +252,36 @@ button {
   color: var(--ink-dim);
 }
 
+/* the big one that starts the work */
+.btn--go {
+  min-height: 52px;
+  padding: 0 28px;
+  font-size: 17px;
+}
+
 .btn--secondary {
   border-color: var(--line);
   background: var(--card);
   color: var(--ink);
+  font-weight: 600;
 }
 
 .btn--secondary:hover:not(:disabled) {
-  border-color: var(--ink-soft);
+  border-color: var(--ink-dim);
   background: var(--card);
   color: var(--ink);
 }
 
+/* a quiet text button: underlined ink, for actions that should not compete */
 .btn--ghost {
-  padding-inline: 4px;
+  padding-inline: 6px;
   border-color: transparent;
   background: transparent;
-  color: var(--accent-strong);
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--line-dashed);
+  text-underline-offset: 3px;
 }
 
 .btn--ghost:hover:not(:disabled) {
@@ -253,6 +289,12 @@ button {
   background: transparent;
   color: var(--ink);
   text-decoration: underline;
+  text-decoration-color: currentColor;
+}
+
+.btn--ghost:disabled {
+  border-color: transparent;
+  background: transparent;
 }
 
 /* destructive: outlined in the flag colour, filled only on hover */
@@ -265,13 +307,13 @@ button {
 .btn--danger:hover:not(:disabled) {
   border-color: var(--flag);
   background: var(--flag);
-  color: var(--on-fill);
+  color: var(--card);
 }
 
 .btn--micro {
   min-height: 36px;
   padding: 6px 14px;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .chip {
@@ -279,17 +321,15 @@ button {
   align-items: center;
   min-height: 28px;
   padding: 3px 12px;
-  border: 1px solid var(--line);
   border-radius: var(--radius-pill);
   background: var(--sunken);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   color: var(--ink-soft);
 }
 
 .chip--mono {
-  font-family: var(--font-mono);
-  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
 }
 
 .chip--flag {
@@ -316,7 +356,7 @@ button {
   background: var(--card);
   color: var(--ink-soft);
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition:
     background-color var(--motion) var(--ease),
@@ -326,7 +366,7 @@ button {
 
 /* a disabled toggle does not answer the pointer, so its border stays put */
 .toggle:not(:has(input:disabled)):hover {
-  border-color: var(--ink-soft);
+  border-color: var(--ink-dim);
 }
 
 .toggle:has(input:checked) {
@@ -336,7 +376,7 @@ button {
 }
 
 .toggle:has(input:focus-visible) {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus);
   outline-offset: 3px;
 }
 
@@ -359,11 +399,11 @@ button {
   display: inline;
 }
 
+/* the course's tabs: a sunken track, the current one lifted onto a white pill */
 .tabs {
   display: inline-flex;
   flex-wrap: wrap;
   gap: 4px;
-  margin-top: 20px;
   padding: 4px;
   border-radius: var(--radius-pill);
   background: var(--sunken);
@@ -374,16 +414,14 @@ button {
   align-items: center;
   min-height: 36px;
   padding: 6px 16px;
-  border: 1px solid transparent;
   border-radius: var(--radius-pill);
   background: transparent;
   color: var(--ink-soft);
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   text-decoration: none;
   transition:
     background-color var(--motion) var(--ease),
-    border-color var(--motion) var(--ease),
     color var(--motion) var(--ease),
     box-shadow var(--motion) var(--ease);
 }
@@ -394,10 +432,8 @@ button {
 }
 
 .tab.is-current {
-  border-color: var(--glass-line);
   background: var(--card);
   color: var(--ink);
-  font-weight: 600;
   box-shadow: var(--shadow-card);
 }
 
@@ -408,26 +444,24 @@ button {
 }
 
 .field-label {
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--ink-dim);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-soft);
 }
 
 .input {
   min-height: 44px;
   padding: 0 14px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
+  border: 1px solid var(--line-dashed);
+  border-radius: var(--radius-control);
   background: var(--card);
   color: var(--ink);
   font-family: var(--font-sans);
-  font-size: 15px;
+  font-size: 16px;
 }
 
 .input:hover:not(:disabled) {
-  border-color: var(--ink-soft);
+  border-color: var(--ink-dim);
 }
 
 .input:disabled {
@@ -439,8 +473,8 @@ button {
   width: 100%;
   min-height: 120px;
   padding: 14px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
+  border: 1px solid var(--line-dashed);
+  border-radius: var(--radius-control);
   background: var(--card);
   color: var(--ink);
   font-family: var(--font-sans);
@@ -450,7 +484,7 @@ button {
 }
 
 .textarea:hover:not(:disabled) {
-  border-color: var(--ink-soft);
+  border-color: var(--ink-dim);
 }
 
 .textarea:disabled {
@@ -460,17 +494,17 @@ button {
 
 .alert {
   padding: 14px 18px;
-  border: 1px solid var(--flag);
-  border-radius: var(--radius);
+  border-left: 4px solid var(--flag);
+  border-radius: var(--radius-control);
   background: var(--flag-wash);
   color: var(--ink);
-  font-size: 15px;
+  font-size: 16px;
 }
 
 .bar {
-  height: 6px;
+  height: 8px;
   border-radius: var(--radius-pill);
-  background: var(--line);
+  background: var(--mastery-track);
   overflow: hidden;
 }
 
@@ -478,7 +512,7 @@ button {
   display: block;
   height: 100%;
   border-radius: var(--radius-pill);
-  background: var(--accent);
+  background: var(--mastery-right);
   transition: width var(--motion) var(--ease);
 }
 
@@ -493,6 +527,25 @@ button {
   border-radius: 7px;
 }
 
+/* a skeleton block, shaped like what is loading */
+.skeleton {
+  display: block;
+  border-radius: 10px;
+  background: var(--sunken);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .skeleton {
+    animation: skeleton-pulse 1.2s ease-in-out infinite alternate;
+  }
+}
+
+@keyframes skeleton-pulse {
+  to {
+    opacity: 0.55;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -501,4 +554,8 @@ button {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+input[type='checkbox'] {
+  accent-color: var(--accent-strong);
 }

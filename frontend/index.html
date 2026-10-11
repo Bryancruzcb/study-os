@@ -4,7 +4,15 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
     <title>Study OS</title>
+    <!-- a theme picked with the nav's toggle goes on before the first paint (src/theme.ts keeps it) -->
+    <script>
+      try {
+        var kept = localStorage.getItem('studyos.theme')
+        if (kept === 'light' || kept === 'dark') document.documentElement.dataset.theme = kept
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>
