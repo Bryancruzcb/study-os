@@ -103,7 +103,6 @@ function FocusCard({ toWorkOn, graded }: { toWorkOn: ConceptStats[]; graded: num
           </p>
         ) : (
           <>
-            <p className="focus-sub">Your last answer on each was wrong. Weakest first.</p>
             <ol className="focus-list">
               {toWorkOn.slice(0, FOCUS).map((c, i) => <FocusItem key={c.conceptId} concept={c} n={i + 1} />)}
             </ol>
@@ -143,16 +142,21 @@ function LecturePath({ courseName, concepts }: { courseName: string; concepts: C
       <div className="path-side">
         <div className="path-stick">
           <h2 id="path-title">Your path through {plural(lectures.length, 'lecture')}</h2>
-          <p className="path-intro">{started} of {plural(total, 'topic')} started. Lectures are in the order you uploaded them.</p>
+          <p className="path-intro">{started} of {plural(total, 'topic')} started.</p>
           <span className="path-meter" aria-hidden="true">
             <span className="fill-right" style={{ width: `${(right / total) * 100}%` }} />
             <span className="fill-weak" style={{ width: `${(weak / total) * 100}%` }} />
           </span>
-          <ul className="path-legend">
-            <li className="k-right"><Icon name="circle-check" />Right last time</li>
-            <li className="k-weak"><Icon name="refresh-cw" />To work on: last answer was wrong</li>
-            <li className="k-new"><Icon name="circle-dashed" />Not started</li>
-          </ul>
+          {/* every lecture labels its own counts, so the key and the ordering wait behind a disclosure */}
+          <details className="path-how">
+            <summary>How this is counted</summary>
+            <ul className="path-legend">
+              <li className="k-right"><Icon name="circle-check" />Right last time: the last graded answer was right</li>
+              <li className="k-weak"><Icon name="refresh-cw" />To work on: the last graded answer was wrong</li>
+              <li className="k-new"><Icon name="circle-dashed" />Not started: no graded answer yet</li>
+            </ul>
+            <p>Lectures are in the order you uploaded them.</p>
+          </details>
         </div>
       </div>
       <ol className="path">

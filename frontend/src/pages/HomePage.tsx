@@ -88,7 +88,7 @@ export default function HomePage() {
             <>
               <p className="eyebrow">{newest?.term} · {plural(courses.length, 'course')}</p>
               <h1>{due} due today.</h1>
-              <p className="lede">{dueSplit(courses)}. Pick a class to start the queue.</p>
+              <p className="lede">{dueSplit(courses)}.</p>
             </>
           )}
           {courses && courses.length === 0 && (

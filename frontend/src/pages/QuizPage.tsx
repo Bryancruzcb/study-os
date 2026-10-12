@@ -260,7 +260,6 @@ export default function QuizPage() {
                     </div>
                   )}
                   <Why question={onScreen} review={reviews[onScreen.id]} />
-                  <p className="verdict-note">Check yours against the model answer, then mark it.</p>
                   <div className="actions">
                     <button className="btn btn--secondary" onClick={() => mark(onScreen, true)}>I got it right</button>
                     <button className="btn btn--secondary" onClick={() => mark(onScreen, false)}>I got it wrong</button>
@@ -318,10 +317,7 @@ function Setup({ questions, landing, onStart }: {
         </>
       ) : (
         <>
-          <p className="lede">
-            Every question from every topic, shuffled into one quiz. After each answer you see why it is
-            right or wrong, straight from the slides. Nothing here changes your study schedule.
-          </p>
+          <p className="lede">Nothing here changes your study schedule.</p>
           <fieldset className="quiz-fieldset">
             <legend className="field-label">Lectures</legend>
             {/* the exam form's checkbox rows, so picking lectures looks the same wherever it happens */}

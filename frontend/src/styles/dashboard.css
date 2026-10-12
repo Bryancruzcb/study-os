@@ -262,10 +262,8 @@
   font-size: 22px;
 }
 
-.focus-sub {
-  margin: 4px 0 12px;
-  font-size: 14px;
-  color: var(--ink-dim);
+.focus-title + .focus-list {
+  margin-top: 12px;
 }
 
 .focus-card > .empty {
@@ -387,10 +385,30 @@
   background: var(--mastery-track);
 }
 
+/* the key to the bars and the path's order, folded away: each lecture labels its own counts */
+.path-how {
+  margin-top: 16px;
+  font-size: 14px;
+}
+
+.path-how summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  color: var(--link);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.path-how p {
+  margin-top: 10px;
+  color: var(--ink-dim);
+}
+
 .path-legend {
   display: grid;
   gap: 8px;
-  margin: 18px 0 0;
+  margin: 10px 0 0;
   padding: 0;
   list-style: none;
   font-size: 14px;

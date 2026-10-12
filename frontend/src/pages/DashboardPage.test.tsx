@@ -104,7 +104,8 @@ test('many more than five are counted and left to the path', async () => {
 test('every lecture sits on the path: its share correct and how its concepts stand, in words', async () => {
   renderInCourse(<DashboardPage />, 'dashboard')
   expect(await path()).toHaveTextContent('Your path through 2 lectures')
-  expect(screen.getByText('3 of 4 topics started. Lectures are in the order you uploaded them.')).toBeInTheDocument()
+  expect(screen.getByText('3 of 4 topics started.')).toBeInTheDocument()
+  expect(screen.getByText('How this is counted')).toBeInTheDocument()
   expect(lectureNames()).toEqual(['Lecture 3', 'Lecture 4'])
   const three = within(lecture('Lecture 3'))
   expect(three.getByText('2 topics')).toBeInTheDocument()
