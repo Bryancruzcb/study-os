@@ -20,7 +20,6 @@ export default function EvalPage() {
     <div className="page">
       <header className="page-head">
         <div>
-          <p className="eyebrow">Evaluation</p>
           <h1>Question quality</h1>
           <p className="lede">Use this page to check the question bank and automatic grading. It does not measure your course grade.</p>
         </div>
@@ -31,7 +30,6 @@ export default function EvalPage() {
         <div className="eval-panel">
           <section className="eval-section" aria-labelledby="question-checks-title">
             <div className="eval-section-head">
-              <p className="eyebrow">Question checks</p>
               <h2 id="question-checks-title">Are the questions ready to study?</h2>
               <p>Each check comes from a manually labelled sample of bank questions.</p>
             </div>
@@ -39,13 +37,13 @@ export default function EvalPage() {
               <p className="empty">No question-quality labels yet. Label a few bank questions to start checking them here.</p>
             ) : (
               <ul className="quality-list">
-                <QualityCheck title="Answerable from the source" detail="Can the cited source pages support the answer?"
+                <QualityCheck title="Answerable from the source"
                   rate={report.pctAnswerable} total={report.labeled} pct={pct} passed={passed}
                   failing={report.needsReview.filter(q => !q.answerable)} />
-                <QualityCheck title="Answer key is correct" detail="Does the saved answer key match the source?"
+                <QualityCheck title="Answer key is correct"
                   rate={report.pctCorrectAnswer} total={report.labeled} pct={pct} passed={passed}
                   failing={report.needsReview.filter(q => !q.correctAnswer)} />
-                <QualityCheck title="One clear best answer" detail="Is the wording specific enough to avoid multiple reasonable answers?"
+                <QualityCheck title="One clear best answer"
                   rate={report.pctUnambiguous} total={report.labeled} pct={pct} passed={passed}
                   failing={report.needsReview.filter(q => !q.unambiguous)} />
               </ul>
@@ -53,9 +51,7 @@ export default function EvalPage() {
           </section>
           <section className="eval-section" aria-labelledby="grader-title">
             <div className="eval-section-head">
-              <p className="eyebrow">Short-answer grading</p>
               <h2 id="grader-title">Is automatic grading matching your corrections?</h2>
-              <p>This is separate from question quality: it checks the automatic short-answer verdict after you have a chance to reverse it.</p>
             </div>
             {report.gradedShortAnswers === 0 ? (
               <p className="empty">No automatically graded short answers yet. Complete short-answer prompts to start checking the grader.</p>
@@ -74,7 +70,6 @@ export default function EvalPage() {
 
 interface QualityCheckProps {
   title: string
-  detail: string
   rate: number
   total: number
   pct: (rate: number) => string
@@ -83,14 +78,13 @@ interface QualityCheckProps {
   failing: ReviewItem[]
 }
 
-function QualityCheck({ title, detail, rate, total, pct, passed, failing }: QualityCheckProps) {
+function QualityCheck({ title, rate, total, pct, passed, failing }: QualityCheckProps) {
   const ready = passed(rate, total)
   const needsReview = total - ready
   return (
     <li className="quality-check">
       <div>
         <h3>{title}</h3>
-        <p>{detail}</p>
       </div>
       <p className="quality-score"><b>{ready} of {total}</b><span>{pct(rate)} pass · {plural(needsReview, 'question')} {needsReview === 1 ? 'needs' : 'need'} review</span></p>
       {failing.length > 0 && (

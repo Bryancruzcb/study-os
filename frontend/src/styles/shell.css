@@ -4,100 +4,30 @@
   padding-inline: var(--gutter);
 }
 
-/* one wash, one place: the top of the home page. Everything else is the plain page.
-   The colour field fades into --page so the header never ends on a hard seam. */
-.band {
-  position: relative;
-  isolation: isolate;
-  padding: 20px 0 72px;
-  background: var(--band);
-  overflow: hidden;
-}
-
-/* the blobs are blurred past the band's box and the band clips them, which drew a hard
-   edge straight across the page above Courses. The mask dissolves the whole field before
-   it gets there, so the band ends on the page white it already fades into. (black and
-   transparent are the mask's alpha, not colours) */
-.atmosphere {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  -webkit-mask-image: linear-gradient(to bottom, black 45%, transparent 96%);
-  mask-image: linear-gradient(to bottom, black 45%, transparent 96%);
-}
-
-.atmosphere-gl,
-.atmosphere-svg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-.atmosphere-gl {
-  opacity: 0.85;
-}
-
-.blob { fill: var(--blob-0); }
-.blob-1 { fill: var(--blob-1); }
-.blob-2 { fill: var(--blob-2); }
-.blob-3 { fill: var(--blob-3); }
-
-.band .wrap,
-.frame .wrap {
-  position: relative;
-  z-index: 1;
-}
-
-/* every page but home: the nav pill on the plain page, then the page */
+/* every page but home: the top bar, then the page */
 .frame {
-  position: relative;
-  padding: 20px 0 72px;
+  padding: 8px 0 72px;
 }
 
-.frame::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto;
-  height: 220px;
-  background: var(--band);
-  pointer-events: none;
-  z-index: 0;
-}
+/* ---- the top bar ------------------------------------------------------------ */
 
 .nav {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: clamp(12px, 2.4vw, 28px);
-  padding: 10px 12px 10px 18px;
-  background: var(--glass);
-  border: 1px solid var(--glass-line);
-  border-radius: var(--radius-nav);
-  box-shadow: var(--shadow-nav);
-  backdrop-filter: saturate(1.7) blur(22px);
-  -webkit-backdrop-filter: saturate(1.7) blur(22px);
+  gap: 12px 20px;
+  padding: 14px 0;
 }
 
 .wordmark {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: -0.03em;
+  display: inline-block;
+  padding: 6px 0;
+  font-family: var(--font-display);
+  font-size: 21px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.01em;
   color: var(--ink);
-}
-
-.wordmark::before {
-  content: '';
-  width: 11px;
-  height: 11px;
-  border-radius: 4px;
-  background: var(--accent);
-  box-shadow: 0 0 0 3px var(--ok-wash);
 }
 
 .nav-links {
@@ -106,14 +36,11 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 4px;
-  padding: 3px;
-  border-radius: var(--radius-pill);
-  background: var(--sunken);
-  font-size: 14px;
+  font-size: 15px;
 }
 
-/* the current segment's pill: one element that slides between the links, where Nav
-   places it under whichever link is current. Before Nav has measured, it has no size */
+/* the current page's pill: one element that slides between the links, where Nav places
+   it under whichever link is current. Before Nav has measured, it has no size */
 .nav-pill {
   position: absolute;
   top: 0;
@@ -122,7 +49,7 @@
   height: var(--pill-h, 0);
   border-radius: var(--radius-pill);
   background: var(--card);
-  box-shadow: var(--shadow-nav);
+  box-shadow: var(--shadow-card);
   transform: translate(var(--pill-x, 0), var(--pill-y, 0));
   transition:
     transform var(--motion-slide) var(--ease),
@@ -134,7 +61,10 @@
 .nav-links a {
   position: relative;
   z-index: 1;
-  padding: 7px 14px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 6px 14px;
   border-radius: var(--radius-pill);
   color: var(--ink-soft);
   font-weight: 500;
@@ -150,12 +80,19 @@
   font-weight: 600;
 }
 
-/* the number the app publishes about itself, always in view */
-.readout {
+/* the right-hand end: the numbers the app publishes about itself, who is signed in, and
+   the theme */
+.nav-end {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
   margin-left: auto;
-  padding-right: 8px;
-  font-family: var(--font-mono);
-  font-size: 12px;
+}
+
+.readout {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
   color: var(--ink-dim);
 }
 
@@ -163,88 +100,156 @@
   content: ' · ';
 }
 
-/* who is signed in, at the far end of the pill; after the readout when there is one */
 .nav-account {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-left: auto;
-}
-
-.readout + .nav-account {
-  margin-left: 0;
+  gap: 4px;
 }
 
 .nav-user {
-  font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 14px;
   color: var(--ink-dim);
+}
+
+.theme-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--card);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.theme-toggle:hover {
+  border-color: var(--ink-dim);
 }
 
 .page {
   display: flex;
   flex-direction: column;
   gap: 32px;
-  margin-top: 36px;
+  margin-top: 8px;
 }
 
-/* the head of a page: its title on the left, and on the right whatever the page puts
-   in the slot */
+/* ---- the head of a page ------------------------------------------------------ */
+
+/* a page's title on the left; a course's head adds its tabs, its actions, and whatever
+   the open tab puts in the slot */
 .page-head,
 .course-head {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 24px;
-  padding-bottom: 24px;
+  gap: 16px 24px;
+  padding-bottom: 20px;
   border-bottom: 1px solid var(--line);
 }
 
-.course-head h1 {
+.page-head h1 {
+  margin-top: 6px;
+}
+
+.page-head .lede {
   margin-top: 10px;
+  max-width: 60ch;
+}
+
+.course-id {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.course-id h1 {
+  margin-top: 2px;
+  font-size: 30px;
+}
+
+.course-meta {
+  margin-top: 4px;
+  font-size: 14px;
+  color: var(--ink-dim);
 }
 
 .course-back {
   display: inline-flex;
-  margin-bottom: 12px;
-  color: var(--ink-soft);
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  color: var(--ink-dim);
   font-size: 14px;
   font-weight: 600;
 }
 
 .course-back:hover {
   color: var(--ink);
+  text-decoration: none;
 }
 
-/* the page fills this: the study figure, the upload control */
+/* the page fills this: the study figure, the upload control. It keeps to the right edge,
+   on the head's row or on one of its own */
 .course-head-slot {
+  margin-left: auto;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 14px;
-  padding-bottom: 6px;
 }
 
-/* the live demo's lock screen, standing in for every page until a code is accepted */
+.course-head-slot:empty {
+  display: none;
+}
+
+/* Archive / Restore / Delete, beside the tabs and on each archived row */
+.course-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.course-actions-warn {
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+
+/* ---- sign-in, sign-up and reset ---------------------------------------------- */
+
 .gate {
   display: grid;
   min-height: 100vh;
   place-items: center;
   padding: 24px var(--gutter);
-  background: var(--band);
 }
 
 .gate-card {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  width: min(100%, 400px);
-  padding: 28px;
-  border: 1px solid var(--glass-line);
-  border-radius: var(--radius);
+  width: min(100%, 420px);
+  padding: 32px 28px 24px;
+  border-radius: var(--radius-panel);
   background: var(--card);
   box-shadow: var(--shadow-card);
+}
+
+.gate-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.gate-card h2 {
+  font-size: 30px;
+}
+
+.gate-card .btn[type='submit'] {
+  margin-top: 4px;
 }
 
 .gate-switch {
@@ -252,26 +257,20 @@
 }
 
 @media (max-width: 720px) {
-  .readout,
-  .nav-account {
+  .nav-end {
     margin-left: 0;
+    width: 100%;
   }
 
-  .page {
-    margin-top: 28px;
+  .readout {
+    flex: 1 1 100%;
   }
-}
 
-/* Archive / Restore / Delete, under the course name and on each archived row */
-.course-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin-top: 12px;
-}
+  .theme-toggle {
+    margin-left: auto;
+  }
 
-.course-actions-warn {
-  color: var(--ink-soft);
-  font-size: 14px;
+  .course-id h1 {
+    font-size: 28px;
+  }
 }

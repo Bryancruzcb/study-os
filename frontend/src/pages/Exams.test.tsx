@@ -50,14 +50,25 @@ test('with no exams, it says what adding one does and offers to', async () => {
   expect(screen.getByRole('button', { name: 'Add an exam' })).toBeInTheDocument()
 })
 
-test('an exam ahead shows what today holds for it and where its plan stands', async () => {
+test('the nearest exam leads: when it is, what today holds for it, and how its plan runs', async () => {
   vi.mocked(api.exams).mockResolvedValue([midterm])
   renderExams()
-  expect(await screen.findByRole('heading', { name: 'Midterm' })).toBeInTheDocument()
+  expect(await screen.findByRole('heading', { name: 'Today: 2 new topics and 5 reviews.' })).toBeInTheDocument()
+  expect(screen.getByText('Midterm')).toBeInTheDocument()
   expect(screen.getByText('Sat, Sep 26 · in 14 days')).toBeInTheDocument()
-  expect(screen.getByText('Today: 2 new topics and 5 reviews')).toBeInTheDocument()
-  expect(screen.getByText('4 of 22 topics started. New topics through Tue, Sep 22, then 3 days of review. Covers 2 lectures.'))
+  // it covers two of the three lectures, so it says how much of its own material is started
+  expect(screen.getByText('New topics run through Tue, Sep 22, then 3 days of review before the exam. It covers 2 lectures. 4 of its 22 topics started.'))
     .toBeInTheDocument()
+})
+
+test('the due count is only said to add up when it does', async () => {
+  vi.mocked(api.exams).mockResolvedValue([{ ...midterm, lectureIds: [11, 12, 13] }])
+  const { rerender } = render(<Exams courseId={1} onChange={() => {}} dueToday={7} />)
+  expect(await screen.findByText(/^That makes/)).toHaveTextContent(
+    'That makes 7 due today. New topics run through Tue, Sep 22, then 3 days of review before the exam. It covers all 3 lectures.')
+  rerender(<Exams courseId={1} onChange={() => {}} dueToday={9} />)
+  expect(screen.getByText(/across the course/)).toHaveTextContent('9 due today across the course.')
+  expect(screen.queryByText(/^That makes/)).not.toBeInTheDocument()
 })
 
 test('the plan reads right on its last day, on the exam day, and after', async () => {
@@ -68,10 +79,28 @@ test('the plan reads right on its last day, on the exam day, and after', async (
   ])
   renderExams()
   expect(await screen.findByText('Sat, Sep 26 · tomorrow')).toBeInTheDocument()
-  expect(screen.getByText('Nothing due for this exam today')).toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: 'Nothing due for this exam today.' })).toBeInTheDocument()
   expect(screen.getByText(/^Every topic is started/)).toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: 'Other exams' })).toBeInTheDocument()
   expect(screen.getByText('The exam is today.')).toBeInTheDocument()
   expect(screen.getByText('This exam has passed.')).toBeInTheDocument()
+})
+
+test('with only past exams, none leads and the page asks for the next one', async () => {
+  vi.mocked(api.exams).mockResolvedValue([{ ...midterm, status: 'past', plan: null }])
+  render(<Exams courseId={1} onChange={() => {}} dueToday={3} />)
+  expect(await screen.findByRole('heading', { name: '3 due today.' })).toBeInTheDocument()
+  expect(screen.getByText('No exam ahead')).toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: 'Past exams' })).toBeInTheDocument()
+  expect(screen.getByText(/^Every exam here has passed/)).toBeInTheDocument()
+})
+
+test('a course with nothing in it says so, and until that is known the head is a skeleton', async () => {
+  const { rerender } = render(<Exams courseId={1} onChange={() => {}} empty={null} />)
+  expect(document.querySelector('.plan[aria-busy="true"]')).toBeInTheDocument()
+  rerender(<Exams courseId={1} onChange={() => {}} empty />)
+  expect(await screen.findByRole('heading', { name: 'No concepts yet.' })).toBeInTheDocument()
+  expect(screen.getByText(/^Upload a lecture PDF in the bank/)).toBeInTheDocument()
 })
 
 test('adding an exam starts with the lectures no exam covers yet, and saves what was picked', async () => {
@@ -136,9 +165,9 @@ test('a failed save keeps the form and what was typed', async () => {
   expect(screen.getByRole('button', { name: 'Save exam' })).toBeEnabled()
 })
 
-test('closing the form hands the caret to the heading', async () => {
+test('closing the form hands the caret to the headline', async () => {
   renderExams()
   await userEvent.click(await screen.findByRole('button', { name: 'Add an exam' }))
   await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
-  expect(screen.getByRole('heading', { name: 'Exams' })).toHaveFocus()
+  expect(screen.getByRole('heading', { name: 'Nothing due today.' })).toHaveFocus()
 })

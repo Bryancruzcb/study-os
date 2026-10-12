@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { api, type CourseOverview } from '../api'
+import Icon from '../icons'
 import { plural } from '../plural'
 import CourseActions from './CourseActions'
 import { useCourses } from './courses'
@@ -115,23 +116,23 @@ export default function CourseLayout() {
   return (
     <div className="page">
       <header className="course-head">
-        <div>
-          <Link className="course-back" to="/">← All courses</Link>
-          <p className="eyebrow">{course.archived && 'Archived · '}{course.term} · {plural(course.concepts, 'concept')} · {plural(course.questions, 'question')}</p>
+        <div className="course-id">
+          <Link className="course-back" to="/"><Icon name="chevron-left" size={16} />All courses</Link>
           <h1>{course.name}</h1>
-          {/* archiving sends you home, where the course now sits under Archived; restoring keeps you here */}
-          <CourseActions course={course}
-            onArchived={archived => (archived ? navigate('/') : refresh())}
-            onDeleted={() => navigate('/')} />
-          <nav className="tabs" aria-label="Course">
-            <NavLink to="study" className={tab}>Study</NavLink>
-            <NavLink to="quiz" className={tab}>Quiz</NavLink>
-            {/* the bank's index redirects to its first concept, so a push from inside the bank
-                would leave a second entry with the same URL and one dead Back: replace instead */}
-            <NavLink to="bank" replace={pathname.startsWith(`/courses/${course.id}/bank`)} className={tab}>Bank</NavLink>
-            <NavLink to="dashboard" className={tab}>Dashboard</NavLink>
-          </nav>
+          <p className="course-meta">{course.archived && 'Archived · '}{course.term} · {plural(course.concepts, 'concept')} · {plural(course.questions, 'question')}</p>
         </div>
+        <nav className="tabs" aria-label="Course">
+          <NavLink to="study" className={tab}>Study</NavLink>
+          <NavLink to="quiz" className={tab}>Quiz</NavLink>
+          {/* the bank's index redirects to its first concept, so a push from inside the bank
+              would leave a second entry with the same URL and one dead Back: replace instead */}
+          <NavLink to="bank" replace={pathname.startsWith(`/courses/${course.id}/bank`)} className={tab}>Bank</NavLink>
+          <NavLink to="dashboard" className={tab}>Dashboard</NavLink>
+        </nav>
+        {/* archiving sends you home, where the course now sits under Archived; restoring keeps you here */}
+        <CourseActions course={course}
+          onArchived={archived => (archived ? navigate('/') : refresh())}
+          onDeleted={() => navigate('/')} />
         <div className="course-head-slot" ref={setSlot} />
       </header>
       {/* a course switch is a new visit, so every page starts over instead of keeping the last course's state */}

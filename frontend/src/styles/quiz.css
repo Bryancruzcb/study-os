@@ -127,11 +127,9 @@
 /* the words beside the colour, so colour is never the only signal */
 .quiz-tag {
   flex: none;
-  font-family: var(--font-mono);
-  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
 }
 
 .is-key .quiz-tag {
@@ -155,11 +153,9 @@
 }
 
 .why-label {
-  font-family: var(--font-mono);
-  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: var(--ink-dim);
 }
 
@@ -170,7 +166,7 @@
 }
 
 .why-source {
-  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: 13px;
   color: var(--ink-dim);
 }
@@ -179,13 +175,21 @@
   white-space: pre-line;
 }
 
-/* mermaid sizes its SVG to the drawing; a wide one scrolls inside its own box */
+/* mermaid sizes its SVG to the drawing; a wide one scrolls inside its own box. Mermaid
+   draws in fixed colours, so the diagram keeps its light paper in the dark theme too */
 .diagram {
   margin: 0;
   padding: 16px;
+  border: 1px solid var(--line);
   border-radius: 12px;
-  background: var(--sunken);
+  background: var(--diagram-paper);
+  color: var(--diagram-ink);
   overflow-x: auto;
+}
+
+/* the page's own ink for the waiting line, which the dark theme would make light */
+.diagram .empty {
+  color: var(--diagram-ink);
 }
 
 .diagram-art svg {

@@ -1,103 +1,196 @@
-/* Eleven values come from the landing page's :root (site/index.html) unchanged: --page,
-   --card, --sunken, --line, --ink, --ink-soft, --ink-dim, --accent, --accent-strong,
-   --flag and --radius. Light only: one :root, no prefers-color-scheme block. The
-   filled-control pair and the ink on it, the band, the nav shadow, the fonts, and the
-   wrap, gutter, radius and motion scales are the landing page's component values lifted
-   into tokens. The rest is the app's own, because the landing page has no app to style:
-   the dashed line, a correct/incorrect pair and the hover glow (marked (new)), the tile
-   washes and the dim ink on fills. */
+/* The Study path palette (DESIGN.md at the repo root): warm off-white paper, white cards, a
+   soft peach panel for the one card the dashboard leads with, and one green for the button
+   that starts the work. Light first; the dark set below is the same palette at night, used
+   when the system asks for it and the nav's toggle has not picked light, or when the toggle
+   picked dark. Every colour the stylesheets use is a token here; styles/tokens.test.ts
+   holds every other stylesheet to that. */
 :root {
   color-scheme: light;
 
-  --page: oklch(99.2% 0.004 250);
-  --card: oklch(100% 0 0);
-  --sunken: oklch(97.2% 0.008 250);
-  --line: oklch(92% 0.01 250);
-  --line-dashed: oklch(84% 0.012 250);
+  --page: #f6f3ec;
+  --card: #ffffff;
+  --sunken: #efebe1;
+  /* the peach panel behind the dashboard's "Work on these next" card */
+  --panel: #fbe6d8;
+  --line: #e3ddd0;
+  --line-dashed: #c9c1b0;
 
-  --ink: oklch(20% 0.016 250);
-  --ink-fill: oklch(18% 0.016 250);
-  --ink-fill-hover: oklch(28% 0.016 250);
-  --ink-soft: oklch(36% 0.014 250);
-  --ink-dim: oklch(48% 0.012 250);
-  /* ink on a filled control: the button, the current tab, the current concept row */
-  --on-fill: oklch(99% 0 0);
-  --on-fill-dim: oklch(85% 0.01 250);
+  --ink: #1c1b18;
+  --ink-soft: #46423a;
+  --ink-dim: #5b574d;
+  /* a filled control that is selected: a checked toggle, the open concept in the bank */
+  --ink-fill: #1c1b18;
+  --ink-fill-hover: #34312b;
+  --on-fill: #ffffff;
+  --on-fill-dim: #cfc9bd;
 
-  --accent: oklch(54% 0.15 240);
-  --accent-strong: oklch(42% 0.14 240);
-  --flag: oklch(52% 0.16 28);
-  --flag-wash: oklch(95% 0.045 28); /* (new) */
-  --ok: oklch(50% 0.14 152); /* (new) */
-  --ok-wash: oklch(95% 0.06 152); /* (new) */
+  /* the one accent: the button that starts the work. Its ink is dark, because white on
+     this green is under 3:1 */
+  --accent: #2dbe60;
+  --accent-hover: #26a953;
+  --on-accent: #04260f;
+  /* green that can carry text */
+  --accent-strong: #17703a;
 
-  /* (new) the AWS Startups card hover: a soft cyan-blue halo, never a fade */
-  --glow-line: oklch(78% 0.11 230);
-  --glow: 0 0 0 1px oklch(78% 0.11 230 / 0.45), 0 18px 40px oklch(70% 0.08 240 / 0.12);
+  --link: #1d4ed8;
+  --focus: #1d4ed8;
 
-  /* (new) the cursor's light. On a surface: the sheen it lays where it lands, the shade
-     it leaves opposite, and the glow gathering inside the edge nearest it. On the page:
-     the disc of light behind every surface, the band's cyan running out to its violet.
-     Each alpha is the most that light ever reaches; the sheen's is the low one because
-     that layer crosses the card's text, while the edge glow is spent inside the padding */
-  --sheen: oklch(99% 0.02 230 / 0.14);
-  --sheen-0: oklch(99% 0.02 230 / 0);
-  --shade: oklch(52% 0.05 255 / 0.1);
-  --shade-0: oklch(52% 0.05 255 / 0);
-  --edge: oklch(74% 0.13 225 / 0.7);
-  --edge-hot: oklch(90% 0.09 215 / 0.95);
-  --glow-core: oklch(84% 0.1 220 / 0.5);
-  --glow-edge: oklch(84% 0.09 285 / 0.2);
-  --glow-none: oklch(84% 0.09 285 / 0);
+  --flag: #b23a0e;
+  --flag-wash: #fbe3d9;
+  --ok: #17703a;
+  --ok-wash: #ddf5e3;
 
-  /* (new) how a concept stands, on the dashboard's lecture bars: its last answer was right,
-     it was wrong, or it has not been started. Checked with the dataviz palette validator:
-     --ok beside --flag sits 4 apart for a deuteranope, and this pair sits 15 apart, with
-     both fills at 3:1 or better on the card */
-  --mastery-right: oklch(62% 0.13 152);
-  --mastery-weak: oklch(46% 0.17 28);
-  --mastery-track: oklch(92% 0.01 250);
+  /* how a concept stands, on the dashboard's path: its last answer was right, it was wrong,
+     or it has not been started. The two fills are 3:1 on the card and the page, and each is
+     always paired with its words and an icon */
+  --mastery-right: #2a9e53;
+  --mastery-weak: #dd6630;
+  --mastery-track: #ddd6c7;
 
-  --shadow-nav: 0 1px 0 oklch(100% 0 0 / 0.7) inset, 0 10px 30px oklch(30% 0.04 250 / 0.08);
-  --shadow-card: 0 1px 0 oklch(100% 0 0 / 0.8) inset, 0 8px 24px oklch(30% 0.03 250 / 0.06);
-  --shadow-lift: 0 1px 0 oklch(100% 0 0 / 0.9) inset, 0 18px 40px oklch(30% 0.04 250 / 0.12);
+  /* the six tints a lecture's icon chip and a course tile take: a soft ground and the ink
+     drawn on it, each pair over 4.5:1 */
+  --tint-1-bg: #dce8ff;
+  --tint-1-ink: #1d4ed8;
+  --tint-2-bg: #ffe1d2;
+  --tint-2-ink: #b03a0b;
+  --tint-3-bg: #ffedb8;
+  --tint-3-ink: #7a5100;
+  --tint-4-bg: #d3f3ee;
+  --tint-4-ink: #0f6b64;
+  --tint-5-bg: #ffdde6;
+  --tint-5-ink: #b0113a;
+  --tint-6-bg: #ddf5e3;
+  --tint-6-ink: #15703a;
 
-  --glass: oklch(100% 0 0 / 0.62);
-  --glass-line: oklch(100% 0 0 / 0.55);
+  /* the one shadow, for things that sit on the page: cards and the current pill */
+  --shadow-card: 0 1px 2px rgb(40 30 10 / 0.06), 0 8px 24px rgb(40 30 10 / 0.06);
+  --shadow-lift: 0 1px 2px rgb(40 30 10 / 0.08), 0 14px 32px rgb(40 30 10 / 0.1);
 
-  /* header wash that dissolves into the page white, plus the blobs that sit in it */
-  --band: linear-gradient(180deg,
-    oklch(93% 0.07 218) 0%,
-    oklch(95% 0.05 250) 32%,
-    oklch(96% 0.04 12) 58%,
-    oklch(99.2% 0.004 250 / 0) 100%);
-  --blob-0: oklch(86% 0.11 218);
-  --blob-1: oklch(88% 0.09 280);
-  --blob-2: oklch(90% 0.08 12);
-  --blob-3: oklch(91% 0.07 152);
-  --shine: linear-gradient(180deg, oklch(100% 0 0 / 0.45), oklch(100% 0 0 / 0));
+  /* a diagram stays on light paper in both themes: mermaid draws it once, in these
+     colours (pages/Diagram.tsx holds the same values as hex) */
+  --diagram-paper: #ffffff;
+  --diagram-ink: #46423a;
 
-  /* course tile washes, keyed by course id modulo five, drawn from the band's own hues */
-  --wash-0: linear-gradient(160deg, oklch(93% 0.07 218), oklch(96% 0.04 265));
-  --wash-1: linear-gradient(160deg, oklch(95% 0.05 265), oklch(96% 0.05 12));
-  --wash-2: linear-gradient(160deg, oklch(95% 0.06 152), oklch(94% 0.06 218));
-  --wash-3: linear-gradient(160deg, oklch(95% 0.06 12), oklch(96% 0.05 80));
-  --wash-4: linear-gradient(160deg, oklch(96% 0.05 80), oklch(95% 0.05 152));
-
-  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display',
-    'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --font-sans: 'Figtree', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Fraunces Variable', 'Fraunces', Georgia, 'Times New Roman', serif;
 
   --radius: 20px;
-  --radius-panel: 24px;
-  --radius-nav: 22px;
+  --radius-panel: 28px;
+  --radius-control: 12px;
   --radius-pill: 999px;
 
   --wrap: 1120px;
-  --gutter: clamp(20px, 4vw, 48px);
+  --gutter: clamp(16px, 4vw, 32px);
 
-  --motion: 220ms;
-  /* (new) long enough for the eye to follow a selection travelling across a control */
-  --motion-slide: 340ms;
+  --motion: 200ms;
+  /* the nav's pill sliding to the current page */
+  --motion-slide: 260ms;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+
+    --page: #171613;
+    --card: #22201c;
+    --sunken: #2a2823;
+    --panel: #3b2a20;
+    --line: #38342c;
+    --line-dashed: #57514a;
+
+    --ink: #f3efe6;
+    --ink-soft: #d6d0c3;
+    --ink-dim: #b5ae9f;
+    --ink-fill: #f3efe6;
+    --ink-fill-hover: #dcd6ca;
+    --on-fill: #1c1b18;
+    --on-fill-dim: #4a463e;
+
+    --accent: #3ccb6c;
+    --accent-hover: #5ad583;
+    --on-accent: #04260f;
+    --accent-strong: #74db97;
+
+    --link: #93b4ff;
+    --focus: #93b4ff;
+
+    --flag: #f7a27a;
+    --flag-wash: #3a2219;
+    --ok: #74db97;
+    --ok-wash: #173d24;
+
+    --mastery-right: #3ccb6c;
+    --mastery-weak: #f08a5d;
+    --mastery-track: #45403a;
+
+    --tint-1-bg: #1e2c4d;
+    --tint-1-ink: #a9c4ff;
+    --tint-2-bg: #4a2617;
+    --tint-2-ink: #ffb58f;
+    --tint-3-bg: #45370f;
+    --tint-3-ink: #f5cf62;
+    --tint-4-bg: #12403a;
+    --tint-4-ink: #7fe0d1;
+    --tint-5-bg: #4a1a28;
+    --tint-5-ink: #ff9db6;
+    --tint-6-bg: #173d24;
+    --tint-6-ink: #86e3a3;
+
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-lift: 0 1px 2px rgb(0 0 0 / 0.4), 0 12px 28px rgb(0 0 0 / 0.35);
+  }
+}
+
+/* the same dark set, when the toggle picked it */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --page: #171613;
+  --card: #22201c;
+  --sunken: #2a2823;
+  --panel: #3b2a20;
+  --line: #38342c;
+  --line-dashed: #57514a;
+
+  --ink: #f3efe6;
+  --ink-soft: #d6d0c3;
+  --ink-dim: #b5ae9f;
+  --ink-fill: #f3efe6;
+  --ink-fill-hover: #dcd6ca;
+  --on-fill: #1c1b18;
+  --on-fill-dim: #4a463e;
+
+  --accent: #3ccb6c;
+  --accent-hover: #5ad583;
+  --on-accent: #04260f;
+  --accent-strong: #74db97;
+
+  --link: #93b4ff;
+  --focus: #93b4ff;
+
+  --flag: #f7a27a;
+  --flag-wash: #3a2219;
+  --ok: #74db97;
+  --ok-wash: #173d24;
+
+  --mastery-right: #3ccb6c;
+  --mastery-weak: #f08a5d;
+  --mastery-track: #45403a;
+
+  --tint-1-bg: #1e2c4d;
+  --tint-1-ink: #a9c4ff;
+  --tint-2-bg: #4a2617;
+  --tint-2-ink: #ffb58f;
+  --tint-3-bg: #45370f;
+  --tint-3-ink: #f5cf62;
+  --tint-4-bg: #12403a;
+  --tint-4-ink: #7fe0d1;
+  --tint-5-bg: #4a1a28;
+  --tint-5-ink: #ff9db6;
+  --tint-6-bg: #173d24;
+  --tint-6-ink: #86e3a3;
+
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-lift: 0 1px 2px rgb(0 0 0 / 0.4), 0 12px 28px rgb(0 0 0 / 0.35);
 }

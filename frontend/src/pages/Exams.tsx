@@ -1,42 +1,32 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
-import { api, type Exam, type ExamInput, type ExamPlan, type Lecture } from '../api'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { api, type Exam, type ExamInput, type Lecture } from '../api'
 import { dayLabel } from '../dates'
+import Icon from '../icons'
+import { coverage, dueClause, headline, leadExam, outlook, todayLine, when } from '../plan'
 import { plural } from '../plural'
 
-/* when the exam is, counted from today */
-function when(exam: Exam): string {
-  if (exam.status === 'today') return 'today'
-  if (exam.status === 'past' || !exam.plan) return 'passed'
-  return exam.plan.daysLeft === 1 ? 'tomorrow' : `in ${exam.plan.daysLeft} days`
-}
+/* The head of the dashboard: the nearest exam, what today holds for it in one line, the
+   button that starts the work, and the course's other exams under it. Adding, moving or
+   removing an exam replans the course on the server, so the page's other numbers are told
+   to reload.
 
-/* what today holds for the exam: the topics to start and the reviews to do */
-function todayLine(plan: ExamPlan): string {
-  const parts = [
-    plan.newToday > 0 ? plural(plan.newToday, 'new topic') : null,
-    plan.reviewsToday > 0 ? plural(plan.reviewsToday, 'review') : null,
-  ].filter((part): part is string => part !== null)
-  return parts.length > 0 ? `Today: ${parts.join(' and ')}` : 'Nothing due for this exam today'
-}
-
-/* where the plan stands: how much is started, and when starting topics gives way to review */
-function outlook(plan: ExamPlan): string {
-  if (plan.topics === 0) return 'Its lectures have no topics with questions yet.'
-  if (plan.topicsLeft === 0) return 'Every topic is started. Reviewing until the exam.'
-  const review = plan.reviewDays > 0 ? `, then ${plural(plan.reviewDays, 'day')} of review` : ''
-  return `${plan.topics - plan.topicsLeft} of ${plural(plan.topics, 'topic')} started. New topics through ${dayLabel(plan.lastNewDay)}${review}.`
-}
-
-/* A course's exams, and for each one still ahead what today holds for it. Adding, moving or
-   removing an exam replans the course on the server, so the page's other numbers are told to
-   reload. */
-export default function Exams({ courseId, onChange }: { courseId: number; onChange: () => void }) {
+   dueToday is the course's due count, empty says whether the course has no concepts yet
+   (null while the page is still finding out), start is the page's main button and children
+   are the figures that sit under the buttons. */
+export default function Exams({ courseId, onChange, dueToday = 0, empty = false, start, children }: {
+  courseId: number
+  onChange: () => void
+  dueToday?: number
+  empty?: boolean | null
+  start?: ReactNode
+  children?: ReactNode
+}) {
   const [exams, setExams] = useState<Exam[] | null>(null)
   const [lectures, setLectures] = useState<Lecture[]>([])
   const [error, setError] = useState<string | null>(null)
   // the exam whose form is open, 'new' for the add form, or null with no form open
   const [editing, setEditing] = useState<number | 'new' | null>(null)
-  // closing a form unmounts the control the caret sat on; the heading takes it
+  // closing a form unmounts the control the caret sat on; the headline takes it
   const heading = useRef<HTMLHeadingElement>(null)
   const landOnHeading = useRef(false)
 
@@ -73,63 +63,132 @@ export default function Exams({ courseId, onChange }: { courseId: number; onChan
     onChange()
   }
 
+  // until the exams (and whether the course has anything in it) are known, a skeleton the
+  // shape of what lands
+  if ((exams === null && error === null) || empty === null) return <PlanSkeleton />
+
+  const lead = exams ? leadExam(exams) : null
+  const others = (exams ?? []).filter(exam => exam !== lead)
   // a new exam starts with the lectures no exam covers yet: the midterm takes what is uploaded,
   // and a later final takes what came after it
   const covered = new Set((exams ?? []).flatMap(exam => exam.lectureIds))
 
+  const form = (exam: Exam) => (
+    <ExamForm lectures={lectures}
+      initial={{ name: exam.name, date: exam.date, lectureIds: exam.lectureIds }}
+      onSave={body => api.updateExam(exam.id, body).then(changed)}
+      onDelete={() => api.deleteExam(exam.id).then(changed)}
+      onCancel={close} setError={setError} />
+  )
+
   return (
-    <section className="dash-card" aria-labelledby="exams-title">
-      <div className="dash-head">
-        <h2 id="exams-title" className="dash-title" tabIndex={-1} ref={heading}>Exams</h2>
+    <section className="plan" aria-labelledby="plan-title">
+      {lead ? (
+        <p className="plan-kicker">
+          <Icon name="calendar" />
+          <b>{lead.name}</b>
+          <span>{dayLabel(lead.date)} · {when(lead)}</span>
+          {editing === null && (
+            <button className="btn btn--ghost btn--micro" aria-label={`Edit ${lead.name}`}
+              onClick={() => setEditing(lead.id)}>Edit</button>
+          )}
+        </p>
+      ) : exams && !empty && (
+        <p className="plan-kicker"><Icon name="calendar" /><span>{exams.length === 0 ? 'No exam yet' : 'No exam ahead'}</span></p>
+      )}
+      <h2 id="plan-title" className="plan-title" tabIndex={-1} ref={heading}>{headline(lead, dueToday, empty)}</h2>
+      {exams && <Lede lead={lead} exams={exams} lectureCount={lectures.length} dueToday={dueToday} empty={empty} />}
+      {error && <p className="alert" role="alert">{error}</p>}
+      <div className="plan-actions">
+        {start}
         {exams && editing === null && (
-          <button className="btn btn--secondary btn--micro" onClick={() => setEditing('new')}>Add an exam</button>
+          <button className="btn btn--secondary btn--go" onClick={() => setEditing('new')}>Add an exam</button>
         )}
       </div>
-      {error && <p className="alert" role="alert">{error}</p>}
-      {exams && exams.length === 0 && editing === null && (
-        <p className="empty">Add an exam and each day's topics are paced to its date: a few a day while it is far off, more as it gets close.</p>
-      )}
       {editing === 'new' && (
         <ExamForm lectures={lectures}
           initial={{ name: '', date: '', lectureIds: lectures.filter(l => !covered.has(l.id)).map(l => l.id) }}
           onSave={body => api.createExam(courseId, body).then(changed)}
           onCancel={close} setError={setError} />
       )}
-      {exams && exams.length > 0 && (
-        <ul className="exam-list">
-          {exams.map(exam => (
-            <li key={exam.id} className={`exam exam--${exam.status}`}>
-              {editing === exam.id ? (
-                <ExamForm lectures={lectures}
-                  initial={{ name: exam.name, date: exam.date, lectureIds: exam.lectureIds }}
-                  onSave={body => api.updateExam(exam.id, body).then(changed)}
-                  onDelete={() => api.deleteExam(exam.id).then(changed)}
-                  onCancel={close} setError={setError} />
-              ) : (
-                <>
-                  <div className="exam-head">
-                    <h3>{exam.name}</h3>
-                    <p className="exam-when">{dayLabel(exam.date)} · {when(exam)}</p>
-                    {editing === null && (
-                      <button className="btn btn--ghost btn--micro" aria-label={`Edit ${exam.name}`}
-                        onClick={() => setEditing(exam.id)}>Edit</button>
+      {lead && editing === lead.id && form(lead)}
+      {children}
+      {others.length > 0 && (
+        <div className="other-exams">
+          <h3>{lead ? 'Other exams' : 'Past exams'}</h3>
+          <ul className="exam-list">
+            {others.map(exam => (
+              <li key={exam.id} className={`exam exam--${exam.status}`}>
+                {editing === exam.id ? form(exam) : (
+                  <>
+                    <div className="exam-head">
+                      <p className="exam-name">{exam.name}</p>
+                      <p className="exam-when">{dayLabel(exam.date)} · {when(exam)}</p>
+                      {editing === null && (
+                        <button className="btn btn--ghost btn--micro" aria-label={`Edit ${exam.name}`}
+                          onClick={() => setEditing(exam.id)}>Edit</button>
+                      )}
+                    </div>
+                    {exam.plan ? (
+                      <p className="exam-outlook">
+                        {todayLine(exam.plan)}. {outlook(exam.plan)} {coverage(exam, lectures.length)}
+                      </p>
+                    ) : (
+                      <p className="exam-outlook">{exam.status === 'today' ? 'The exam is today.' : 'This exam has passed.'}</p>
                     )}
-                  </div>
-                  {exam.plan ? (
-                    <>
-                      <p className="exam-today">{todayLine(exam.plan)}</p>
-                      <p className="exam-outlook">{outlook(exam.plan)} Covers {plural(exam.lectureIds.length, 'lecture')}.</p>
-                    </>
-                  ) : (
-                    <p className="exam-outlook">{exam.status === 'today' ? 'The exam is today.' : 'This exam has passed.'}</p>
-                  )}
-                </>
-              )}
-            </li>
-          ))}
-        </ul>
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </section>
+  )
+}
+
+/* the line under the headline: how the day's work adds up, and how the plan runs to the exam */
+function Lede({ lead, exams, lectureCount, dueToday, empty }: {
+  lead: Exam | null
+  exams: Exam[]
+  lectureCount: number
+  dueToday: number
+  empty: boolean
+}) {
+  if (empty) {
+    return <p className="lede plan-lede">Upload a lecture PDF in the bank. Its concepts show up here, and an exam paces each day's topics to its date.</p>
+  }
+  if (!lead) {
+    return (
+      <p className="lede plan-lede">
+        {exams.length === 0
+          ? 'Add an exam and each day\'s topics are paced to its date: a few a day while it is far off, more as it gets close.'
+          : 'Every exam here has passed. Add the next one and each day\'s topics are paced to its date.'}
+      </p>
+    )
+  }
+  const due = dueClause(lead, dueToday)
+  return (
+    <p className="lede plan-lede">
+      {due.kind === 'sum' && <>That makes <b>{due.due} due today</b>. </>}
+      {due.kind === 'course' && <><b>{due.due} due today</b> across the course. </>}
+      {lead.plan && <>{outlook(lead.plan)} {coverage(lead, lectureCount)}</>}
+    </p>
+  )
+}
+
+/* the head's shape while the exams load: kicker, headline, lede, buttons, figures */
+function PlanSkeleton() {
+  return (
+    <div className="plan" aria-busy="true">
+      <span className="visually-hidden">Loading the exam plan…</span>
+      <span className="skeleton plan-sk-kicker" />
+      <span className="skeleton plan-sk-title" />
+      <span className="skeleton plan-sk-line" />
+      <span className="skeleton plan-sk-line plan-sk-line--short" />
+      <span className="skeleton plan-sk-button" />
+      <span className="skeleton plan-sk-figs" />
+    </div>
   )
 }
 

@@ -3,14 +3,15 @@ import { useEffect, useId, useState } from 'react'
 type Mermaid = (typeof import('mermaid'))['default']
 
 /* Mermaid's base theme is the one that takes colours, and it takes them as hex: these are
-   styles/tokens.css converted from oklch, so a diagram is drawn in the page's own ink and
-   lines instead of mermaid's black note boxes. */
+   the light values of styles/tokens.css, so a diagram is drawn in the page's own ink and
+   lines instead of mermaid's black note boxes. Mermaid draws once, so a diagram keeps
+   these on its light paper (--diagram-paper) in the dark theme too. */
 const CARD = '#ffffff' // --card
-const SUNKEN = '#f2f6fb' // --sunken
-const LINE_DASHED = '#c5cbd2' // --line-dashed
-const INK = '#11171d' // --ink
-const INK_SOFT = '#383e44' // --ink-soft
-const INK_DIM = '#595e64' // --ink-dim
+const SUNKEN = '#f6f3ec' // --page
+const LINE_DASHED = '#c9c1b0' // --line-dashed
+const INK = '#1c1b18' // --ink
+const INK_SOFT = '#46423a' // --ink-soft
+const INK_DIM = '#5b574d' // --ink-dim
 
 /* mermaid is by far the heaviest thing the app ships and only a question with a diagram
    needs it, so it loads with the first diagram on screen, once */

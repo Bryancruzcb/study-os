@@ -162,8 +162,8 @@ export default function BankRoute() {
         <section className="bank-generate" aria-labelledby="bank-generate-title">
           <h2 id="bank-generate-title" className="bank-generate-title">Generate more questions</h2>
           <p className="lede">
-            Pick concepts, how many to add, and the types. New questions stay under the concepts
-            you checked and use only what those decks already taught.
+            New questions stay under the concepts you checked and use only what those decks
+            already taught.
           </p>
           <div className="bank-generate-row">
             <label className="field">
