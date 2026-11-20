@@ -10,8 +10,11 @@ import EvalPage from './pages/EvalPage'
 import HomePage from './pages/HomePage'
 import QuizPage from './pages/QuizPage'
 import StudyPage from './pages/StudyPage'
+import { useFileDropGuard } from './shell/fileDrop'
 
 export default function App() {
+  // a file dropped where nothing takes it must not replace the app; a course page takes drops
+  useFileDropGuard()
   return (
     <BrowserRouter>
       <AuthGate>

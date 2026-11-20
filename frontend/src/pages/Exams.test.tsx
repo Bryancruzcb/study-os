@@ -100,7 +100,7 @@ test('a course with nothing in it says so, and until that is known the head is a
   expect(document.querySelector('.plan[aria-busy="true"]')).toBeInTheDocument()
   rerender(<Exams courseId={1} onChange={() => {}} empty />)
   expect(await screen.findByRole('heading', { name: 'No concepts yet.' })).toBeInTheDocument()
-  expect(screen.getByText(/^Upload a lecture PDF in the bank/)).toBeInTheDocument()
+  expect(screen.getByText(/^Add a lecture in the bank/)).toBeInTheDocument()
 })
 
 test('adding an exam starts with the lectures no exam covers yet, and saves what was picked', async () => {

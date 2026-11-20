@@ -92,7 +92,7 @@ test('the upload control sits in the course head and refreshes the bank and the 
   const bankCalls = vi.mocked(api.bank).mock.calls.length
   const overviewCalls = vi.mocked(api.overview).mock.calls.length
   const input = container.querySelector<HTMLInputElement>('input[type="file"]')!
-  expect(input.closest('label')).toHaveTextContent('Upload a lecture PDF')
+  expect(input.closest('label')).toHaveTextContent('Add a lecture')
   expect(input.closest('.course-head-slot')).not.toBeNull()
   await userEvent.upload(input, new File(['%PDF-1.4'], 'week1.pdf', { type: 'application/pdf' }))
   await waitFor(() => expect(api.upload).toHaveBeenCalledWith(1, expect.any(File)))
@@ -136,9 +136,9 @@ test('while the ingest runs the control says so and takes no second file', async
   expect(input).toBeDisabled()
   expect(screen.getByRole('status')).toHaveTextContent('Uploading…')
   land({ id: 2, filename: 'week1.pdf', status: 'INGESTED', errorMessage: null })
-  await waitFor(() => expect(input.closest('label')).toHaveTextContent('Upload a lecture PDF'))
+  await waitFor(() => expect(input.closest('label')).toHaveTextContent('Add a lecture'))
   expect(input).toBeEnabled()
-  expect(screen.getByRole('status')).toHaveTextContent('Upload a lecture PDF')
+  expect(screen.getByRole('status')).toHaveTextContent('Add a lecture')
 })
 
 test('a deep link scrolls the open concept into view in the list', async () => {
@@ -177,7 +177,7 @@ test('an ingest in flight survives leaving the bank tab, and the list follows wh
   await screen.findByRole('link', { name: /Routing/ })
   expect(screen.getByText('3 concepts')).toBeInTheDocument()
   expect(vi.mocked(api.overview).mock.calls.length).toBe(overviewCalls + 1)
-  expect(file().closest('label')).toHaveTextContent('Upload a lecture PDF')
+  expect(file().closest('label')).toHaveTextContent('Add a lecture')
   expect(file()).toBeEnabled()
 })
 
@@ -214,7 +214,7 @@ test('polls until a pending ingest finishes', async () => {
   await userEvent.upload(input, new File(['%PDF-1.4'], 'week1.pdf', { type: 'application/pdf' }))
   await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Ingesting…'))
   await waitFor(() => expect(api.material).toHaveBeenCalled(), { timeout: 8000 })
-  await waitFor(() => expect(input.closest('label')).toHaveTextContent('Upload a lecture PDF'), { timeout: 8000 })
+  await waitFor(() => expect(input.closest('label')).toHaveTextContent('Add a lecture'), { timeout: 8000 })
   await waitFor(() => expect(vi.mocked(api.bank).mock.calls.length).toBe(bankCalls + 1), { timeout: 8000 })
 })
 
@@ -238,6 +238,30 @@ test('the upload hint says a same-name upload replaces', async () => {
   const { container } = renderBank('/courses/1/bank')
   await screen.findByRole('link', { name: /TCP handshake/ })
   expect(container.querySelector('.hint')).toHaveTextContent('same name replaces')
+})
+
+test('the picker takes every readable kind of file, several at a time, and sends them in turn', async () => {
+  type Upload = Awaited<ReturnType<typeof api.upload>>
+  let landFirst!: (m: Upload) => void
+  vi.mocked(api.upload)
+    .mockReturnValueOnce(new Promise<Upload>(resolve => { landFirst = resolve }))
+    .mockResolvedValueOnce({ id: 3, filename: 'notes.docx', status: 'INGESTED', errorMessage: null })
+  const { container } = renderBank('/courses/1/bank')
+  await screen.findByRole('link', { name: /TCP handshake/ })
+  const input = container.querySelector<HTMLInputElement>('input[type="file"]')!
+  expect(input).toHaveAttribute('multiple')
+  for (const kind of ['.pdf', '.pptx', '.docx', '.png', '.jpg', '.html', '.txt', '.md']) {
+    expect(input.accept.split(',')).toContain(kind)
+  }
+  const deck = new File(['PK'], 'week2.pptx')
+  const notes = new File(['PK'], 'notes.docx')
+  await userEvent.upload(input, [deck, notes])
+  await waitFor(() => expect(api.upload).toHaveBeenCalledTimes(1))
+  expect(api.upload).toHaveBeenCalledWith(1, deck)
+  expect(container.querySelector('.hint')).toHaveTextContent('week2.pptx · 1 more after it')
+  landFirst({ id: 2, filename: 'week2.pptx', status: 'INGESTED', errorMessage: null })
+  await waitFor(() => expect(api.upload).toHaveBeenLastCalledWith(1, notes))
+  await waitFor(() => expect(input.closest('label')).toHaveTextContent('Add a lecture'))
 })
 
 test('generate more asks the API for the checked concepts and refreshes the bank', async () => {

@@ -6,7 +6,8 @@ Claude grades my short answers against a rubric, I overrule it when it is wrong,
 every override is counted. The app reports how often the grader and I disagreed, so
 the number it publishes about its own grader is one I can check.
 
-Around that: I upload a lecture PDF, get back concepts and questions cited to their
+Around that: I drop in a lecture (a PDF, a PowerPoint deck, Word notes, a photo of the
+board or a saved web page), get back concepts and questions cited to their
 source pages, then study them daily with spaced repetition, paced to my exam dates. When
 I want to test myself on everything at once, a quiz shuffles every question from every
 topic together and shows, after each answer, why each option is right or wrong according
@@ -88,6 +89,13 @@ right".*
 ## How it works
 
 - Spring Boot backend (Java 21), React and TypeScript frontend (Vite), Postgres.
+- Any file becomes a PDF first (`LectureFile`), so everything after it works on one
+  format. A PDF passes through as it is. PowerPoint slides are drawn one to a page with
+  Apache POI, so slide N is still page N. Pictures (JPEG, PNG, GIF, BMP, TIFF, WebP) are
+  one page each, turned upright from a phone's EXIF tag. Word files, saved web pages and
+  plain text or Markdown are set as pages of text. The bytes decide what a file is, not
+  its extension. Formats it cannot read (HEIC, old .ppt/.doc, spreadsheets, Keynote)
+  come back FAILED with a sentence on how to export them, without a call to Claude.
 - Ingest: the PDF goes to Claude as a document block, and a structured-output schema
   returns concepts and questions with their source pages, and with each question its
   explanation, a note for each option and a diagram where one helps. The response is
@@ -239,10 +247,13 @@ The static project page at https://bryancruzcb.github.io/study-os/ is published 
 The steps to stand up your own copy on Render with Neon Postgres, plus invite sharing and
 the free-tier cold-start quirks, are in [docs/DEPLOY.md](docs/DEPLOY.md).
 
-Uploads must be PDFs. Anything else is refused on its first bytes, before the upload
-reaches Claude, so uploading a PowerPoint deck costs nothing and comes back telling me to
-export it first. Files are capped at 32MB. Upload returns as soon as the file is stored;
-extraction runs in the background and the bank polls until the lecture is ready or failed.
+Uploads can be PDF, PowerPoint (.pptx), Word (.docx), images, web pages (.html) or
+plain text and Markdown; each is turned into a PDF on the server before it reaches
+Claude. A format it cannot read is refused on its first bytes, so it costs nothing and
+comes back saying how to export it. Files are capped at 32MB. Several files can be
+picked or dragged onto any course page at once; each becomes its own lecture, and they
+upload one after another. Upload returns as soon as the file is stored; extraction runs
+in the background and the page polls until the lecture is ready or failed.
 
 A lecture can be deleted from the bank. Uploading again under the same filename replaces
 the old lecture (and its concepts, questions, and review state); a different hash under a

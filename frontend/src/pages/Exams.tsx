@@ -12,10 +12,12 @@ import { plural } from '../plural'
 
    dueToday is the course's due count, empty says whether the course has no concepts yet
    (null while the page is still finding out), start is the page's main button and children
-   are the figures that sit under the buttons. */
-export default function Exams({ courseId, onChange, dueToday = 0, empty = false, start, children }: {
+   are the figures that sit under the buttons. lecturesLanded moves when an upload finishes:
+   a new lecture joins the nearest exam ahead, so the exams and lectures load again. */
+export default function Exams({ courseId, onChange, lecturesLanded = 0, dueToday = 0, empty = false, start, children }: {
   courseId: number
   onChange: () => void
+  lecturesLanded?: number
   dueToday?: number
   empty?: boolean | null
   start?: ReactNode
@@ -50,7 +52,7 @@ export default function Exams({ courseId, onChange, dueToday = 0, empty = false,
     // load sets state only after its await; the rule cannot see through the callback
     // oxlint-disable-next-line react/set-state-in-effect
     load()
-  }, [load])
+  }, [load, lecturesLanded])
 
   function close() {
     landOnHeading.current = true
@@ -156,7 +158,7 @@ function Lede({ lead, exams, lectureCount, dueToday, empty }: {
   empty: boolean
 }) {
   if (empty) {
-    return <p className="lede plan-lede">Upload a lecture PDF in the bank. Its concepts show up here, and an exam paces each day's topics to its date.</p>
+    return <p className="lede plan-lede">Add a lecture in the bank, or drop its file on this page. Its concepts show up here, and an exam paces each day's topics to its date.</p>
   }
   if (!lead) {
     return (

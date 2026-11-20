@@ -43,6 +43,7 @@ const PATHS = {
   'chevron-right': <><path d="m9 18 6-6-6-6" /></>,
   'chevron-left': <><path d="m15 18-6-6 6-6" /></>,
   'plus': <><path d="M5 12h14" /><path d="M12 5v14" /></>,
+  'upload': <><path d="M12 3v12" /><path d="m17 8-5-5-5 5" /><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /></>,
 } satisfies Record<string, JSX.Element>
 
 export type IconName = keyof typeof PATHS

@@ -4,6 +4,7 @@ import { NavLink, Outlet, useLocation, useOutletContext, useSearchParams } from 
 import { api, type ConceptWithQuestions, type Lecture } from '../api'
 import { plural } from '../plural'
 import type { CourseContext } from '../shell/CourseLayout'
+import { LECTURE_ACCEPT, LECTURE_KINDS, type IngestPhase } from '../uploads'
 
 export interface BankContext extends CourseContext {
   bank: ConceptWithQuestions[] | null
@@ -84,9 +85,9 @@ export default function BankRoute() {
     list.current?.querySelector<HTMLElement>('.crow.is-current')?.scrollIntoView?.({ block: 'nearest' })
   }, [bank, pathname])
 
-  function onUpload(file: File) {
+  function onUpload(files: readonly File[]) {
     setOwnError(null)
-    return ingest.upload(file)
+    ingest.upload(files)
   }
 
   async function onDeleteLecture(id: number) {
@@ -133,19 +134,23 @@ export default function BankRoute() {
       {slot && createPortal(
         <>
           <label className="btn upload">
-            {/* the extension keeps a .pptx out of the default picker; the mime type alone
-                does not, because the OS file dialog matches on either */}
-            <input className="visually-hidden" type="file" accept=".pdf,application/pdf" disabled={ingest.uploading}
+            {/* several at once: each file becomes its own lecture, uploaded one after another.
+                Files dropped anywhere on the course page join the same queue */}
+            <input className="visually-hidden" type="file" accept={LECTURE_ACCEPT} multiple disabled={ingest.uploading}
               onChange={e => {
-                const file = e.target.files?.[0]
+                const files = Array.from(e.target.files ?? [])
                 e.target.value = ''
-                if (file) onUpload(file)
+                if (files.length > 0) onUpload(files)
               }} />
             {/* a live region: the swap to Ingesting… and back is the only sign that an ingest
                 started or finished, and a text swap on a disabled control is otherwise silent */}
-            <span role="status">{ingest.phase === 'uploading' ? 'Uploading…' : ingest.uploading ? 'Ingesting…' : 'Upload a lecture PDF'}</span>
+            <span role="status">{uploadLabel(ingest.phase)}</span>
           </label>
-          <small className="hint">PDF only - same name replaces</small>
+          <small className="hint">
+            {ingest.current
+              ? `${ingest.current}${ingest.waiting > 0 ? ` · ${ingest.waiting} more after it` : ''}`
+              : `${LECTURE_KINDS} · or drop files anywhere · same name replaces`}
+          </small>
         </>,
         slot,
       )}
@@ -234,6 +239,15 @@ export default function BankRoute() {
       </div>
     </>
   )
+}
+
+function uploadLabel(phase: IngestPhase): string {
+  switch (phase) {
+    case 'uploading': return 'Uploading…'
+    case 'processing': return 'Ingesting…'
+    case 'waiting': return 'Waiting…'
+    case 'idle': return 'Add a lecture'
+  }
 }
 
 /* one lecture with a delete that arms first, matching the exam form's confirm pattern */

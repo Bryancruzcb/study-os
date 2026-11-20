@@ -24,7 +24,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -63,8 +62,6 @@ public class IngestService {
         Pattern.compile("(?:(?:flowchart|graph)\\s+(?:TD|TB|LR|RL|BT)|sequenceDiagram|stateDiagram-v2)\\s*");
     private static final Pattern DIAGRAM_BANNED =
         Pattern.compile("%%\\{|\\bclick\\b|<script|href|javascript:", Pattern.CASE_INSENSITIVE);
-    private static final byte[] PDF_MAGIC = {'%', 'P', 'D', 'F', '-'};
-    private static final byte[] ZIP_MAGIC = {'P', 'K', 0x03, 0x04};
 
     public IngestService(CourseRepo courseRepo, MaterialRepo materialRepo, ConceptRepo conceptRepo,
                          QuestionRepo questionRepo, ReviewStateRepo reviewStateRepo, AttemptRepo attemptRepo,
@@ -90,21 +87,22 @@ public class IngestService {
      * The HTTP upload path uses {@link #accept} so extraction can finish in the background.
      */
     @Transactional
-    public Material ingest(Long courseId, String filename, byte[] pdfBytes) {
-        Prepared prepared = prepare(courseId, filename, pdfBytes);
+    public Material ingest(Long courseId, String filename, byte[] upload) {
+        Prepared prepared = prepare(courseId, filename, upload);
         if (prepared.next() != Next.RUN) return prepared.material();
-        return complete(prepared.material(), pdfBytes);
+        return complete(prepared.material(), prepared.pdf());
     }
 
     /**
-     * Accept an upload: create or reuse a Material, refuse non-PDFs immediately, and when
-     * extraction is needed publish {@link IngestRequested} after commit so the request returns PENDING.
+     * Accept an upload: create or reuse a Material, turn the file into a PDF or refuse it
+     * immediately, and when extraction is needed publish {@link IngestRequested} after commit so
+     * the request returns PENDING.
      */
     @Transactional
-    public Material accept(Long courseId, String filename, byte[] pdfBytes) {
-        Prepared prepared = prepare(courseId, filename, pdfBytes);
+    public Material accept(Long courseId, String filename, byte[] upload) {
+        Prepared prepared = prepare(courseId, filename, upload);
         if (prepared.next() == Next.RUN) {
-            events.publishEvent(new IngestRequested(prepared.material().id, pdfBytes));
+            events.publishEvent(new IngestRequested(prepared.material().id, prepared.pdf()));
         }
         return prepared.material();
     }
@@ -130,20 +128,24 @@ public class IngestService {
 
     private enum Next { DONE, RUN }
 
-    private record Prepared(Material material, Next next) {}
+    // pdf is the upload as a PDF when extraction has to run (RUN), and null otherwise
+    private record Prepared(Material material, Next next, byte[] pdf) {}
 
-    // Hash lookup, FAILED reuse, PDF guard. RUN means extraction still has to happen on this row.
-    private Prepared prepare(Long courseId, String filename, byte[] pdfBytes) {
-        String hash = sha256(pdfBytes);
+    // Hash lookup, FAILED reuse, conversion to PDF. RUN means extraction still has to happen on
+    // this row. The hash is of the file as uploaded, so a PDF hashes as it always did and the same
+    // deck uploaded twice is recognized before it is converted again.
+    private Prepared prepare(Long courseId, String filename, byte[] upload) {
+        String hash = sha256(upload);
         var existing = materialRepo.findByCourseIdAndFileHash(courseId, hash);
         // INGESTED is a no-op; PENDING is already being worked, so do not start a second job
         if (existing.isPresent() && existing.get().status != MaterialStatus.FAILED) {
             Material kept = existing.get();
-            // older lectures may lack stored bytes; a re-upload of the same PDF fills them in
-            if (materialPdfRepo.findById(kept.id).isEmpty()) {
-                keepPdf(kept.id, pdfBytes);
+            // older lectures may lack stored bytes; a re-upload of the same file fills them in
+            if (materialPdfRepo.findById(kept.id).isEmpty()
+                    && LectureFile.toPdf(upload, filename) instanceof LectureFile.Converted converted) {
+                keepPdf(kept.id, converted.pdf());
             }
-            return new Prepared(kept, Next.DONE);
+            return new Prepared(kept, Next.DONE, null);
         }
 
         // an updated PDF usually keeps its name: drop every other copy of that name in the course
@@ -170,25 +172,29 @@ public class IngestService {
             material.fileHash = hash;
         }
         material = materialRepo.save(material);
-        if (material.id != null) keepPdf(material.id, pdfBytes);
 
-        // The guard sits below the hash lookup, not above it, so a rejection travels the same
+        // The conversion sits below the hash lookup, not above it, so a refusal travels the same
         // FAILED-row contract as a provider failure: the bank page already renders errorMessage,
         // and re-uploading the same bad file reuses this row instead of tripping the course's unique fileHash.
-        String notPdf = notPdfMessage(pdfBytes, filename);
-        if (notPdf != null) {
-            material.status = MaterialStatus.FAILED;
-            material.errorMessage = notPdf;
-            return new Prepared(materialRepo.save(material), Next.DONE);
+        // Slides, documents, pictures and text become a PDF here; nothing below knows the difference.
+        final byte[] pdf;
+        switch (LectureFile.toPdf(upload, filename)) {
+            case LectureFile.Rejected rejected -> {
+                material.status = MaterialStatus.FAILED;
+                material.errorMessage = truncateForColumn(rejected.message());
+                return new Prepared(materialRepo.save(material), Next.DONE, null);
+            }
+            case LectureFile.Converted converted -> pdf = converted.pdf();
         }
+        if (material.id != null) keepPdf(material.id, pdf);
         try {
-            material.pageCount = pdfPageCount(pdfBytes);
+            material.pageCount = pdfPageCount(pdf);
         } catch (AiException e) {
             material.status = MaterialStatus.FAILED;
             material.errorMessage = truncateForColumn(e.getMessage());
-            return new Prepared(materialRepo.save(material), Next.DONE);
+            return new Prepared(materialRepo.save(material), Next.DONE, null);
         }
-        return new Prepared(material, Next.RUN);
+        return new Prepared(material, Next.RUN, pdf);
     }
 
     private Material complete(Material material, byte[] pdfBytes) {
@@ -325,34 +331,6 @@ public class IngestService {
     private static String truncateForColumn(String message) {
         if (message.length() <= ERROR_MESSAGE_MAX) return message;
         return message.substring(0, ERROR_MESSAGE_MAX - TRUNCATION_MARKER.length()) + TRUNCATION_MARKER;
-    }
-
-    // The upload goes to the provider as a PDF document block, so anything else costs a billed
-    // call and comes back as an opaque provider error. The bytes decide and the extension does
-    // not: a .pptx renamed to .pdf is exactly the upload this has to catch. Null means it is a PDF.
-    private static String notPdfMessage(byte[] bytes, String filename) {
-        if (startsWith(bytes, PDF_MAGIC)) return null;
-        if (startsWith(bytes, ZIP_MAGIC)) {
-            return "This looks like " + officeKind(filename) + ", not a PDF. Open it, Save As or "
-                + "Export to PDF, and upload that.";
-        }
-        return "This file is not a PDF. Study OS reads PDFs only, so export or print it to PDF "
-            + "and upload that.";
-    }
-
-    // The ZIP bytes already prove it is an Office file; the extension only names which one, and
-    // falls back to the family so the sentence still tells him what to do.
-    private static String officeKind(String filename) {
-        String name = filename == null ? "" : filename.toLowerCase(Locale.ROOT);
-        if (name.endsWith(".pptx")) return "a PowerPoint file";
-        if (name.endsWith(".docx")) return "a Word file";
-        if (name.endsWith(".xlsx")) return "an Excel file";
-        return "a PowerPoint or other Office file";
-    }
-
-    private static boolean startsWith(byte[] bytes, byte[] magic) {
-        if (bytes == null || bytes.length < magic.length) return false;
-        return Arrays.equals(bytes, 0, magic.length, magic, 0, magic.length);
     }
 
     private IngestPayload extractWithOneRetry(byte[] pdfBytes, String courseName, int pageCount) {

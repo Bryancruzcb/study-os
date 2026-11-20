@@ -274,3 +274,85 @@
     font-size: 28px;
   }
 }
+
+/* how a dropped file is doing, on a course page that is not the bank (the bank shows it on
+   its upload control). Empty while nothing uploads, but kept in the tree as a live region */
+.ingest-note {
+  margin: 0 0 16px;
+  color: var(--ink-soft);
+  font-size: 16px;
+}
+
+.ingest-note:empty {
+  display: none;
+}
+
+.ingest-alert {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-bottom: 16px;
+}
+
+.ingest-alert p {
+  margin: 0;
+}
+
+/* files dragged over a course page: the whole window is the target. It takes no pointer
+   events, so the drag keeps reporting to the page under it */
+.drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: var(--gutter);
+  background: color-mix(in srgb, var(--page) 80%, transparent);
+  backdrop-filter: blur(3px);
+  pointer-events: none;
+  animation: drop-fade var(--motion) var(--ease);
+}
+
+.drop-card {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  width: min(560px, 100%);
+  padding: 48px 32px;
+  border: 2px dashed var(--accent-strong);
+  border-radius: var(--radius-panel);
+  background: var(--card);
+  box-shadow: var(--shadow-lift);
+  color: var(--ink);
+  text-align: center;
+}
+
+.drop-card .icon {
+  color: var(--accent-strong);
+}
+
+.drop-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 26px;
+}
+
+.drop-kinds {
+  margin: 0;
+  color: var(--ink-dim);
+  font-size: 16px;
+}
+
+@keyframes drop-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drop-overlay {
+    animation: none;
+  }
+}

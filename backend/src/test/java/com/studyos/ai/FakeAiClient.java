@@ -9,10 +9,13 @@ public class FakeAiClient implements AiClient {
     public RuntimeException nextError;
     public int extractCalls = 0;
     public int generateCalls = 0;
+    /* what the last extraction was handed, to check that a converted upload arrives as a PDF */
+    public byte[] lastExtractPdf;
 
     @Override
     public IngestPayload extract(byte[] pdfBytes, String courseName) {
         extractCalls++;
+        lastExtractPdf = pdfBytes;
         if (nextError != null) throw nextError;
         return nextExtract;
     }

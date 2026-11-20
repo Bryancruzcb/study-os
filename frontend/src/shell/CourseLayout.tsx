@@ -1,10 +1,12 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { api, type CourseOverview } from '../api'
 import Icon from '../icons'
 import { plural } from '../plural'
+import { ingestStatus, LECTURE_KINDS, uploadProblem, type IngestPhase } from '../uploads'
 import CourseActions from './CourseActions'
 import { useCourses } from './courses'
+import { useFileDrop } from './fileDrop'
 
 export interface CourseContext {
   course: CourseOverview
@@ -18,28 +20,48 @@ export interface CourseContext {
 }
 
 export interface Ingest {
+  /* true while any of this course's files is being sent, read, or waiting its turn */
   uploading: boolean
-  /* idle | uploading (bytes on the wire) | processing (extraction in the background) */
-  phase: 'idle' | 'uploading' | 'processing'
-  /* the last ingest's failure, until the next upload or the bank's next action clears it */
+  /* idle | waiting (queued behind another file) | uploading (bytes on the wire) |
+     processing (extraction in the background) */
+  phase: IngestPhase
+  /* the file being sent or read, while one is */
+  current: string | null
+  /* this course's files queued behind the current one */
+  waiting: number
+  /* the batch's failures, one line per file, until the next batch or the bank's next action clears them */
   error: string | null
-  /* how many ingests have finished for this course; the bank reloads when it moves */
+  /* how many files have finished for this course; the bank reloads when it moves */
   finished: number
-  upload: (file: File) => Promise<void>
+  /* queue files for this course; each becomes its own lecture, one after another */
+  upload: (files: readonly File[]) => void
   clearError: () => void
 }
 
-interface IngestState {
+/* one file on its way into one course */
+interface Job {
   courseId: number
-  uploading: boolean
-  phase: 'idle' | 'uploading' | 'processing'
+  file: File
+}
+
+interface Active {
+  courseId: number
+  name: string
+  phase: 'uploading' | 'processing'
+}
+
+interface Outcome {
   error: string | null
   finished: number
 }
 
-const idle = (courseId: number): IngestState => (
-  { courseId, uploading: false, phase: 'idle', error: null, finished: 0 }
-)
+const NOTHING_YET: Outcome = { error: null, finished: 0 }
+const POLL_MS = 1500
+
+function withFailures(error: string | null, failures: readonly string[]): string | null {
+  const lines = [...(error ? [error] : []), ...failures]
+  return lines.length > 0 ? lines.join('\n') : null
+}
 
 const tab = ({ isActive }: { isActive: boolean }) => `tab${isActive ? ' is-current' : ''}`
 
@@ -51,36 +73,91 @@ export default function CourseLayout() {
   const navigate = useNavigate()
   const { courses, error, refresh } = useCourses()
   const [slot, setSlot] = useState<HTMLDivElement | null>(null)
-  // tagged with its course: this layout stays mounted across a course switch, and an
-  // ingest still running for the last course must read as idle on the next one
   const id = Number(courseId)
-  const [ingestState, setIngestState] = useState<IngestState>(() => idle(id))
-  const upload = useCallback(async (file: File) => {
-    setIngestState(s => ({ ...(s.courseId === id ? s : idle(id)), uploading: true, phase: 'uploading', error: null }))
-    let failure: string | null = null
+
+  // One worker sends the queued files one at a time, whichever course each is for, so two
+  // drops never race each other to the server. The queue is a ref because the worker reads it
+  // between awaits; `waiting` mirrors it for the render. Every job carries its course: this
+  // layout stays mounted across a course switch, and a file still on its way into the last
+  // course must neither show on the next one nor land in it.
+  const queue = useRef<Job[]>([])
+  const working = useRef(false)
+  const [active, setActive] = useState<Active | null>(null)
+  const [waiting, setWaiting] = useState<readonly Job[]>([])
+  const [outcomes, setOutcomes] = useState<Readonly<Record<number, Outcome>>>({})
+
+  const finish = useCallback((courseId: number, failure: string | null) => setOutcomes(all => {
+    const own = all[courseId] ?? NOTHING_YET
+    return { ...all, [courseId]: { error: withFailures(own.error, failure ? [failure] : []), finished: own.finished + 1 } }
+  }), [])
+
+  // one file: send it, then poll while its long deck finishes in the background; the failure
+  // comes back as a line naming the file
+  const send = useCallback(async ({ courseId: to, file }: Job): Promise<string | null> => {
+    setActive({ courseId: to, name: file.name, phase: 'uploading' })
     try {
-      let m = await api.upload(id, file)
-      // long decks finish in the background: poll until INGESTED or FAILED
+      let m = await api.upload(to, file)
       if (m.status === 'PENDING') {
-        setIngestState(s => ({ ...(s.courseId === id ? s : idle(id)), uploading: true, phase: 'processing', error: null }))
-        for (;;) {
-          await new Promise(r => setTimeout(r, 1500))
+        setActive({ courseId: to, name: file.name, phase: 'processing' })
+        while (m.status === 'PENDING') {
+          await new Promise(r => setTimeout(r, POLL_MS))
           m = await api.material(m.id)
-          if (m.status !== 'PENDING') break
         }
       }
-      if (m.status === 'FAILED') failure = m.errorMessage ?? 'Ingest failed'
+      return m.status === 'FAILED' ? `${file.name}: ${m.errorMessage ?? 'Ingest failed'}` : null
     } catch (e) {
-      failure = String(e)
+      return `${file.name}: ${String(e)}`
     }
-    // the head's concept and question counts just moved
-    await refresh()
-    setIngestState(s => {
-      const base = s.courseId === id ? s : idle(id)
-      return { ...base, uploading: false, phase: 'idle', error: failure, finished: base.finished + 1 }
+  }, [])
+
+  const work = useCallback(async () => {
+    if (working.current) return
+    working.current = true
+    try {
+      for (let job = queue.current.shift(); job; job = queue.current.shift()) {
+        setWaiting([...queue.current])
+        const failure = await send(job)
+        // the head's concept and question counts just moved
+        await refresh()
+        finish(job.courseId, failure)
+      }
+    } finally {
+      working.current = false
+      setActive(null)
+      setWaiting([])
+    }
+  }, [send, refresh, finish])
+
+  // a file the browser can tell is not a lecture, or is too big, is refused here and never sent
+  const enqueue = useCallback((to: number, files: readonly File[]) => {
+    const refused: string[] = []
+    const jobs: Job[] = []
+    for (const file of files) {
+      const problem = uploadProblem(file)
+      if (problem) refused.push(`${file.name} ${problem}`)
+      else jobs.push({ courseId: to, file })
+    }
+    // a new batch starts clean; files added while one runs add to its failures
+    const fresh = !working.current
+    setOutcomes(all => {
+      const own = all[to] ?? NOTHING_YET
+      return { ...all, [to]: { ...own, error: withFailures(fresh ? null : own.error, refused) } }
     })
-  }, [id, refresh])
-  const clearIngestError = useCallback(() => setIngestState(s => ({ ...s, error: null })), [])
+    if (jobs.length === 0) return
+    queue.current.push(...jobs)
+    setWaiting([...queue.current])
+    void work()
+  }, [work])
+
+  const upload = useCallback((files: readonly File[]) => enqueue(id, files), [enqueue, id])
+  const clearIngestError = useCallback(() => setOutcomes(all => (
+    all[id]?.error ? { ...all, [id]: { ...all[id], error: null } } : all
+  )), [id])
+  // files dropped anywhere on a course page join its queue; while the course is still
+  // loading, or does not exist, there is nowhere for them to go
+  const dragging = useFileDrop(files => {
+    if (courses?.some(c => c.id === id)) upload(files)
+  })
 
   if (error) {
     return (
@@ -108,10 +185,23 @@ export default function CourseLayout() {
     )
   }
 
-  const own = ingestState.courseId === course.id ? ingestState : idle(course.id)
+  const running = active?.courseId === course.id ? active : null
+  const queued = waiting.filter(job => job.courseId === course.id).length
+  const outcome = outcomes[course.id] ?? NOTHING_YET
+  const phase: IngestPhase = running ? running.phase : queued > 0 ? 'waiting' : 'idle'
+  const current = running?.name ?? null
   const ingest: Ingest = {
-    uploading: own.uploading, phase: own.phase, error: own.error, finished: own.finished, upload, clearError: clearIngestError,
+    uploading: phase !== 'idle',
+    phase,
+    current,
+    waiting: queued,
+    error: outcome.error,
+    finished: outcome.finished,
+    upload,
+    clearError: clearIngestError,
   }
+  // the bank draws its own progress and failures beside the upload control
+  const onBank = pathname.startsWith(`/courses/${course.id}/bank`)
 
   return (
     <div className="page">
@@ -135,8 +225,28 @@ export default function CourseLayout() {
           onDeleted={() => navigate('/')} />
         <div className="course-head-slot" ref={setSlot} />
       </header>
+      {/* a file dropped on the study page or the dashboard uploads where it fell, and these say
+          how it is going. The status region is always there, so the first update is read out */}
+      {!onBank && (
+        <p className="ingest-note" role="status">{ingestStatus(phase, current, queued)}</p>
+      )}
+      {!onBank && outcome.error && (
+        <div className="alert ingest-alert" role="alert">
+          <p>{outcome.error}</p>
+          <button type="button" className="btn btn--ghost btn--micro" onClick={clearIngestError}>Dismiss</button>
+        </div>
+      )}
       {/* a course switch is a new visit, so every page starts over instead of keeping the last course's state */}
       <Outlet key={course.id} context={{ course, refresh, slot, ingest } satisfies CourseContext} />
+      {dragging && (
+        <div className="drop-overlay" aria-hidden="true">
+          <div className="drop-card">
+            <Icon name="upload" size={32} />
+            <p className="drop-title">Drop to add to {course.name}</p>
+            <p className="drop-kinds">{LECTURE_KINDS}. Each file becomes a lecture.</p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

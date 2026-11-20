@@ -12,7 +12,7 @@ export default function BankPage() {
   if (bank.length === 0) {
     return (
       <div className="bank-empty">
-        <p className="empty">No concepts yet. Upload a lecture PDF to build the bank.</p>
+        <p className="empty">No concepts yet. Add a lecture (PDF, slides, Word notes, photos or a saved web page) to build the bank. You can drop files anywhere on the course.</p>
       </div>
     )
   }

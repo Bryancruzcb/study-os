@@ -499,6 +499,8 @@ button {
   background: var(--flag-wash);
   color: var(--ink);
   font-size: 16px;
+  /* several files can fail in one batch, one line each */
+  white-space: pre-line;
 }
 
 .bar {

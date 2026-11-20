@@ -279,30 +279,70 @@ class IngestServiceTest {
         verify(materialRepo, times(2)).save(m);
     }
 
-    // --- an upload that is not a PDF is refused before it costs a provider call ---------
+    // --- an upload that is not a PDF is turned into one, or refused before it costs a call ---
 
     @Test
-    void pptxUploadFailsWithoutCallingTheProvider() {
+    void aPowerPointIsReadAsOnePagePerSlideAndIngested() throws IOException {
+        byte[] deck = LectureFileTest.pptx("Intro", "Agenda", "SYN and SYN-ACK", "ACK");
+        ai.nextExtract = FakeAiClient.samplePayload();   // cites slides 3 and 4
+        Material m = service.ingest(1L, "climate-lecture.pptx", deck);
+        assertEquals(MaterialStatus.INGESTED, m.status);
+        assertEquals("climate-lecture.pptx", m.filename);
+        assertEquals(4, m.pageCount);
+        assertEquals(1, ai.extractCalls);
+        assertTrue(startsWithPdfMagic(ai.lastExtractPdf), "the provider must be handed a PDF");
+    }
+
+    @Test
+    void anAcceptedPowerPointKeepsAndQueuesItsPdf() throws IOException {
+        when(materialRepo.save(any())).thenAnswer(inv -> {
+            Material m = inv.getArgument(0);
+            if (m.id == null) m.id = 42L;
+            return m;
+        });
+        Material accepted = service.accept(1L, "week2.pptx", LectureFileTest.pptx("One", "Two"));
+        assertEquals(MaterialStatus.PENDING, accepted.status);
+        assertEquals(2, accepted.pageCount);
+        // the PDF is what is kept for generating more, so that path needs no conversion either
+        ArgumentCaptor<MaterialPdf> kept = ArgumentCaptor.forClass(MaterialPdf.class);
+        verify(materialPdfRepo).save(kept.capture());
+        assertTrue(startsWithPdfMagic(kept.getValue().bytes));
+        ArgumentCaptor<IngestRequested> queued = ArgumentCaptor.forClass(IngestRequested.class);
+        verify(events).publishEvent(queued.capture());
+        assertTrue(startsWithPdfMagic(queued.getValue().pdfBytes()));
+    }
+
+    @Test
+    void typedNotesAreSetAsPagesAndIngested() {
+        ai.nextExtract = payloadCitingPageOne();
+        Material m = service.ingest(1L, "notes.md",
+            "# Week 1\n\nTCP opens with SYN, SYN-ACK, ACK.".getBytes(StandardCharsets.UTF_8));
+        assertEquals(MaterialStatus.INGESTED, m.status);
+        assertEquals(1, m.pageCount);
+        assertTrue(startsWithPdfMagic(ai.lastExtractPdf));
+    }
+
+    @Test
+    void aDamagedPowerPointFailsWithoutCallingTheProvider() {
         // the payload is armed so the ingest would succeed on these bytes if the guard let them by
         ai.nextExtract = FakeAiClient.samplePayload();
         Material m = service.ingest(1L, "climate-lecture.pptx", PPTX);
         assertEquals(MaterialStatus.FAILED, m.status);
         assertTrue(m.errorMessage.contains("PowerPoint"), m.errorMessage);
-        assertTrue(m.errorMessage.contains("Export to PDF"), m.errorMessage);
         assertEquals(0, ai.extractCalls);
         verify(conceptRepo, never()).save(any());
         verify(questionRepo, never()).save(any());
         verify(reviewStateRepo, never()).save(any());
+        verify(materialPdfRepo, never()).save(any());
     }
 
     @Test
-    void plainTextUploadFailsWithoutCallingTheProvider() {
+    void aFileStudyOsCannotReadFailsWithoutCallingTheProvider() {
         ai.nextExtract = FakeAiClient.samplePayload();
-        Material m = service.ingest(1L, "notes.txt",
-            "week 1 lecture notes".getBytes(StandardCharsets.UTF_8));
+        Material m = service.ingest(1L, "lecture-recording.mp4",
+            new byte[] {0x00, 0x00, 0x00, 0x20, 'f', 't', 'y', 'p', 'i', 's', 'o', 'm', 0x00});
         assertEquals(MaterialStatus.FAILED, m.status);
-        assertTrue(m.errorMessage.contains("not a PDF"), m.errorMessage);
-        assertFalse(m.errorMessage.contains("PowerPoint"), m.errorMessage);
+        assertTrue(m.errorMessage.contains("cannot read this kind of file"), m.errorMessage);
         assertEquals(0, ai.extractCalls);
         verify(conceptRepo, never()).save(any());
         verify(questionRepo, never()).save(any());
@@ -312,7 +352,7 @@ class IngestServiceTest {
     @Test
     void reuploadingTheSameRejectedFileReusesItsFailedRow() {
         // this is why the guard sits below the hash lookup: a course holds a file once, so a second
-        // upload of the same .pptx has to land on the existing FAILED row
+        // upload of the same broken .pptx has to land on the existing FAILED row
         Material failed = new Material();
         failed.course = course;
         failed.filename = "climate-lecture.pptx";
@@ -675,6 +715,22 @@ class IngestServiceTest {
         assertEquals(2, ai.generateCalls);
         verify(questionRepo, never()).save(any());
         assertEquals(4, lecture.pageCount);
+    }
+
+    private static boolean startsWithPdfMagic(byte[] bytes) {
+        return bytes != null && bytes.length > 5
+            && new String(bytes, 0, 5, StandardCharsets.ISO_8859_1).equals("%PDF-");
+    }
+
+    /** The sample payload with every citation moved to page 1, for a one-page upload. */
+    private static IngestPayload payloadCitingPageOne() {
+        ConceptPayload sample = FakeAiClient.samplePayload().concepts().get(0);
+        List<QuestionPayload> questions = sample.questions().stream()
+            .map(q -> new QuestionPayload(q.type(), q.prompt(), q.options(), q.correctIndex(), q.modelAnswer(),
+                q.rubric(), List.of(1), q.explanation(), q.optionExplanations(), q.diagram()))
+            .toList();
+        return new IngestPayload(List.of(
+            new ConceptPayload(sample.name(), sample.summary(), List.of(1), questions)));
     }
 
     private static byte[] pdfWithPages(int pages) {

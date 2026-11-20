@@ -14,8 +14,25 @@ vi.mock('../api', () => ({
     dashboard: vi.fn(),
     exams: vi.fn().mockResolvedValue([]),
     lectures: vi.fn().mockResolvedValue([]),
+    upload: vi.fn(),
+    material: vi.fn(),
   },
 }))
+
+test('a lecture dropped on the dashboard reloads the numbers and the exams once it lands', async () => {
+  vi.mocked(api.dashboard).mockResolvedValue({ dueToday: 0, concepts: [] })
+  vi.mocked(api.upload).mockResolvedValueOnce({ id: 9, filename: 'week4.pptx', status: 'INGESTED', errorMessage: null })
+  renderInCourse(<DashboardPage />, 'dashboard')
+  await screen.findByText('No concepts yet.')
+  const dashboards = vi.mocked(api.dashboard).mock.calls.length
+  const lectureLoads = vi.mocked(api.lectures).mock.calls.length
+  const drop = new Event('drop', { bubbles: true, cancelable: true })
+  Object.defineProperty(drop, 'dataTransfer', { value: { types: ['Files'], files: [new File(['PK'], 'week4.pptx')] } })
+  window.dispatchEvent(drop)
+  await waitFor(() => expect(api.upload).toHaveBeenCalledWith(1, expect.any(File)))
+  await waitFor(() => expect(vi.mocked(api.dashboard).mock.calls.length).toBe(dashboards + 1))
+  await waitFor(() => expect(vi.mocked(api.lectures).mock.calls.length).toBe(lectureLoads + 1))
+})
 
 const stats = (over: Partial<ConceptStats>): ConceptStats => ({
   conceptId: 1, name: 'Concept', lecture: 'Lecture 3.pdf', sourcePages: '3', streak: 0,
@@ -165,7 +182,7 @@ test('an empty schedule says so and points at the bank', async () => {
   vi.mocked(api.dashboard).mockResolvedValueOnce({ dueToday: 0, concepts: [] })
   renderInCourse(<DashboardPage />, 'dashboard')
   expect(await screen.findByRole('heading', { name: 'No concepts yet.' })).toBeInTheDocument()
-  expect(screen.getByRole('link', { name: 'Upload a lecture PDF' })).toHaveAttribute('href', '/courses/1/bank')
+  expect(screen.getByRole('link', { name: 'Add a lecture' })).toHaveAttribute('href', '/courses/1/bank')
   expect(screen.queryByRole('table')).not.toBeInTheDocument()
   expect(screen.queryByRole('heading', { name: 'Work on these next' })).not.toBeInTheDocument()
 })

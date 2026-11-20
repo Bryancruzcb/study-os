@@ -75,8 +75,11 @@ username and password.
   is no email: the page keeps a one-time code for that visit and then asks for a new password.
 - To stop new sign-ups, change `APP_INVITE_CODE` in the Environment tab and save. Accounts
   that already exist keep working.
-- Upload a PDF. The app refuses PowerPoint and Word files and tells you to export them to
-  PDF first.
+- Upload a PDF, a PowerPoint (.pptx) or Word (.docx) file, an image, a saved web page or
+  plain text, or drag several onto a course page. The server turns each into a PDF before
+  extraction. HEIC photos, old .ppt/.doc files and spreadsheets are refused with a note on
+  how to export them. The Docker image installs Carlito, Caladea and Liberation fonts so
+  slides set in Calibri, Cambria, Arial or Times keep their layout when drawn.
 
 ## Schema and backups
 

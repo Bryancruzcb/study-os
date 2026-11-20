@@ -18,6 +18,12 @@ COPY --from=web /web/dist ./src/main/resources/static
 RUN mvn -B -q package -Dmaven.test.skip=true
 
 FROM eclipse-temurin:21-jre
+# PowerPoint uploads are drawn to pages on the server. These are the open fonts with the
+# same metrics as Calibri, Cambria, Arial, Times and Courier, so a deck's text keeps its
+# line breaks instead of running off the slide in a fallback font
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends fonts-crosextra-carlito fonts-crosextra-caladea fonts-liberation \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=api /api/target/studyos-backend-0.1.0.jar app.jar
 # free hosts give 512 MB: leave room outside the heap, and trade peak speed for a faster start

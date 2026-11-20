@@ -94,7 +94,7 @@ export default function HomePage() {
           {courses && courses.length === 0 && (
             <>
               <h1>{archived.length > 0 ? 'No active courses.' : 'No courses yet.'}</h1>
-              <p className="lede">Add one below and upload a lecture PDF.</p>
+              <p className="lede">Add one below, then open it and drop in a lecture: PDF, slides, notes or photos.</p>
             </>
           )}
         </header>

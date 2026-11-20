@@ -19,15 +19,16 @@ const FOCUS = 5
    the concepts to work on next in a card beside it, then every lecture on one path in the
    order it was uploaded. */
 export default function DashboardPage() {
-  const { course, refresh } = useOutletContext<CourseContext>()
+  const { course, refresh, ingest } = useOutletContext<CourseContext>()
   const [dash, setDash] = useState<Dashboard | null>(null)
   const [error, setError] = useState<string | null>(null)
   // bumped when an exam changes or a failed load is retried: the numbers below reload
   const [planned, setPlanned] = useState(0)
 
+  // and again when a lecture dropped on this page lands
   useEffect(() => {
     api.dashboard(course.id).then(setDash).catch(e => setError(String(e)))
-  }, [course.id, planned])
+  }, [course.id, planned, ingest.finished])
 
   const concepts = dash?.concepts ?? []
   const graded = concepts.reduce((n, c) => n + c.attempts, 0)
@@ -42,14 +43,14 @@ export default function DashboardPage() {
   }
 
   const start = empty
-    ? <Link className="btn btn--go" to="../bank"><Icon name="book-open" />Upload a lecture PDF</Link>
+    ? <Link className="btn btn--go" to="../bank"><Icon name="book-open" />Add a lecture</Link>
     : <Link className="btn btn--go" to="../study"><Icon name="play" className="icon icon--solid" />Start studying</Link>
 
   return (
     <div className="dashboard">
       <div className={`dash-hero${empty ? ' dash-hero--solo' : ''}`}>
         {/* what today holds for the nearest exam leads: the rest of the page is paced to it */}
-        <Exams courseId={course.id} onChange={() => { setPlanned(p => p + 1); void refresh() }}
+        <Exams courseId={course.id} lecturesLanded={ingest.finished} onChange={() => { setPlanned(p => p + 1); void refresh() }}
           dueToday={course.dueToday} empty={empty} start={start}>
           {!empty && (
             <ul className="figs" aria-label="Course numbers">
