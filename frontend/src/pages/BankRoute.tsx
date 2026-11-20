@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { NavLink, Outlet, useLocation, useOutletContext, useSearchParams } from 'react-router-dom'
 import { api, type ConceptWithQuestions, type Lecture } from '../api'
+import Icon from '../icons'
 import { plural } from '../plural'
 import type { CourseContext } from '../shell/CourseLayout'
 import { LECTURE_ACCEPT, LECTURE_KINDS, type IngestPhase } from '../uploads'
@@ -16,11 +17,18 @@ const row = ({ isActive }: { isActive: boolean }) => `crow${isActive ? ' is-curr
 
 type GenerateTypes = 'MC' | 'SHORT_ANSWER' | 'BOTH'
 
+/* the concept ids a hand-off put in ?concepts=1,2,3, dropping anything that is not an id */
+function handedOff(raw: string | null): number[] {
+  if (!raw) return []
+  return raw.split(',').map(s => Number(s)).filter(n => Number.isFinite(n) && n > 0)
+}
+
 /* Owns the bank for both panes, so picking a concept never refetches; retire, restore
    and an ingest do. Draws the concept list on the left and the open concept on the
-   right. The upload control lives in the course head's slot; the ingest it starts lives
-   in the course context, so it outlives this tab. Generation of more questions lives here
-   too: pick concepts, a count and types, and the bank grows under those concepts. */
+   right, and nothing above them: the questions are what the tab is for. Generating more
+   questions and managing lectures are rarer jobs, so each sits closed at the top of the
+   list and opens in place there. The upload control lives in the course head's slot; the
+   ingest it starts lives in the course context, so it outlives this tab. */
 export default function BankRoute() {
   const ctx = useOutletContext<CourseContext>()
   const { course, slot, ingest, refresh } = ctx
@@ -28,11 +36,10 @@ export default function BankRoute() {
   const [lectures, setLectures] = useState<Lecture[]>([])
   const [ownError, setOwnError] = useState<string | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
-  const [picked, setPicked] = useState<Set<number>>(() => {
-    const raw = searchParams.get('concepts')
-    if (!raw) return new Set()
-    return new Set(raw.split(',').map(s => Number(s)).filter(n => Number.isFinite(n) && n > 0))
-  })
+  const [picked, setPicked] = useState<Set<number>>(() => new Set(handedOff(searchParams.get('concepts'))))
+  // a hand-off from the quiz arrives wanting the form, so it opens with its concepts checked
+  const [generateOpen, setGenerateOpen] = useState(() => handedOff(searchParams.get('concepts')).length > 0)
+  const [lecturesOpen, setLecturesOpen] = useState(false)
   const [count, setCount] = useState(5)
   const [types, setTypes] = useState<GenerateTypes>('BOTH')
   const [generating, setGenerating] = useState(false)
@@ -45,7 +52,7 @@ export default function BankRoute() {
   }, [clearError])
   const error = ownError ?? ingest.error
   const detail = useRef<HTMLElement>(null)
-  const list = useRef<HTMLElement>(null)
+  const list = useRef<HTMLDivElement>(null)
   const { pathname } = useLocation()
 
   const reload = useCallback(async () => {
@@ -65,18 +72,14 @@ export default function BankRoute() {
     reload()
   }, [reload, ingest.finished])
 
-  // quiz (and anything else) can hand off with ?concepts=1,2,3 already checked for generate
+  // quiz (and anything else) can hand off with ?concepts=1,2,3 already checked for generate.
+  // The state above already took them in, so the query has done its job and goes
   useEffect(() => {
-    const raw = searchParams.get('concepts')
-    if (!raw || !bank) return
-    const ids = raw.split(',').map(s => Number(s)).filter(n => Number.isFinite(n) && n > 0)
-    if (ids.length === 0) return
-    const known = new Set(bank.map(c => c.id))
-    setPicked(new Set(ids.filter(id => known.has(id))))
+    if (!searchParams.has('concepts')) return
     const next = new URLSearchParams(searchParams)
     next.delete('concepts')
     setSearchParams(next, { replace: true })
-  }, [bank, searchParams, setSearchParams])
+  }, [searchParams, setSearchParams])
 
   // a deep link, a reload or a cross-document Back opens the concept on the right while the
   // sticky list still sits at its top, so on a real bank the filled row can be thousands of
@@ -110,14 +113,20 @@ export default function BankRoute() {
     })
   }
 
-  const canGenerate = picked.size > 0 && count >= 1 && count <= 20 && !generating && !ingest.uploading
+  // what generate would send: the checked ids this bank still has. A hand-off can name a
+  // concept that is gone, and a delete can take one away while it is checked
+  const chosen = useMemo(() => {
+    const known = new Set(bank?.map(c => c.id) ?? [])
+    return [...picked].filter(id => known.has(id))
+  }, [bank, picked])
+  const canGenerate = chosen.length > 0 && count >= 1 && count <= 20 && !generating && !ingest.uploading
 
   async function onGenerate() {
     if (!canGenerate) return
     setGenerating(true)
     setError(null)
     try {
-      await api.generateMore(course.id, { conceptIds: [...picked], count, types })
+      await api.generateMore(course.id, { conceptIds: chosen, count, types })
       await reload()
       await refresh()
     } catch (e) {
@@ -128,6 +137,7 @@ export default function BankRoute() {
   }
 
   const allIds = useMemo(() => bank?.map(c => c.id) ?? [], [bank])
+  const canPick = generateOpen && bank != null && bank.length > 0
 
   return (
     <>
@@ -155,84 +165,104 @@ export default function BankRoute() {
         slot,
       )}
       {error && <p className="alert" role="alert">{error}</p>}
-      {lectures.length > 0 && (
-        <ul className="lecture-manage" aria-label="Lectures">
-          {lectures.map(lecture => (
-            <LectureDelete key={lecture.id} lecture={lecture} disabled={ingest.uploading || generating}
-              onDelete={() => onDeleteLecture(lecture.id)} />
-          ))}
-        </ul>
-      )}
-      {bank && bank.length > 0 && (
-        <section className="bank-generate" aria-labelledby="bank-generate-title">
-          <h2 id="bank-generate-title" className="bank-generate-title">Generate more questions</h2>
-          <p className="lede">
-            New questions stay under the concepts you checked and use only what those decks
-            already taught.
-          </p>
-          <div className="bank-generate-row">
-            <label className="field">
-              <span className="field-label">Count</span>
-              <input className="input" type="number" min={1} max={20} value={count}
-                disabled={generating}
-                onChange={e => setCount(Number(e.target.value) || 1)} />
-            </label>
-            <fieldset className="quiz-fieldset bank-generate-types">
-              <legend className="field-label">Types</legend>
-              <div className="chips">
-                {([
-                  ['BOTH', 'Both'],
-                  ['MC', 'MC'],
-                  ['SHORT_ANSWER', 'Short answer'],
-                ] as const).map(([value, label]) => (
-                  <label key={value} className="toggle">
-                    <input type="radio" name="bank-generate-types" className="visually-hidden"
-                      checked={types === value} disabled={generating}
-                      onChange={() => setTypes(value)} />
-                    <span>{label}</span>
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-          </div>
-          <div className="bank-generate-actions">
-            <button type="button" className="btn btn--ghost btn--micro"
-              disabled={generating || allIds.length === 0}
-              onClick={() => setPicked(new Set(allIds))}>All concepts</button>
-            <button type="button" className="btn btn--ghost btn--micro"
-              disabled={generating || picked.size === 0}
-              onClick={() => setPicked(new Set())}>None</button>
-            <button type="button" className="btn" disabled={!canGenerate} onClick={onGenerate}>
-              {generating ? 'Generating…' : `Generate · ${plural(count, 'question')}`}
-            </button>
-          </div>
-        </section>
-      )}
       <div className="split">
-        <nav className="clist" aria-label="Concepts" ref={list}>
+        <div className="clist" ref={list}>
           {/* a real bank puts a few hundred rows between the head and the open concept; the
               keyboard gets a way past them. The hash does the work without a script, the
               handler makes sure the caret lands whatever the browser does with a fragment */}
           <a className="skip" href="#concept" onClick={() => detail.current?.focus()}>Skip to the open concept</a>
-          <p className="clist-head">{bank ? plural(bank.length, 'concept') : 'Loading…'}</p>
-          {/* opening a row hands the caret to the open concept, so its cards are one Tab away
-              instead of the rest of the list. preventScroll keeps a mouse click from jumping
-              the page, and a pointer-started focus draws no ring */}
-          {bank?.map(c => (
-            <div key={c.id} className="crow-wrap">
-              <label className="crow-check">
-                <input type="checkbox" checked={picked.has(c.id)} disabled={generating}
-                  aria-label={`Generate for ${c.name}`}
-                  onChange={() => toggle(c.id)} />
-              </label>
-              <NavLink className={row} to={String(c.id)}
-                onClick={() => detail.current?.focus({ preventScroll: true })}>
-                <span className="crow-name">{c.name}</span>
-                <span className="count">{c.questions.filter(q => q.status === 'ACTIVE').length}</span>
-              </NavLink>
+          <div className="clist-top">
+            <p className="clist-head">{bank ? plural(bank.length, 'concept') : 'Loading…'}</p>
+            <div className="clist-tools">
+              {bank && bank.length > 0 && (
+                <button type="button" className="disclose" aria-expanded={generateOpen} aria-controls="bank-generate"
+                  onClick={() => setGenerateOpen(open => !open)}>
+                  Generate more questions<Icon name="chevron-right" size={16} />
+                </button>
+              )}
+              {lectures.length > 0 && (
+                <button type="button" className="disclose" aria-expanded={lecturesOpen} aria-controls="bank-lectures"
+                  onClick={() => setLecturesOpen(open => !open)}>
+                  Lectures ({lectures.length})<Icon name="chevron-right" size={16} />
+                </button>
+              )}
             </div>
-          ))}
-        </nav>
+          </div>
+          {canPick && (
+            <section id="bank-generate" className="bank-generate" aria-label="Generate more questions">
+              <p className="lede">
+                Check concepts in the list. New questions stay under them and use only what
+                those decks already taught.
+              </p>
+              <div className="bank-generate-row">
+                <label className="field">
+                  <span className="field-label">Count</span>
+                  <input className="input" type="number" min={1} max={20} value={count}
+                    disabled={generating}
+                    onChange={e => setCount(Number(e.target.value) || 1)} />
+                </label>
+                <fieldset className="quiz-fieldset bank-generate-types">
+                  <legend className="field-label">Types</legend>
+                  <div className="chips">
+                    {([
+                      ['BOTH', 'Both'],
+                      ['MC', 'MC'],
+                      ['SHORT_ANSWER', 'Short answer'],
+                    ] as const).map(([value, label]) => (
+                      <label key={value} className="toggle">
+                        <input type="radio" name="bank-generate-types" className="visually-hidden"
+                          checked={types === value} disabled={generating}
+                          onChange={() => setTypes(value)} />
+                        <span>{label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              </div>
+              <div className="bank-generate-actions">
+                <button type="button" className="btn btn--ghost btn--micro"
+                  disabled={generating || allIds.length === 0}
+                  onClick={() => setPicked(new Set(allIds))}>All concepts</button>
+                <button type="button" className="btn btn--ghost btn--micro"
+                  disabled={generating || chosen.length === 0}
+                  onClick={() => setPicked(new Set())}>None</button>
+                <button type="button" className="btn btn--micro" disabled={!canGenerate} onClick={onGenerate}>
+                  {generating ? 'Generating…' : `Generate · ${plural(count, 'question')}`}
+                </button>
+              </div>
+            </section>
+          )}
+          {lecturesOpen && lectures.length > 0 && (
+            <ul id="bank-lectures" className="lecture-manage" aria-label="Lectures">
+              {lectures.map(lecture => (
+                <LectureDelete key={lecture.id} lecture={lecture} disabled={ingest.uploading || generating}
+                  onDelete={() => onDeleteLecture(lecture.id)} />
+              ))}
+            </ul>
+          )}
+          <nav aria-label="Concepts">
+            {/* opening a row hands the caret to the open concept, so its cards are one Tab away
+                instead of the rest of the list. preventScroll keeps a mouse click from jumping
+                the page, and a pointer-started focus draws no ring. The checkboxes that pick
+                concepts for generating show only while that form is open */}
+            {bank?.map(c => (
+              <div key={c.id} className="crow-wrap">
+                {canPick && (
+                  <label className="crow-check">
+                    <input type="checkbox" checked={picked.has(c.id)} disabled={generating}
+                      aria-label={`Generate for ${c.name}`}
+                      onChange={() => toggle(c.id)} />
+                  </label>
+                )}
+                <NavLink className={row} to={String(c.id)}
+                  onClick={() => detail.current?.focus({ preventScroll: true })}>
+                  <span className="crow-name">{c.name}</span>
+                  <span className="count">{c.questions.filter(q => q.status === 'ACTIVE').length}</span>
+                </NavLink>
+              </div>
+            ))}
+          </nav>
+        </div>
         <section className="detail" id="concept" tabIndex={-1} ref={detail}>
           <Outlet context={{ ...ctx, bank, reload, setError } satisfies BankContext} />
         </section>

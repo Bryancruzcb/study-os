@@ -138,6 +138,8 @@ class IngestControllerTest {
         q.id = 9L;
         q.type = QuestionType.MC;
         q.concept = c;
+        // the bank card shows a short answer's model answer, so the payload has to carry it
+        q.modelAnswer = "SYN, SYN-ACK, ACK";
         when(conceptRepo.findByCourseIdOrderByIdAsc(1L)).thenReturn(List.of(c));
         when(questionRepo.findByConceptIdOrderByIdAsc(5L)).thenReturn(List.of(q));
         mvc.perform(get("/api/courses/1/bank"))
@@ -145,6 +147,7 @@ class IngestControllerTest {
             .andExpect(jsonPath("$[0].name").value("TCP"))
             .andExpect(jsonPath("$[0].lecture").value("Lecture 3.pdf"))
             .andExpect(jsonPath("$[0].questions[0].id").value(9))
+            .andExpect(jsonPath("$[0].questions[0].modelAnswer").value("SYN, SYN-ACK, ACK"))
             .andExpect(jsonPath("$[0].questions[0].concept").doesNotExist());
     }
 

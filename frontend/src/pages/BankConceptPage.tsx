@@ -1,14 +1,50 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useLocation, useOutletContext, useParams } from 'react-router-dom'
 import { api, type ConceptWithQuestions, type Question } from '../api'
+import Icon from '../icons'
 import { plural } from '../plural'
 import type { BankContext } from './BankRoute'
 import { citation, slides } from '../source'
 
 interface LabelBody { answerable: boolean; correctAnswer: boolean; unambiguous: boolean }
+/* the labels as stored: null where nobody has judged that check yet */
+type SavedLabels = { [K in keyof LabelBody]: boolean | null }
 
-const labelled = (q: Question) =>
-  q.labelAnswerable != null || q.labelCorrectAnswer != null || q.labelUnambiguous != null
+const LETTERS = 'ABCDEFGH'
+const letter = (i: number) => LETTERS[i] ?? String(i + 1)
+
+const storedLabels = (q: Question): SavedLabels =>
+  ({ answerable: q.labelAnswerable, correctAnswer: q.labelCorrectAnswer, unambiguous: q.labelUnambiguous })
+
+/* the saved labels in one short line, or null when none is set: "Labeled: answerable · not
+   correct · unambiguous". Each check is named either way, so the line never leans on colour */
+function labelLine(labels: SavedLabels): string | null {
+  const parts = [
+    labels.answerable == null ? null : labels.answerable ? 'answerable' : 'not answerable',
+    labels.correctAnswer == null ? null : labels.correctAnswer ? 'correct' : 'not correct',
+    labels.unambiguous == null ? null : labels.unambiguous ? 'unambiguous' : 'ambiguous',
+  ].filter((part): part is string => part != null)
+  return parts.length > 0 ? `Labeled: ${parts.join(' · ')}` : null
+}
+
+/* an MC question's options, in order. A value that is not a string is shown as written
+   rather than dropped, so every option keeps its letter and the key still points at it */
+function optionsOf(q: Question): string[] {
+  if (q.type !== 'MC' || !q.optionsJson) return []
+  try {
+    const parsed: unknown = JSON.parse(q.optionsJson)
+    return Array.isArray(parsed) ? parsed.map(o => String(o)) : []
+  } catch {
+    return []
+  }
+}
+
+/* The bank sends each question whole, its model answer included, but the Question type the
+   other pages share leaves the field out. Read it here, checked, rather than widen that type */
+function modelAnswerOf(q: Question): string | null {
+  const value: unknown = (q as Question & { modelAnswer?: unknown }).modelAnswer
+  return typeof value === 'string' && value.trim() !== '' ? value.trim() : null
+}
 
 export default function BankConceptPage() {
   const { conceptId } = useParams()
@@ -130,11 +166,12 @@ function ConceptCards({ concept, reload, refresh, setError }: {
               {q.status === 'RETIRED' && <span className="chip chip--flag">Retired</span>}
             </div>
             <p className="qcard-prompt">{q.prompt}</p>
+            <Answer question={q} />
             <div className="qcard-foot">
               {q.status === 'RETIRED' ? (
                 <>
-                  <span className="count mark" tabIndex={-1} ref={el => { marks.current.set(q.id, el) }}>
-                    {labelled(q) ? 'labeled' : 'not labeled'}
+                  <span className="qcard-label-line mark" tabIndex={-1} ref={el => { marks.current.set(q.id, el) }}>
+                    {labelLine(storedLabels(q)) ?? 'Not labeled'}
                   </span>
                   <button key="restore" ref={el => { dangerButtons.current.set(q.id, el) }}
                     className="btn btn--secondary btn--micro" onClick={() => onRestore(q.id)}>Restore</button>
@@ -189,20 +226,28 @@ function Toggle({ label, checked, disabled, onChange }: {
   )
 }
 
+/* an unlabelled check defaults to checked, but never over a stored false, or re-saving would
+   overwrite the label the eval report counts */
+const draftFrom = (labels: SavedLabels): LabelBody => ({
+  answerable: labels.answerable ?? true,
+  correctAnswer: labels.correctAnswer ?? true,
+  unambiguous: labels.unambiguous ?? true,
+})
+
+/* The owner's evaluation tool, kept quiet: a Label button that opens the three checks and a
+   save, and, once labels are saved, one line saying what they are. The labels feed the
+   evaluation page; a student studying from the bank never needs them open. */
 function LabelControl({ question, onSave }: {
   question: Question
   onSave: (qid: number, body: LabelBody) => Promise<boolean>
 }) {
-  // an unlabelled question comes back with all three null: default those to checked, but never
-  // default over a stored false, or re-saving would overwrite the label the eval report counts
-  const [answerable, setAnswerable] = useState(question.labelAnswerable ?? true)
-  const [correctAnswer, setCorrectAnswer] = useState(question.labelCorrectAnswer ?? true)
-  const [unambiguous, setUnambiguous] = useState(question.labelUnambiguous ?? true)
+  const [saved, setSaved] = useState<SavedLabels>(() => storedLabels(question))
+  const [draft, setDraft] = useState<LabelBody>(() => draftFrom(storedLabels(question)))
+  const [open, setOpen] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(labelled(question))
-  // a save swaps the button under the caret for the mark; hand the caret to the mark so it
-  // stays on the card, one Tab from Retire, instead of falling to body. Only after a save:
-  // a card that arrives already labelled must not take the caret on mount
+  // a save closes the checks, which takes the button under the caret away; hand the caret to
+  // the line that now says what was saved, so it stays on the card, one Tab from Retire.
+  // Only after a save: a card that arrives already labelled must not take the caret on mount
   const mark = useRef<HTMLSpanElement>(null)
   const justSaved = useRef(false)
   useLayoutEffect(() => {
@@ -211,25 +256,72 @@ function LabelControl({ question, onSave }: {
     mark.current?.focus()
   }, [saved])
 
+  const line = labelLine(saved)
+  const panel = `labels-${question.id}`
+
   return (
     <div className="qcard-labels">
-      <Toggle label="Answerable" checked={answerable} disabled={saving}
-        onChange={v => { setAnswerable(v); setSaved(false) }} />
-      <Toggle label="Correct" checked={correctAnswer} disabled={saving}
-        onChange={v => { setCorrectAnswer(v); setSaved(false) }} />
-      <Toggle label="Unambiguous" checked={unambiguous} disabled={saving}
-        onChange={v => { setUnambiguous(v); setSaved(false) }} />
-      {saved ? (
-        <span className="count mark" tabIndex={-1} ref={mark}>labeled</span>
-      ) : (
-        <button className="btn btn--secondary btn--micro" disabled={saving} onClick={async () => {
-          setSaving(true)
-          const ok = await onSave(question.id, { answerable, correctAnswer, unambiguous })
-          setSaving(false)
-          justSaved.current = ok
-          setSaved(ok)
-        }}>Save labels</button>
+      <div className="qcard-labels-head">
+        <button type="button" className="disclose" aria-expanded={open} aria-controls={panel}
+          onClick={() => {
+            // closing without a save drops the unsaved changes, so the line and the checks agree
+            if (open) setDraft(draftFrom(saved))
+            setOpen(!open)
+          }}>
+          Label<Icon name="chevron-right" size={16} />
+        </button>
+        {line && <span className="qcard-label-line mark" tabIndex={-1} ref={mark}>{line}</span>}
+      </div>
+      {open && (
+        <div id={panel} className="qcard-label-set" role="group" aria-label="Labels for this question">
+          <Toggle label="Answerable" checked={draft.answerable} disabled={saving}
+            onChange={v => setDraft(d => ({ ...d, answerable: v }))} />
+          <Toggle label="Correct" checked={draft.correctAnswer} disabled={saving}
+            onChange={v => setDraft(d => ({ ...d, correctAnswer: v }))} />
+          <Toggle label="Unambiguous" checked={draft.unambiguous} disabled={saving}
+            onChange={v => setDraft(d => ({ ...d, unambiguous: v }))} />
+          <button type="button" className="btn btn--secondary btn--micro" disabled={saving} onClick={async () => {
+            setSaving(true)
+            const ok = await onSave(question.id, draft)
+            setSaving(false)
+            if (!ok) return
+            justSaved.current = true
+            setOpen(false)
+            setSaved(draft)
+          }}>Save labels</button>
+        </div>
       )}
+    </div>
+  )
+}
+
+/* What the question is checked against, so it can be judged from the bank: every option of a
+   multiple-choice question with the right one marked by a check and the words, or the model
+   answer of a short answer when one was written. */
+function Answer({ question }: { question: Question }) {
+  const options = optionsOf(question)
+  if (options.length > 0) {
+    return (
+      <ol className="qcard-options" aria-label="Options">
+        {options.map((option, i) => {
+          const isKey = i === question.correctIndex
+          return (
+            <li key={i} className={`qcard-option${isKey ? ' is-key' : ''}`}>
+              <span className="letter" aria-hidden="true">{isKey ? <Icon name="check" size={16} /> : letter(i)}</span>
+              <span className="qcard-option-text">{option}</span>
+              {isKey && <span className="qcard-tag">Right answer</span>}
+            </li>
+          )
+        })}
+      </ol>
+    )
+  }
+  const model = modelAnswerOf(question)
+  if (!model) return null
+  return (
+    <div className="qcard-key">
+      <span className="qcard-key-label"><Icon name="check" size={16} />Model answer</span>
+      <p className="qcard-key-text">{model}</p>
     </div>
   )
 }

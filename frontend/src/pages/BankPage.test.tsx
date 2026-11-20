@@ -112,12 +112,14 @@ test('shows a failed ingest in the alert and refreshes the bank', async () => {
 })
 
 test('the list starts with a skip link that lands focus on the open concept', async () => {
-  renderBank('/courses/1/bank/5')
+  const { container } = renderBank('/courses/1/bank/5')
   const heading = await screen.findByRole('heading', { level: 2, name: 'TCP handshake' })
-  const list = screen.getByRole('navigation', { name: 'Concepts' })
-  const skip = within(list).getAllByRole('link')[0]
+  const skip = within(container.querySelector<HTMLElement>('.clist')!).getAllByRole('link')[0]
   expect(skip).toHaveTextContent('Skip to the open concept')
   expect(skip).toHaveAttribute('href', '#concept')
+  // first in the column, ahead of the head's buttons and the rows
+  const rows = screen.getByRole('navigation', { name: 'Concepts' })
+  expect(skip.compareDocumentPosition(rows) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   await userEvent.click(skip)
   const detail = document.getElementById('concept')!
   expect(detail).toHaveFocus()
@@ -199,7 +201,7 @@ test('opening a row from the keyboard puts the caret on the open concept, its ca
   await screen.findByRole('heading', { level: 2, name: 'Sockets' })
   expect(document.getElementById('concept')).toHaveFocus()
   await userEvent.tab()
-  expect(screen.getByLabelText('Answerable')).toHaveFocus()
+  expect(screen.getByRole('button', { name: 'Label' })).toHaveFocus()
 })
 
 test('polls until a pending ingest finishes', async () => {
@@ -218,9 +220,42 @@ test('polls until a pending ingest finishes', async () => {
   await waitFor(() => expect(vi.mocked(api.bank).mock.calls.length).toBe(bankCalls + 1), { timeout: 8000 })
 })
 
+test('the lectures sit closed under the list head, and open in place', async () => {
+  renderBank('/courses/1/bank')
+  await screen.findByRole('link', { name: /TCP handshake/ })
+  const lectures = screen.getByRole('button', { name: 'Lectures (1)' })
+  expect(lectures).toHaveAttribute('aria-expanded', 'false')
+  expect(screen.queryByRole('list', { name: 'Lectures' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument()
+  await userEvent.click(lectures)
+  expect(lectures).toHaveAttribute('aria-expanded', 'true')
+  expect(within(screen.getByRole('list', { name: 'Lectures' })).getByText('Lecture 3.pdf')).toBeInTheDocument()
+  await userEvent.click(lectures)
+  expect(screen.queryByRole('list', { name: 'Lectures' })).not.toBeInTheDocument()
+})
+
+test('a course with no lectures shows no lectures control', async () => {
+  vi.mocked(api.lectures).mockResolvedValue([])
+  renderBank('/courses/1/bank')
+  await screen.findByRole('link', { name: /TCP handshake/ })
+  expect(screen.queryByRole('button', { name: /Lectures/ })).not.toBeInTheDocument()
+})
+
+test('the concept list comes before anything else on the tab: no form, no lecture rows', async () => {
+  const { container } = renderBank('/courses/1/bank/5')
+  await screen.findByRole('heading', { level: 2, name: 'TCP handshake' })
+  // the split is the first thing under the course head, so the list and the questions open the tab
+  expect(container.querySelector('.course-head')!.nextElementSibling).toHaveClass('split')
+  expect(container.querySelector('.bank-generate')).toBeNull()
+  expect(container.querySelector('.lecture-manage')).toBeNull()
+  // the pickers for generating show only while that form is open
+  expect(screen.queryByRole('checkbox', { name: /Generate for/ })).not.toBeInTheDocument()
+})
+
 test('deleting a lecture removes it and refreshes the bank', async () => {
   const { container } = renderBank('/courses/1/bank')
   await screen.findByRole('link', { name: /TCP handshake/ })
+  await userEvent.click(screen.getByRole('button', { name: 'Lectures (1)' }))
   expect(screen.getByText('Lecture 3.pdf')).toBeInTheDocument()
   const bankCalls = vi.mocked(api.bank).mock.calls.length
   const overviewCalls = vi.mocked(api.overview).mock.calls.length
@@ -264,11 +299,48 @@ test('the picker takes every readable kind of file, several at a time, and sends
   await waitFor(() => expect(input.closest('label')).toHaveTextContent('Add a lecture'))
 })
 
+test('Generate more questions opens the form in place, with a picker on each row, and closes it again', async () => {
+  renderBank('/courses/1/bank/5')
+  await screen.findByRole('heading', { level: 2, name: 'TCP handshake' })
+  const open = screen.getByRole('button', { name: 'Generate more questions' })
+  expect(open).toHaveAttribute('aria-expanded', 'false')
+  await userEvent.click(open)
+  expect(open).toHaveAttribute('aria-expanded', 'true')
+  const form = screen.getByRole('region', { name: 'Generate more questions' })
+  expect(within(form).getByRole('spinbutton', { name: 'Count' })).toHaveValue(5)
+  expect(screen.getByRole('checkbox', { name: 'Generate for TCP handshake' })).not.toBeChecked()
+  expect(screen.getByRole('checkbox', { name: 'Generate for Sockets' })).toBeInTheDocument()
+  await userEvent.click(open)
+  expect(screen.queryByRole('region', { name: 'Generate more questions' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('checkbox', { name: /Generate for/ })).not.toBeInTheDocument()
+})
+
+test('Generate stays off until a concept is checked, and All concepts and None set every row', async () => {
+  renderBank('/courses/1/bank/5')
+  await screen.findByRole('heading', { level: 2, name: 'TCP handshake' })
+  await userEvent.click(screen.getByRole('button', { name: 'Generate more questions' }))
+  expect(screen.getByRole('button', { name: /Generate · 5 questions/ })).toBeDisabled()
+  await userEvent.click(screen.getByRole('button', { name: 'All concepts' }))
+  expect(screen.getByRole('checkbox', { name: 'Generate for TCP handshake' })).toBeChecked()
+  expect(screen.getByRole('checkbox', { name: 'Generate for Sockets' })).toBeChecked()
+  expect(screen.getByRole('button', { name: /Generate · 5 questions/ })).toBeEnabled()
+  await userEvent.click(screen.getByRole('button', { name: 'None' }))
+  expect(screen.getByRole('checkbox', { name: 'Generate for TCP handshake' })).not.toBeChecked()
+  expect(screen.getByRole('button', { name: /Generate · 5 questions/ })).toBeDisabled()
+})
+
+test('an empty bank offers no generate button', async () => {
+  vi.mocked(api.bank).mockResolvedValueOnce([])
+  renderBank('/courses/1/bank')
+  await screen.findByText(/No concepts yet/)
+  expect(screen.queryByRole('button', { name: 'Generate more questions' })).not.toBeInTheDocument()
+})
+
 test('generate more asks the API for the checked concepts and refreshes the bank', async () => {
   vi.mocked(api.generateMore).mockResolvedValueOnce([])
   renderBank('/courses/1/bank/5')
   await screen.findByRole('heading', { level: 2, name: 'TCP handshake' })
-  expect(screen.getByRole('heading', { name: 'Generate more questions' })).toBeInTheDocument()
+  await userEvent.click(screen.getByRole('button', { name: 'Generate more questions' }))
   await userEvent.click(screen.getByRole('checkbox', { name: 'Generate for TCP handshake' }))
   const bankCalls = vi.mocked(api.bank).mock.calls.length
   await userEvent.click(screen.getByRole('button', { name: /Generate · 5 questions/ }))
@@ -278,9 +350,11 @@ test('generate more asks the API for the checked concepts and refreshes the bank
   await waitFor(() => expect(vi.mocked(api.bank).mock.calls.length).toBe(bankCalls + 1))
 })
 
-test('a quiz handoff pre-checks concepts from the URL, then clears the query', async () => {
+test('a quiz handoff opens the form with its concepts pre-checked, then clears the query', async () => {
   renderBank('/courses/1/bank/5?concepts=5,6')
   await screen.findByRole('heading', { level: 2, name: 'TCP handshake' })
+  expect(screen.getByRole('button', { name: 'Generate more questions' })).toHaveAttribute('aria-expanded', 'true')
+  expect(screen.getByRole('region', { name: 'Generate more questions' })).toBeInTheDocument()
   await waitFor(() => {
     expect(screen.getByRole('checkbox', { name: 'Generate for TCP handshake' })).toBeChecked()
     expect(screen.getByRole('checkbox', { name: 'Generate for Sockets' })).toBeChecked()
@@ -288,4 +362,14 @@ test('a quiz handoff pre-checks concepts from the URL, then clears the query', a
   await waitFor(() => {
     expect(window.location.search).not.toContain('concepts=')
   })
+})
+
+test('a handoff keeps only the concepts this bank has', async () => {
+  vi.mocked(api.generateMore).mockResolvedValueOnce([])
+  renderBank('/courses/1/bank/5?concepts=6,99')
+  await screen.findByRole('heading', { level: 2, name: 'TCP handshake' })
+  await waitFor(() => expect(screen.getByRole('checkbox', { name: 'Generate for Sockets' })).toBeChecked())
+  expect(screen.getByRole('checkbox', { name: 'Generate for TCP handshake' })).not.toBeChecked()
+  await userEvent.click(screen.getByRole('button', { name: /Generate · 5 questions/ }))
+  await waitFor(() => expect(api.generateMore).toHaveBeenCalledWith(1, { conceptIds: [6], count: 5, types: 'BOTH' }))
 })
