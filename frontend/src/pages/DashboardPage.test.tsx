@@ -1,4 +1,5 @@
 import { screen, waitFor, within } from '@testing-library/react'
+import { SERVER_PROBLEM } from '../errors'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import { api, type ConceptStats } from '../api'
@@ -216,9 +217,9 @@ test('while it loads, the page holds the shape of what lands', async () => {
 })
 
 test('shows an alert when the dashboard load fails, and tries again', async () => {
-  vi.mocked(api.dashboard).mockRejectedValueOnce(new Error('500 /api/dashboard'))
+  vi.mocked(api.dashboard).mockRejectedValueOnce(new Error(SERVER_PROBLEM))
   renderInCourse(<DashboardPage />, 'dashboard')
-  await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('500 /api/dashboard'))
+  await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(SERVER_PROBLEM))
   await userEvent.click(screen.getByRole('button', { name: 'Try again' }))
   expect(await path()).toBeInTheDocument()
   expect(screen.queryByRole('alert')).not.toBeInTheDocument()

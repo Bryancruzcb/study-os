@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api, type CourseOverview } from '../api'
+import { messageOf } from '../errors'
 
 export interface CoursesState {
   courses: CourseOverview[] | null
@@ -15,7 +16,7 @@ export function useCourses(): CoursesState {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    api.overview().then(setCourses).catch(e => setError(String(e)))
+    api.overview().then(setCourses).catch(e => setError(messageOf(e)))
   }, [])
 
   const refresh = useCallback(

@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useLocation, useOutletContext, useParams } from 'react-router-dom'
 import { api, type ConceptWithQuestions, type Question } from '../api'
+import { messageOf } from '../errors'
 import Icon from '../icons'
 import { letter } from '../letter'
 import { plural } from '../plural'
@@ -127,7 +128,7 @@ function ConceptCards({ concept, reload, refresh, setError }: {
       // the head counts ACTIVE questions, so it just moved too
       await refresh()
     } catch (e) {
-      setError(String(e))
+      setError(messageOf(e))
     }
   }
 
@@ -139,7 +140,7 @@ function ConceptCards({ concept, reload, refresh, setError }: {
       pendingFocus.current = { id: qid }
       await refresh()
     } catch (e) {
-      setError(String(e))
+      setError(messageOf(e))
     }
   }
 
@@ -149,7 +150,7 @@ function ConceptCards({ concept, reload, refresh, setError }: {
       await api.label(qid, body)
       return true
     } catch (e) {
-      setError(String(e))
+      setError(messageOf(e))
       return false
     }
   }

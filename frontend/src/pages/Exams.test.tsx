@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { SERVER_PROBLEM } from '../errors'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import { api, type Exam, type Lecture } from '../api'
@@ -154,13 +155,13 @@ test('editing an exam saves its new date, and deleting one asks first', async ()
 })
 
 test('a failed save keeps the form and what was typed', async () => {
-  vi.mocked(api.createExam).mockRejectedValueOnce(new Error('500 /api/courses/1/exams'))
+  vi.mocked(api.createExam).mockRejectedValueOnce(new Error(SERVER_PROBLEM))
   renderExams()
   await userEvent.click(await screen.findByRole('button', { name: 'Add an exam' }))
   await userEvent.type(nameField(), 'Midterm')
   fireEvent.change(dateField(), { target: { value: '2026-09-26' } })
   await userEvent.click(screen.getByRole('button', { name: 'Save exam' }))
-  expect(await screen.findByRole('alert')).toHaveTextContent('500 /api/courses/1/exams')
+  expect(await screen.findByRole('alert')).toHaveTextContent(SERVER_PROBLEM)
   expect(nameField()).toHaveValue('Midterm')
   expect(screen.getByRole('button', { name: 'Save exam' })).toBeEnabled()
 })

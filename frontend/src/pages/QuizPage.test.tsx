@@ -1,4 +1,5 @@
 import { screen, waitFor, within } from '@testing-library/react'
+import { SERVER_PROBLEM } from '../errors'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, vi } from 'vitest'
 import { api, type QuestionReview, type QuizQuestion } from '../api'
@@ -256,10 +257,10 @@ test('a leftover localStorage run migrates onto the account once', async () => {
 })
 
 test('a review that fails to load says so and leaves the question answerable', async () => {
-  vi.mocked(api.review).mockRejectedValueOnce(new Error('500 /api/questions/9/review'))
+  vi.mocked(api.review).mockRejectedValueOnce(new Error(SERVER_PROBLEM))
   await startQuiz()
   await userEvent.click(screen.getByRole('button', { name: '1' }))
-  expect(await screen.findByRole('alert')).toHaveTextContent('500 /api/questions/9/review')
+  expect(await screen.findByRole('alert')).toHaveTextContent(SERVER_PROBLEM)
   expect(screen.getByRole('button', { name: '3' })).toBeEnabled()
   expect(answered()).toHaveAttribute('aria-valuenow', '0')
 })
@@ -336,9 +337,10 @@ test('a course with no questions says how to get some', async () => {
 })
 
 test('a quiz that fails to load shows the alert', async () => {
-  vi.mocked(api.quiz).mockRejectedValueOnce(new Error('500 /api/courses/1/quiz'))
+  vi.mocked(api.quiz).mockRejectedValueOnce(new Error(SERVER_PROBLEM))
   renderInCourse(<QuizPage />, 'quiz')
-  expect(await screen.findByRole('alert')).toHaveTextContent('500 /api/courses/1/quiz')
+  // the sentence alone: no "Error:" in front, no status, no URL
+  expect((await screen.findByRole('alert')).textContent).toBe(SERVER_PROBLEM)
 })
 
 test('the setup shows how many questions are available and links to generate in the bank', async () => {

@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react'
+import { SERVER_PROBLEM } from '../errors'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, vi } from 'vitest'
 import { api } from '../api'
@@ -115,11 +116,11 @@ test('Delete forever deletes the course and hands it on', async () => {
 })
 
 test('a failed archive stays open with the alert, so it can be tried again', async () => {
-  vi.mocked(api.setArchived).mockRejectedValueOnce(new Error('500 /api/courses/2/archived'))
+  vi.mocked(api.setArchived).mockRejectedValueOnce(new Error(SERVER_PROBLEM))
   const { onArchived, options } = renderMenu()
   await userEvent.click(options)
   await userEvent.click(screen.getByRole('button', { name: 'Archive' }))
-  expect(await screen.findByRole('alert')).toHaveTextContent('500 /api/courses/2/archived')
+  expect(await screen.findByRole('alert')).toHaveTextContent(SERVER_PROBLEM)
   expect(onArchived).not.toHaveBeenCalled()
   expect(screen.getByRole('button', { name: 'Archive' })).toBeEnabled()
 })

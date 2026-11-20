@@ -1,4 +1,5 @@
 import { screen, waitFor, within } from '@testing-library/react'
+import { SERVER_PROBLEM } from '../errors'
 import userEvent from '@testing-library/user-event'
 import { Route } from 'react-router-dom'
 import { vi } from 'vitest'
@@ -80,9 +81,9 @@ test('an empty bank says what to do next', async () => {
 })
 
 test('a failed bank load shows the alert', async () => {
-  vi.mocked(api.bank).mockRejectedValueOnce(new Error('500 /api/courses/1/bank'))
+  vi.mocked(api.bank).mockRejectedValueOnce(new Error(SERVER_PROBLEM))
   renderBank('/courses/1/bank')
-  expect(await screen.findByRole('alert')).toHaveTextContent('500 /api/courses/1/bank')
+  expect(await screen.findByRole('alert')).toHaveTextContent(SERVER_PROBLEM)
 })
 
 test('the upload control sits in the course head and refreshes the bank and the counts', async () => {

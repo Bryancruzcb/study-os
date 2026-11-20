@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { api, type Exam, type ExamInput, type Lecture } from '../api'
+import { messageOf } from '../errors'
 import { dayLabel } from '../dates'
 import Icon from '../icons'
 import { lectureName } from '../lectures'
@@ -47,7 +48,7 @@ export default function Exams({ courseId, courseName, onChange, lecturesLanded =
       setExams(loadedExams)
       setLectures(loadedLectures)
     } catch (e) {
-      setError(String(e))
+      setError(messageOf(e))
     }
   }, [courseId])
 
@@ -226,7 +227,7 @@ function ExamForm({ lectures, courseName, initial, onSave, onDelete, onCancel, s
       await work()
     } catch (e) {
       // the form stays open with what was typed, so a failure costs a click
-      setError(String(e))
+      setError(messageOf(e))
       setSaving(false)
     }
   }

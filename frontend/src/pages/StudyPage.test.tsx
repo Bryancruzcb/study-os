@@ -1,4 +1,5 @@
 import { screen, waitFor, within } from '@testing-library/react'
+import { SERVER_PROBLEM } from '../errors'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, vi } from 'vitest'
 import { api, type AnsweredAttempt, type Attempt, type QuestionReview, type StudyQuestion } from '../api'
@@ -110,11 +111,11 @@ test('a wrong pick marks Your answer and Right answer, then the explanation from
 })
 
 test('when the review fails to load, the verdict and the key the answer came back with still show', async () => {
-  vi.mocked(api.review).mockRejectedValueOnce(new Error('500 /api/questions/9/review'))
+  vi.mocked(api.review).mockRejectedValueOnce(new Error(SERVER_PROBLEM))
   await renderWithQuestion()
   await userEvent.click(screen.getByRole('button', { name: '3' }))
   expect(await screen.findByText('Correct')).toBeInTheDocument()
-  expect(screen.getByRole('alert')).toHaveTextContent('500 /api/questions/9/review')
+  expect(screen.getByRole('alert')).toHaveTextContent(SERVER_PROBLEM)
   expect(screen.getByText('You picked C: 3')).toBeInTheDocument()
   expect(screen.getByText('Right answer').closest('.answer-key')).toHaveTextContent('Right answer3')
   // the attempt was saved all the same, and the visit goes on
@@ -183,16 +184,17 @@ test('empty state when nothing due, with a way to the bank', async () => {
 })
 
 test('shows an alert when loading the next question fails', async () => {
-  vi.mocked(api.next).mockRejectedValueOnce(new Error('500 /api/study/next'))
+  vi.mocked(api.next).mockRejectedValueOnce(new Error(SERVER_PROBLEM))
   renderInCourse(<StudyPage />, 'study')
-  await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('500 /api/study/next'))
+  // the sentence alone: no "Error:" in front, no status, no URL
+  await waitFor(() => expect(screen.getByRole('alert').textContent).toBe(SERVER_PROBLEM))
 })
 
 test('shows an alert when answering fails', async () => {
-  vi.mocked(api.answer).mockRejectedValueOnce(new Error('500 /api/study/answer'))
+  vi.mocked(api.answer).mockRejectedValueOnce(new Error(SERVER_PROBLEM))
   await renderWithQuestion()
   await userEvent.click(screen.getByRole('button', { name: '3' }))
-  await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('500 /api/study/answer'))
+  await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(SERVER_PROBLEM))
   expect(screen.getByRole('button', { name: '3' })).toBeEnabled()
 })
 
@@ -212,9 +214,9 @@ test('keeps the graded question locked when loading the next one fails', async (
   await renderWithQuestion()
   await userEvent.click(screen.getByRole('button', { name: '3' }))
   await waitFor(() => expect(screen.getByText(/Correct/)).toBeInTheDocument())
-  vi.mocked(api.next).mockRejectedValueOnce(new Error('500 /api/study/next'))
+  vi.mocked(api.next).mockRejectedValueOnce(new Error(SERVER_PROBLEM))
   await userEvent.click(screen.getByRole('button', { name: 'Next question' }))
-  await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('500 /api/study/next'))
+  await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(SERVER_PROBLEM))
   expect(screen.getByText(/Correct/)).toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Next question' })).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: '3' })).not.toBeInTheDocument()
@@ -254,21 +256,21 @@ test('a pending verdict shows the model answer, then offers self-grade', async (
 })
 
 test('a short answer whose review fails still shows the key the answer came back with', async () => {
-  vi.mocked(api.review).mockRejectedValueOnce(new Error('500 /api/questions/10/review'))
+  vi.mocked(api.review).mockRejectedValueOnce(new Error(SERVER_PROBLEM))
   await renderShortAnswer({ id: 2, verdict: 'PENDING', score: null, feedback: null })
   await screen.findByText('Grader unavailable. Grade this one yourself')
-  expect(screen.getByRole('alert')).toHaveTextContent('500 /api/questions/10/review')
+  expect(screen.getByRole('alert')).toHaveTextContent(SERVER_PROBLEM)
   expect(screen.getByText('Model answer').closest('.answer-key')).toHaveTextContent('SYN, SYN-ACK, ACK')
   expect(screen.queryByRole('region', { name: 'Why, from the slides' })).not.toBeInTheDocument()
   expect(screen.getByRole('button', { name: /I got it right/i })).toBeEnabled()
 })
 
 test('shows an alert when self-grading fails and keeps the self-grade buttons', async () => {
-  vi.mocked(api.selfGrade).mockRejectedValueOnce(new Error('500 /api/study/attempts/2/self-grade'))
+  vi.mocked(api.selfGrade).mockRejectedValueOnce(new Error(SERVER_PROBLEM))
   await renderShortAnswer({ id: 2, verdict: 'PENDING', score: null, feedback: null })
   await waitFor(() => expect(screen.getByRole('button', { name: /I got it right/i })).toBeInTheDocument())
   await userEvent.click(screen.getByRole('button', { name: /I got it right/i }))
-  await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('500 /api/study/attempts/2/self-grade'))
+  await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(SERVER_PROBLEM))
   expect(api.selfGrade).toHaveBeenCalledWith(2, true)
   expect(screen.getByRole('button', { name: /I got it right/i })).toBeEnabled()
   expect(screen.getByRole('button', { name: /I got it wrong/i })).toBeEnabled()

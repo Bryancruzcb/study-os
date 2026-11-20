@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api'
+import { messageOf } from '../errors'
 import Icon from '../icons'
 import { TINTS } from '../lectures'
 import { plural } from '../plural'
@@ -74,7 +75,7 @@ export default function HomePage() {
       navigate(`/courses/${c.id}/bank`)
     } catch (err) {
       // the form stays open and keeps what was typed, so a failure costs a click
-      setCreateError(String(err))
+      setCreateError(messageOf(err))
     } finally {
       setSaving(false)
     }

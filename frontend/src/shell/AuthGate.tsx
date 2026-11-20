@@ -1,5 +1,6 @@
 import { useEffect, useState, useSyncExternalStore, type FormEvent, type ReactNode } from 'react'
 import { api } from '../api'
+import { messageOf } from '../errors'
 import { clearInvite, getInvite, getUser, onAuthChange, setUser } from '../auth'
 import ThemeToggle from './ThemeToggle'
 
@@ -78,7 +79,7 @@ function AuthForm() {
       setUser(name)
     } catch (err) {
       // the fields keep what was typed, so a refusal costs one correction
-      setError(err instanceof Error ? err.message : String(err))
+      setError(messageOf(err))
       setPending(false)
     }
   }

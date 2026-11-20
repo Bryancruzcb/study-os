@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { NavLink, Outlet, useLocation, useOutletContext, useSearchParams } from 'react-router-dom'
 import { api, type ConceptWithQuestions, type Lecture } from '../api'
+import { messageOf } from '../errors'
 import Icon from '../icons'
 import { lectureName } from '../lectures'
 import { plural } from '../plural'
@@ -63,7 +64,7 @@ export default function BankRoute() {
       setBank(nextBank)
       setLectures(nextLectures)
     } catch (e) {
-      setError(String(e))
+      setError(messageOf(e))
     }
   }, [course.id, setError])
 
@@ -102,7 +103,7 @@ export default function BankRoute() {
       await reload()
       await refresh()
     } catch (e) {
-      setError(String(e))
+      setError(messageOf(e))
     }
   }
 
@@ -132,7 +133,7 @@ export default function BankRoute() {
       await reload()
       await refresh()
     } catch (e) {
-      setError(String(e))
+      setError(messageOf(e))
     } finally {
       setGenerating(false)
     }

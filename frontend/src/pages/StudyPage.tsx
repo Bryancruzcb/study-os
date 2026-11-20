@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNo
 import { createPortal } from 'react-dom'
 import { Link, useOutletContext } from 'react-router-dom'
 import { api, type AnsweredAttempt, type Attempt, type QuestionReview, type StudyQuestion } from '../api'
+import { messageOf } from '../errors'
 import Icon from '../icons'
 import { letter } from '../letter'
 import type { CourseContext } from '../shell/CourseLayout'
@@ -116,7 +117,7 @@ export default function StudyPage() {
     try {
       await work()
     } catch (e) {
-      setError(String(e))
+      setError(messageOf(e))
     } finally {
       inFlight.current = false
       setSubmitting(false)
@@ -187,7 +188,7 @@ export default function StudyPage() {
       const review = await api.review(id)
       setReviews(r => ({ ...r, [id]: review }))
     } catch (e) {
-      setError(String(e))
+      setError(messageOf(e))
     }
   }
 

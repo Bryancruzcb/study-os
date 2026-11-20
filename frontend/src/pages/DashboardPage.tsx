@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useOutletContext } from 'react-router-dom'
 import { api, type ConceptStats, type Dashboard } from '../api'
+import { messageOf } from '../errors'
 import { dayLabel } from '../dates'
 import Icon from '../icons'
 import { lectureIcon, lectureLabel, lectureName, lectureTint } from '../lectures'
@@ -27,7 +28,7 @@ export default function DashboardPage() {
 
   // and again when a lecture dropped on this page lands
   useEffect(() => {
-    api.dashboard(course.id).then(setDash).catch(e => setError(String(e)))
+    api.dashboard(course.id).then(setDash).catch(e => setError(messageOf(e)))
   }, [course.id, planned, ingest.finished])
 
   const concepts = dash?.concepts ?? []

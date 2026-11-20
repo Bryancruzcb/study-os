@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, type EvalReport, type ReviewItem } from '../api'
+import { messageOf } from '../errors'
 import { plural } from '../plural'
 import Loading, { SkBlock, SkLine } from '../shell/Loading'
 
@@ -11,7 +12,7 @@ export default function EvalPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    api.evalReport().then(setReport).catch(e => setError(String(e)))
+    api.evalReport().then(setReport).catch(e => setError(messageOf(e)))
   }, [])
 
   const pct = (x: number) => `${Math.round(x * 100)}%`
