@@ -20,11 +20,53 @@
   box-shadow: var(--shadow-card);
 }
 
+/* the list's head: how many concepts, then the two rarer jobs, each closed until asked for */
+.clist-top {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 14px 10px;
+}
+
 .clist-head {
-  padding: 10px 14px 12px;
   font-variant-numeric: tabular-nums;
   font-size: 13px;
   color: var(--ink-dim);
+}
+
+.clist-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 18px;
+}
+
+/* a quiet button that opens something in place: link ink and a chevron that turns down
+   while it is open, so the state shows in shape as well as in aria-expanded */
+.disclose {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--link);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.disclose:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.disclose .icon {
+  transition: transform var(--motion) var(--ease);
+}
+
+.disclose[aria-expanded='true'] .icon {
+  transform: rotate(90deg);
 }
 
 /* a concept row: the name and how many questions it can still ask */
@@ -92,17 +134,15 @@
   color: var(--ink-dim);
 }
 
-/* lectures already in the course, one card with a row each: delete one, or re-upload the
-   same filename to replace it */
+/* lectures already in the course, opened from the list's head: delete one, or re-upload the
+   same filename to replace it. It sits inside the list's card, so it draws no box of its own */
 .lecture-manage {
   display: flex;
   flex-direction: column;
-  margin: 0 0 16px;
-  padding: 4px 18px;
+  margin: 0 0 8px;
+  padding: 0 14px 4px;
   list-style: none;
-  background: var(--card);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-card);
+  border-bottom: 1px solid var(--line);
 }
 
 .lecture-manage-row {
@@ -172,21 +212,136 @@
   letter-spacing: -0.01em;
 }
 
+/* top-aligned: the labels open downward, and Retire stays level with the Label button */
 .qcard-foot {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
   padding-top: 16px;
   border-top: 1px solid var(--line);
 }
 
+/* ---- what a question is checked against --------------------------------------- */
+
+/* every option in a plain row, no box of its own inside the card; the key is marked three
+   ways: a check in place of its letter, the ok colour, and the words "Right answer" */
+.qcard-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.qcard-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 16px;
+  line-height: 1.4;
+  color: var(--ink-soft);
+}
+
+.qcard-option .letter {
+  width: 28px;
+  height: 28px;
+  font-size: 13px;
+}
+
+.qcard-option-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.qcard-option.is-key .qcard-option-text {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.qcard-option.is-key .letter {
+  border-color: var(--ok);
+  background: var(--ok);
+  color: var(--ok-wash);
+}
+
+.qcard-tag {
+  flex: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ok);
+}
+
+/* a short answer's model answer: a labelled line, the way the quiz shows its key */
+.qcard-key {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.qcard-key-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ok);
+}
+
+.qcard-key-text {
+  max-width: 70ch;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+/* ---- the owner's labels, kept quiet ----------------------------------------------- */
+
 .qcard-labels {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.qcard-labels-head {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 4px 14px;
+}
+
+.qcard-label-line {
+  font-size: 13px;
+  color: var(--ink-dim);
+}
+
+.qcard-label-set {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* light outline toggles here, not the filled pills used elsewhere: on is a darker outline
+   and a check, off is the plain line and no check, so the state never rests on colour */
+.qcard-label-set .toggle {
+  min-height: 32px;
+  padding: 4px 12px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.qcard-label-set .toggle:has(input:checked) {
+  border-color: var(--ink-soft);
+  background: var(--card);
+  color: var(--ink);
+}
+
+.qcard-label-set .toggle:has(input:checked):has(input:disabled) {
+  color: var(--ink-dim);
 }
 
 /* the only destructive control on the card, pinned to its right edge */
@@ -224,6 +379,11 @@
   text-decoration-color: var(--line-dashed);
 }
 
+.qcard--retired .qcard-option.is-key .qcard-option-text,
+.qcard--retired .qcard-key-text {
+  color: var(--ink-dim);
+}
+
 @media (max-width: 720px) {
   .split {
     grid-template-columns: minmax(0, 1fr);
@@ -241,34 +401,26 @@
   box-shadow: 0 0 0 2px var(--accent), var(--shadow-card);
 }
 
-/* generate-more: pick concepts in the list, set count/types above the split */
+/* generate-more, opened from the list's head: count and types here, the concepts checked in
+   the rows just below. Inside the list's card, so a rule under it and no box */
 .bank-generate {
-  margin: 0 0 24px;
-  padding: 20px 22px;
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-card);
-}
-
-.bank-generate-title {
   margin: 0 0 8px;
-  font-size: 18px;
-  font-weight: 600;
+  padding: 4px 14px 16px;
+  border-bottom: 1px solid var(--line);
 }
 
 .bank-generate .lede {
-  margin: 0 0 16px;
+  margin: 0 0 14px;
   color: var(--ink-dim);
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .bank-generate-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 20px 28px;
+  gap: 14px 20px;
   align-items: flex-end;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
 .bank-generate-row .field {
