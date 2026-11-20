@@ -135,7 +135,10 @@ right".*
   it myself, so a quiz spends nothing on the grader. A quiz records no attempts and moves
   no review dates. The results list each lecture weakest first and the questions I missed,
   with a way to retake just those, and the run is kept in the browser, so a long quiz
-  picks up where I left it.
+  picks up where I left it. While a quiz runs, a side panel shows the nearest exam, the
+  score so far and every topic in the quiz with its lecture, its slides and how it has
+  gone. O opens the cited slide in the lecture's PDF, and Report question takes a bad
+  question out of the bank and the quiz, with Undo.
 - Explanations: a question can carry an explanation, a note for each option and a Mermaid
   diagram, all drawn only from its lecture's slides and cited by slide number. New uploads
   get them from ingest. The questions banked before ingest could write them were explained

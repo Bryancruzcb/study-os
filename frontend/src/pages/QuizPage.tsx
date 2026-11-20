@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type Ref } from 'react'
-import { createPortal } from 'react-dom'
 import { Link, useOutletContext } from 'react-router-dom'
-import { api, type QuestionReview, type QuizQuestion } from '../api'
+import { api, type Exam, type QuestionReview, type QuizQuestion } from '../api'
+import { dayLabel } from '../dates'
+import Icon from '../icons'
+import { lectureTitle } from '../lectures'
+import { leadExam, when } from '../plan'
 import { plural } from '../plural'
-import { asked, buildQuiz, byLecture, clearLocalRun, shuffle, takeLocalRun, tally, type QuizAnswer, type QuizRun } from '../quiz'
+import { asked, buildQuiz, byLecture, clearLocalRun, shuffle, takeLocalRun, tally, topicRows, type QuizAnswer, type QuizRun, type TopicRow } from '../quiz'
 import type { CourseContext } from '../shell/CourseLayout'
-import { citation } from '../source'
+import { citation, firstSlide, slideHref, slides } from '../source'
 import Diagram from './Diagram'
-import QuestionHead from './QuestionHead'
 
 const LETTERS = 'ABCDEFGHIJ'
 const letter = (i: number) => LETTERS[i] ?? String(i + 1)
@@ -41,11 +43,16 @@ function keyText(question: QuizQuestion, review: QuestionReview): string {
 /* Quiz mode: every question in the course, from every topic, shuffled into one quiz. After each
    answer the page shows why every option is right or wrong, drawn from the slides, with a diagram
    where one helps. A quiz is practice: nothing here records an attempt or moves a review date. The
-   run is saved on the account, so another browser or device picks the quiz up where it stopped. */
+   run is saved on the account, so another browser or device picks the quiz up where it stopped.
+   While it runs, a side panel keeps the nearest exam, the score so far and every topic in view. */
 export default function QuizPage() {
-  const { course, slot } = useOutletContext<CourseContext>()
+  const { course } = useOutletContext<CourseContext>()
   const [questions, setQuestions] = useState<QuizQuestion[] | null>(null)
   const [run, setRun] = useState<QuizRun | null>(null)
+  // the side panel's exam line; a course with none, or a failed load, simply leaves it out
+  const [exams, setExams] = useState<Exam[]>([])
+  // the question just taken out of the bank, until Undo or the next move
+  const [reported, setReported] = useState<QuizQuestion | null>(null)
   const [reviews, setReviews] = useState<Record<number, QuestionReview>>({})
   // the answered question kept on screen until Next question; null shows the next unanswered one
   const [showing, setShowing] = useState<number | null>(null)
@@ -85,6 +92,9 @@ export default function QuizPage() {
         setRun(next)
       })
       .catch(e => { if (current) setError(String(e)) })
+    api.exams(course.id)
+      .then(loaded => { if (current) setExams(loaded) })
+      .catch(() => { /* the exam line is a convenience: without it the quiz still runs */ })
     return () => { current = false }
   }, [course.id])
 
@@ -150,6 +160,7 @@ export default function QuizPage() {
       setShowing(null)
       setRevealed(null)
       setText('')
+      setReported(null)
       wantLanding.current = true
     })
   }
@@ -159,7 +170,34 @@ export default function QuizPage() {
       const review = await reviewOf(q.id)
       await keep(answered(q, { picked, text: '', correct: review.correctIndex === picked }))
       setShowing(q.id)
+      setReported(null)
       wantBand.current = true
+    })
+  }
+
+  // A bad question (a wrong key, nothing in the slides, two right answers) comes out of the bank
+  // the way Retire takes it out there, and out of this quiz and its score. Undo puts it back;
+  // the Bank can too, later.
+  function report(q: QuizQuestion) {
+    work(async () => {
+      await api.retire(q.id)
+      setQuestions(all => all && all.filter(x => x.id !== q.id))
+      setReported(q)
+      setShowing(null)
+      setRevealed(null)
+      setText('')
+      wantLanding.current = true
+    })
+  }
+
+  function undoReport() {
+    const q = reported
+    if (!q) return
+    work(async () => {
+      await api.restore(q.id)
+      setQuestions(all => all && (all.some(x => x.id === q.id) ? all : [...all, q]))
+      setReported(null)
+      wantLanding.current = true
     })
   }
 
@@ -187,6 +225,7 @@ export default function QuizPage() {
     work(async () => {
       if (run && current === null) await keep({ ...run, finished: true })
       setShowing(null)
+      setReported(null)
       wantLanding.current = true
     })
   }
@@ -196,6 +235,7 @@ export default function QuizPage() {
       if (run) await keep({ ...run, finished: true })
       setShowing(null)
       setRevealed(null)
+      setReported(null)
       wantLanding.current = true
     })
   }
@@ -207,20 +247,49 @@ export default function QuizPage() {
     })
   }
 
-  const { answered: count } = run ? tally(run, quiz) : { answered: 0 }
+  const { right, answered: count } = run ? tally(run, quiz) : { right: 0, answered: 0 }
   const running = run !== null && quiz.length > 0 && !run.finished && onScreen !== null
   const results = run !== null && quiz.length > 0 && !running
+  const mcAnswered = onScreen !== null && onScreen.type === 'MC' && run !== null
+    && Boolean(run.answers[onScreen.id]) && Boolean(reviews[onScreen.id])
+  const slide = onScreen ? slideHref(onScreen.lectureId, onScreen.sourcePages) : null
+
+  // Keys for a quiz in progress: 1 to 9 pick an option, Enter goes on once the answer is marked,
+  // and O opens the cited slide. Typing in the short-answer box, or with a modifier held, is left
+  // alone. The window listener is attached once and always calls the latest handler.
+  const onKey = useRef<(e: KeyboardEvent) => void>(() => {})
+  useEffect(() => {
+    onKey.current = e => {
+      if (!running || !onScreen || busy || e.altKey || e.ctrlKey || e.metaKey) return
+      const target = e.target instanceof Element ? e.target : null
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return
+      if ((e.key === 'o' || e.key === 'O') && slide) {
+        e.preventDefault()
+        window.open(slide, '_blank', 'noopener')
+      } else if (onScreen.type === 'MC' && run && !run.answers[onScreen.id] && /^[1-9]$/.test(e.key)) {
+        const i = Number(e.key) - 1
+        if (i < onScreen.options.length) answerMc(onScreen, i)
+      } else if (e.key === 'Enter' && mcAnswered && !target?.closest('button, a')) {
+        e.preventDefault()
+        nextQuestion()
+      }
+    }
+  })
+  useEffect(() => {
+    const listen = (e: KeyboardEvent) => onKey.current(e)
+    window.addEventListener('keydown', listen)
+    return () => window.removeEventListener('keydown', listen)
+  }, [])
 
   return (
-    <div className="quiz">
-      {slot && run && quiz.length > 0 && createPortal(
-        <div className="progress">
-          <p className="figure"><b>{count}</b><span>of {quiz.length} answered</span></p>
-          <div className="bar"><span style={{ width: `${Math.round((count / quiz.length) * 100)}%` }} /></div>
-        </div>,
-        slot,
-      )}
+    <div className={running ? 'quiz quiz--desk' : 'quiz'}>
       {error && <p className="alert" role="alert">{error}</p>}
+      {reported && (
+        <p className="quiz-reported" role="status">
+          <span>Took “{reported.prompt}” out of your bank, so it won’t come up again.</span>
+          <button className="btn btn--ghost btn--micro" disabled={busy} onClick={undoReport}>Undo</button>
+        </p>
+      )}
       {questions === null && !error && <p className="empty">Loading the quiz…</p>}
 
       {questions !== null && !running && !results && (
@@ -228,53 +297,76 @@ export default function QuizPage() {
       )}
 
       {running && run && onScreen && (
-        <>
-          <div className="study-nav" role="group" aria-label="Quiz">
-            <span className="count" aria-live="polite">Question {quiz.indexOf(onScreen) + 1} of {quiz.length}</span>
-            <button className="btn btn--ghost btn--micro" disabled={busy} onClick={end}>End quiz</button>
-          </div>
-          <article className="qcard-big">
-            <QuestionHead question={onScreen} landing={takeLanding} />
-            {onScreen.type === 'MC' ? (
-              run.answers[onScreen.id] && reviews[onScreen.id] ? (
-                <McReview question={onScreen} answer={run.answers[onScreen.id]} review={reviews[onScreen.id]}
-                  band={band} last={current === null} onNext={nextQuestion} />
-              ) : (
-                <div className="opts">
-                  {onScreen.options.map((option, i) => (
-                    <button className="opt" key={i} disabled={busy} onClick={() => answerMc(onScreen, i)}>
-                      <span className="letter" aria-hidden="true">{letter(i)}</span>{option}
-                    </button>
-                  ))}
-                </div>
-              )
-            ) : revealed === onScreen.id && reviews[onScreen.id] ? (
-              <>
-                {text.trim() && <p className="your-answer">{text.trim()}</p>}
-                <div ref={band} tabIndex={-1} className="verdict verdict--pending">
-                  <p className="answer-key"><span>Model answer</span>{keyText(onScreen, reviews[onScreen.id])}</p>
-                  {reviews[onScreen.id].rubric && (
-                    <div className="answer-key">
-                      <span>What a right answer needs</span>
-                      <p className="quiz-rubric">{reviews[onScreen.id].rubric}</p>
-                    </div>
-                  )}
-                  <Why question={onScreen} review={reviews[onScreen.id]} />
-                  <div className="actions">
-                    <button className="btn btn--secondary" onClick={() => mark(onScreen, true)}>I got it right</button>
-                    <button className="btn btn--secondary" onClick={() => mark(onScreen, false)}>I got it wrong</button>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="short-answer">
-                <textarea className="textarea" aria-label="Your answer" value={text}
-                  disabled={busy} onChange={e => setText(e.target.value)} />
-                <button className="btn" disabled={busy} onClick={() => reveal(onScreen)}>Show the answer</button>
+        <div className="quiz-desk">
+          <Rail courseName={course.name} exam={leadExam(exams)} rows={topicRows(run, quiz, onScreen.id)}
+            right={right} missed={count - right} left={quiz.length - count} canOpenSlide={slide !== null} />
+
+          <div className="quiz-main">
+            <div className="quiz-top">
+              <span className="quiz-count" aria-live="polite">Question {quiz.indexOf(onScreen) + 1} of {quiz.length}</span>
+              <div className="bar" role="progressbar" aria-label="Questions answered"
+                aria-valuemin={0} aria-valuemax={quiz.length} aria-valuenow={count}>
+                <span style={{ width: `${Math.round((count / quiz.length) * 100)}%` }} />
               </div>
-            )}
-          </article>
-        </>
+              <button className="btn btn--ghost btn--micro" disabled={busy} onClick={end}>End quiz</button>
+            </div>
+
+            <article className="quiz-question">
+              <p className="quiz-meta">
+                {onScreen.topic && <span>{onScreen.topic}</span>}
+                {citation(onScreen.lecture, onScreen.sourcePages) && <span>{citation(onScreen.lecture, onScreen.sourcePages)}</span>}
+                <span>{onScreen.type === 'MC' ? 'Multiple choice' : 'Short answer'}</span>
+              </p>
+              <p className="prompt" tabIndex={-1} ref={takeLanding}>{onScreen.prompt}</p>
+              {onScreen.type === 'MC' ? (
+                mcAnswered ? (
+                  <McReview question={onScreen} answer={run.answers[onScreen.id]} review={reviews[onScreen.id]} band={band} />
+                ) : (
+                  <div className="opts">
+                    {onScreen.options.map((option, i) => (
+                      <button className="opt" key={i} disabled={busy} onClick={() => answerMc(onScreen, i)}>
+                        <span className="letter" aria-hidden="true">{letter(i)}</span>{option}
+                      </button>
+                    ))}
+                  </div>
+                )
+              ) : revealed === onScreen.id && reviews[onScreen.id] ? (
+                <>
+                  {text.trim() && <p className="your-answer">{text.trim()}</p>}
+                  <div ref={band} tabIndex={-1} className="quiz-key">
+                    <p className="answer-key"><span>Model answer</span>{keyText(onScreen, reviews[onScreen.id])}</p>
+                    {reviews[onScreen.id].rubric && (
+                      <div className="answer-key">
+                        <span>What a right answer needs</span>
+                        <p className="quiz-rubric">{reviews[onScreen.id].rubric}</p>
+                      </div>
+                    )}
+                    <Why question={onScreen} review={reviews[onScreen.id]} />
+                    <div className="actions">
+                      <button className="btn btn--secondary" onClick={() => mark(onScreen, true)}>I got it right</button>
+                      <button className="btn btn--secondary" onClick={() => mark(onScreen, false)}>I got it wrong</button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="short-answer">
+                  <textarea className="textarea" aria-label="Your answer" value={text}
+                    disabled={busy} onChange={e => setText(e.target.value)} />
+                  <button className="btn" disabled={busy} onClick={() => reveal(onScreen)}>Show the answer</button>
+                </div>
+              )}
+            </article>
+
+            <div className="quiz-actions">
+              <button className="btn btn--secondary" disabled={busy} onClick={() => report(onScreen)}>
+                <Icon name="flag" size={16} />Report question
+              </button>
+              {mcAnswered && (
+                <button className="btn" disabled={busy} onClick={nextQuestion}>{current === null ? 'See results' : 'Next question'}</button>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {results && run && (
@@ -282,6 +374,63 @@ export default function QuizPage() {
           onRetake={ids => start(shuffle(ids))} onNew={newQuiz} />
       )}
     </div>
+  )
+}
+
+/* The quiz at a glance, beside the question: the nearest exam, the score so far, and every topic
+   the quiz covers with its lecture, its slides and how it has gone. */
+function Rail({ courseName, exam, rows, right, missed, left, canOpenSlide }: {
+  courseName: string
+  exam: Exam | null
+  rows: TopicRow[]
+  right: number
+  missed: number
+  left: number
+  canOpenSlide: boolean
+}) {
+  const total = right + missed + left
+  return (
+    <aside className="quiz-rail" aria-label="This quiz">
+      {exam && (
+        <div className="quiz-exam">
+          <span className="quiz-exam-icon" aria-hidden="true"><Icon name="calendar" /></span>
+          <span className="quiz-exam-text">
+            <b>{exam.name} {when(exam)}</b>
+            <span>{dayLabel(exam.date)} · covers {plural(exam.lectureIds.length, 'lecture')}</span>
+          </span>
+        </div>
+      )}
+      <section className="quiz-score" aria-labelledby="quiz-score-title">
+        <h2 id="quiz-score-title" className="quiz-rail-title">This quiz</h2>
+        <p className="quiz-score-line">{right} right · {missed} missed · {left} to go</p>
+        <div className="quiz-score-bar" aria-hidden="true">
+          <span className="is-right" style={{ width: `${(right / total) * 100}%` }} />
+          <span className="is-missed" style={{ width: `${(missed / total) * 100}%` }} />
+        </div>
+      </section>
+      <ol className="quiz-topics" aria-label="Topics in this quiz">
+        {rows.map(row => {
+          const state = row.answered === 0 ? 'todo' : row.right < row.answered ? 'missed' : 'right'
+          const where = [row.lecture ? lectureTitle(row.lecture, courseName) : null, row.pages ? slides(row.pages) : null]
+            .filter(Boolean).join(' · ')
+          return (
+            <li key={row.conceptId} className={`quiz-topic is-${state}${row.current ? ' is-current' : ''}`}
+              aria-current={row.current ? 'step' : undefined}>
+              {state === 'todo'
+                ? <span className="quiz-topic-todo" role="img" aria-label="Not asked yet" />
+                : <Icon name={state === 'right' ? 'check' : 'x'} size={16} role="img"
+                    aria-hidden={undefined} aria-label={state === 'right' ? 'Right so far' : 'Missed'} />}
+              <span className="quiz-topic-text">
+                <span className="quiz-topic-name">{row.topic}</span>
+                {where && <span className="quiz-topic-where">{where}{row.current ? ' · on now' : ''}</span>}
+              </span>
+              <span className="quiz-topic-count">{row.answered} of {row.asked}</span>
+            </li>
+          )
+        })}
+      </ol>
+      {canOpenSlide && <p className="quiz-hint">Press <kbd>O</kbd> to open the slide</p>}
+    </aside>
   )
 }
 
@@ -385,19 +534,22 @@ function conceptIdsFor(questions: readonly QuizQuestion[], picked: Set<number>):
   return [...ids].sort((a, b) => a - b).join(',')
 }
 
-/* An answered multiple-choice question: every option marked, each with why the slides make it
-   right or wrong, then the verdict, the explanation and the way on. */
-function McReview({ question, answer, review, band, last, onNext }: {
+/* An answered multiple-choice question: the verdict first, where the caret lands, then every
+   option marked, each with why the slides make it right or wrong, then the explanation. The
+   marks say which was picked, so the verdict needs no "you picked" line of its own. */
+function McReview({ question, answer, review, band }: {
   question: QuizQuestion
   answer: QuizAnswer
   review: QuestionReview
   band: Ref<HTMLDivElement>
-  last: boolean
-  onNext: () => void
 }) {
   const picked = answer.picked ?? -1
   return (
     <>
+      <div ref={band} tabIndex={-1} className={`quiz-verdict ${answer.correct ? 'is-ok' : 'is-bad'}`}>
+        <Icon name={answer.correct ? 'check' : 'x'} size={20} />
+        {answer.correct ? 'Correct' : 'Incorrect'}
+      </div>
       <ol className="quiz-review" aria-label="Why each option is right or wrong">
         {question.options.map((option, i) => {
           const isKey = i === review.correctIndex
@@ -405,43 +557,44 @@ function McReview({ question, answer, review, band, last, onNext }: {
           const tag = isKey && isPick ? 'Your answer, right' : isKey ? 'Right answer' : isPick ? 'Your answer' : null
           return (
             <li key={i} className={`quiz-opt${isKey ? ' is-key' : ''}${isPick && !isKey ? ' is-miss' : ''}`}>
-              <p className="quiz-opt-line">
-                <span className="letter" aria-hidden="true">{letter(i)}</span>
+              <span className="letter" aria-hidden="true">{isKey ? <Icon name="check" size={16} /> : letter(i)}</span>
+              <span className="quiz-opt-main">
                 <span className="quiz-opt-text">{option}</span>
                 {tag && <span className="quiz-tag">{tag}</span>}
-              </p>
+              </span>
               {review.optionExplanations[i] && <p className="quiz-opt-why">{review.optionExplanations[i]}</p>}
             </li>
           )
         })}
       </ol>
-      <div ref={band} tabIndex={-1} className={`verdict ${answer.correct ? 'verdict--ok' : 'verdict--bad'}`}>
-        <p className="verdict-line">
-          <span className="bracket" aria-hidden="true" />
-          {answer.correct ? 'Correct' : 'Incorrect'}
-        </p>
-        {picked >= 0 && <p className="verdict-note">You picked {letter(picked)}: {question.options[picked]}</p>}
-        <Why question={question} review={review} />
-        <div className="actions">
-          <button className="btn" onClick={onNext}>{last ? 'See results' : 'Next question'}</button>
-        </div>
-      </div>
+      <Why question={question} review={review} />
     </>
   )
 }
 
 /* why the answer is what it is, from the slides: the explanation, a diagram where one helps, and
-   the lecture and slides to check it against */
+   the lecture and slides to check it against, with the slide itself a click away */
 function Why({ question, review }: { question: QuizQuestion; review: QuestionReview }) {
   const source = citation(question.lecture, question.sourcePages)
+  const first = firstSlide(question.sourcePages)
+  const href = slideHref(question.lectureId, question.sourcePages)
   return (
     <section className="why" aria-label="Why, from the slides">
-      <p className="why-label">From the slides</p>
+      <p className="why-label">{question.sourcePages ? `From ${slides(question.sourcePages)}` : 'From the slides'}</p>
       {review.explanation
         ? review.explanation.split(/\n{2,}/).map((paragraph, i) => <p key={i} className="why-text">{paragraph}</p>)
         : <p className="why-text">No explanation has been written for this question yet.</p>}
       {review.diagram && <Diagram source={review.diagram} label={`Diagram: ${question.prompt}`} />}
-      {source && <p className="why-source">{source}</p>}
+      {(source || href) && (
+        <p className="why-source">
+          {source && <span>{source}</span>}
+          {href && (
+            <a className="why-open" href={href} target="_blank" rel="noopener">
+              Open slide {first}<Icon name="external-link" size={14} />
+            </a>
+          )}
+        </p>
+      )}
     </section>
   )
 }

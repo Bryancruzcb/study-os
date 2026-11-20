@@ -30,7 +30,55 @@ class IngestControllerTest {
     @MockBean ConceptRepo conceptRepo;
     @MockBean QuestionRepo questionRepo;
     @MockBean AppUserRepo appUserRepo;
+    @MockBean MaterialPdfRepo materialPdfRepo;
     @MockBean Owned owned;
+
+    // --- the lecture's PDF, which the quiz opens at a cited slide -------------------------
+
+    @Test
+    void aLecturesPdfIsServedInlineUnderItsNameAsAPdf() throws Exception {
+        Material lecture = new Material();
+        lecture.id = 11L;
+        lecture.filename = "Lecture 3 Fall 2026.pptx";
+        when(owned.material(SignedInMvc.ME.id(), 11L)).thenReturn(lecture);
+        MaterialPdf pdf = new MaterialPdf();
+        pdf.materialId = 11L;
+        pdf.bytes = new byte[] {'%', 'P', 'D', 'F', '-'};
+        when(materialPdfRepo.findById(11L)).thenReturn(Optional.of(pdf));
+        mvc.perform(get("/api/materials/11/pdf"))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType("application/pdf"))
+            .andExpect(header().string("Content-Disposition",
+                org.hamcrest.Matchers.allOf(
+                    org.hamcrest.Matchers.startsWith("inline"),
+                    org.hamcrest.Matchers.containsString("Lecture 3 Fall 2026.pdf"))))
+            .andExpect(content().bytes(pdf.bytes));
+    }
+
+    @Test
+    void anotherAccountsLecturePdfIsNotFoundAndNeverRead() throws Exception {
+        when(owned.material(SignedInMvc.ME.id(), 12L)).thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND));
+        mvc.perform(get("/api/materials/12/pdf")).andExpect(status().isNotFound());
+        verifyNoInteractions(materialPdfRepo);
+    }
+
+    @Test
+    void aLectureWhosePdfWasNeverKeptIsNotFound() throws Exception {
+        Material lecture = new Material();
+        lecture.id = 13L;
+        lecture.filename = "old.pdf";
+        when(owned.material(SignedInMvc.ME.id(), 13L)).thenReturn(lecture);
+        when(materialPdfRepo.findById(13L)).thenReturn(Optional.empty());
+        mvc.perform(get("/api/materials/13/pdf")).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void theServedNameSwapsTheUploadsExtensionForPdf() {
+        org.junit.jupiter.api.Assertions.assertEquals("Week 2.pdf", IngestController.pdfName("Week 2.pptx"));
+        org.junit.jupiter.api.Assertions.assertEquals("notes.pdf", IngestController.pdfName("notes"));
+        org.junit.jupiter.api.Assertions.assertEquals("lecture.pdf", IngestController.pdfName(null));
+        org.junit.jupiter.api.Assertions.assertEquals(".bashrc.pdf", IngestController.pdfName(".bashrc"));
+    }
 
     // an upload spends API credit, so one into someone else's course must stop before the service
     @Test

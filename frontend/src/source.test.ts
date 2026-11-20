@@ -1,4 +1,4 @@
-import { citation, slides } from './source'
+import { citation, firstSlide, slideHref, slides } from './source'
 
 test('one page is a slide, several are slides', () => {
   expect(slides('40')).toBe('slide 40')
@@ -18,4 +18,13 @@ test('three or more slides in a row read as a range, and shorter runs stay liste
   expect(slides('38,39,40,41,63,64')).toBe('slides 38–41, 63, 64')
   // the order they were stored in is kept, so a descending pair is not a run
   expect(slides('5,4,3')).toBe('slides 5, 4, 3')
+})
+
+test('a question opens its lecture at the first slide it cites', () => {
+  expect(firstSlide('14,15')).toBe(14)
+  expect(firstSlide(' 6 ')).toBe(6)
+  expect(firstSlide(null)).toBeNull()
+  expect(firstSlide('')).toBeNull()
+  expect(slideHref(11, '6,7')).toBe('/api/materials/11/pdf#page=6')
+  expect(slideHref(11, null)).toBeNull()
 })

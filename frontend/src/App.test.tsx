@@ -22,6 +22,7 @@ vi.mock('./api', () => ({
     quizProgress: vi.fn().mockResolvedValue(null),
     saveQuizProgress: vi.fn().mockImplementation(async (_id, run) => run),
     clearQuizProgress: vi.fn().mockResolvedValue(undefined),
+    exams: vi.fn().mockResolvedValue([]),
     createCourse: vi.fn(),
     evalReport: vi.fn().mockResolvedValue({
       labeled: 31, pctAnswerable: 1, pctCorrectAnswer: 0.97, pctUnambiguous: 0.94,

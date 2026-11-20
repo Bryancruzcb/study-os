@@ -23,6 +23,19 @@ function runs(numbers: string[]): string[] {
   return out
 }
 
+/* the first slide a question cites, or null when it cites none */
+export function firstSlide(pages: string | null): number | null {
+  const first = (pages ?? '').split(',').map(p => p.trim()).find(p => /^\d+$/.test(p))
+  return first ? Number(first) : null
+}
+
+/* The lecture's PDF opened at that slide, in the browser's own viewer. An upload that came in
+   as slides or a document was turned into this PDF, one page per slide, so page N is slide N. */
+export function slideHref(lectureId: number, pages: string | null): string | null {
+  const slide = firstSlide(pages)
+  return slide === null ? null : `/api/materials/${lectureId}/pdf#page=${slide}`
+}
+
 export function citation(lecture: string | null, pages: string | null): string | null {
   const parts = [lecture, pages ? slides(pages) : null].filter((part): part is string => Boolean(part))
   return parts.length > 0 ? parts.join(' · ') : null

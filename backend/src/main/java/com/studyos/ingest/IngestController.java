@@ -5,8 +5,14 @@ import com.studyos.auth.SignedIn;
 import com.studyos.domain.*;
 import com.studyos.repo.*;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import org.springframework.http.CacheControl;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -20,15 +26,18 @@ public class IngestController {
     private final ConceptRepo conceptRepo;
     private final QuestionRepo questionRepo;
     private final AppUserRepo appUserRepo;
+    private final MaterialPdfRepo materialPdfRepo;
     private final Owned owned;
 
     public IngestController(IngestService ingestService, CourseRepo courseRepo, ConceptRepo conceptRepo,
-                            QuestionRepo questionRepo, AppUserRepo appUserRepo, Owned owned) {
+                            QuestionRepo questionRepo, AppUserRepo appUserRepo, MaterialPdfRepo materialPdfRepo,
+                            Owned owned) {
         this.ingestService = ingestService;
         this.courseRepo = courseRepo;
         this.conceptRepo = conceptRepo;
         this.questionRepo = questionRepo;
         this.appUserRepo = appUserRepo;
+        this.materialPdfRepo = materialPdfRepo;
         this.owned = owned;
     }
 
@@ -60,6 +69,38 @@ public class IngestController {
     @GetMapping("/materials/{id}")
     public Material material(@AuthenticationPrincipal SignedIn me, @PathVariable Long id) {
         return owned.material(me.id(), id);
+    }
+
+    /**
+     * The lecture as the PDF its questions cite, shown in the browser's own viewer, so a quiz can
+     * open slide N with {@code #page=N}. A deck uploaded as PowerPoint comes back as the PDF it was
+     * turned into, one page per slide. 404 when the lecture is not this account's, or predates
+     * keeping the bytes.
+     */
+    @GetMapping("/materials/{id}/pdf")
+    public ResponseEntity<byte[]> pdf(@AuthenticationPrincipal SignedIn me, @PathVariable Long id) {
+        Material material = owned.material(me.id(), id);
+        MaterialPdf pdf = materialPdfRepo.findById(id).orElse(null);
+        if (pdf == null || pdf.bytes == null || pdf.bytes.length == 0) return ResponseEntity.notFound().build();
+        return ResponseEntity.ok()
+            .contentType(MediaType.APPLICATION_PDF)
+            .header(HttpHeaders.CONTENT_DISPOSITION, inlineAs(pdfName(material.filename)))
+            .cacheControl(CacheControl.maxAge(Duration.ofHours(1)).cachePrivate())
+            .body(pdf.bytes);
+    }
+
+    // a plain name stays readable in the header; one with other characters goes out encoded
+    private static String inlineAs(String name) {
+        ContentDisposition.Builder inline = ContentDisposition.inline();
+        boolean plain = name.chars().allMatch(c -> c >= 0x20 && c < 0x7F && c != '"' && c != '\\');
+        return (plain ? inline.filename(name) : inline.filename(name, StandardCharsets.UTF_8)).build().toString();
+    }
+
+    // "Lecture 3.pptx" is served as "Lecture 3.pdf", since that is what the bytes are now
+    static String pdfName(String filename) {
+        String name = filename == null || filename.isBlank() ? "lecture" : filename.strip();
+        int dot = name.lastIndexOf('.');
+        return (dot > 0 ? name.substring(0, dot) : name) + ".pdf";
     }
 
     @DeleteMapping("/materials/{id}")

@@ -43,6 +43,10 @@ const PATHS = {
   'chevron-right': <><path d="m9 18 6-6-6-6" /></>,
   'chevron-left': <><path d="m15 18-6-6 6-6" /></>,
   'plus': <><path d="M5 12h14" /><path d="M12 5v14" /></>,
+  'check': <><path d="M20 6 9 17l-5-5" /></>,
+  'x': <><path d="M18 6 6 18" /><path d="m6 6 12 12" /></>,
+  'flag': <><path d="M4 22V4a1 1 0 0 1 .4-.8A6 6 0 0 1 8 2c3 0 5 2 7.333 2q2 0 3.067-.8A1 1 0 0 1 20 4v10a1 1 0 0 1-.4.8A6 6 0 0 1 16 16c-3 0-5-2-8-2a6 6 0 0 0-4 1.528" /></>,
+  'external-link': <><path d="M15 3h6v6" /><path d="M10 14 21 3" /><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /></>,
   'upload': <><path d="M12 3v12" /><path d="m17 8-5-5-5 5" /><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /></>,
 } satisfies Record<string, JSX.Element>
 

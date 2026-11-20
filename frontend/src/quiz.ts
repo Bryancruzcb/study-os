@@ -71,6 +71,51 @@ export function byLecture(run: QuizRun, questions: readonly QuizQuestion[]): Lec
     a.right / a.answered - b.right / b.answered || b.answered - a.answered || a.lecture.localeCompare(b.lecture))
 }
 
+/* one topic in the quiz, as the side panel lists it */
+export interface TopicRow {
+  conceptId: number
+  topic: string
+  lecture: string | null
+  /* every slide its questions in this quiz cite, in slide order, joined with commas */
+  pages: string | null
+  /* its questions in this quiz, how many are answered, and how many of those were right */
+  asked: number
+  answered: number
+  right: number
+  /* the question on screen is one of its */
+  current: boolean
+}
+
+/* The topics a quiz covers, in the order the quiz first reaches each, with how each is going.
+   A topic is a concept: its questions are spread through the shuffle, so the panel gathers them. */
+export function topicRows(run: QuizRun, quiz: readonly QuizQuestion[], onScreen: number | null): TopicRow[] {
+  const rows = new Map<number, TopicRow>()
+  const slides = new Map<number, Set<number>>()
+  for (const q of quiz) {
+    const row = rows.get(q.conceptId) ?? {
+      conceptId: q.conceptId, topic: q.topic ?? 'Untitled topic', lecture: q.lecture,
+      pages: null, asked: 0, answered: 0, right: 0, current: false,
+    }
+    const answer = run.answers[q.id]
+    rows.set(q.conceptId, {
+      ...row,
+      asked: row.asked + 1,
+      answered: row.answered + (answer ? 1 : 0),
+      right: row.right + (answer?.correct ? 1 : 0),
+      current: row.current || q.id === onScreen,
+    })
+    const cited = slides.get(q.conceptId) ?? new Set<number>()
+    for (const page of (q.sourcePages ?? '').split(',')) {
+      if (/^\s*\d+\s*$/.test(page)) cited.add(Number(page))
+    }
+    slides.set(q.conceptId, cited)
+  }
+  return [...rows.values()].map(row => {
+    const cited = [...(slides.get(row.conceptId) ?? [])].sort((a, b) => a - b)
+    return { ...row, pages: cited.length > 0 ? cited.join(',') : null }
+  })
+}
+
 const key = (courseId: number) => `studyos.quiz.${courseId}`
 
 function isRun(value: unknown): value is QuizRun {

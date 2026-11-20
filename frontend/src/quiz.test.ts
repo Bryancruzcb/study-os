@@ -1,6 +1,6 @@
 import { beforeEach } from 'vitest'
 import type { QuizQuestion } from './api'
-import { asked, buildQuiz, byLecture, clearLocalRun, shuffle, takeLocalRun, tally, type QuizRun } from './quiz'
+import { asked, buildQuiz, byLecture, clearLocalRun, shuffle, takeLocalRun, tally, topicRows, type QuizRun } from './quiz'
 
 /* a fixed sequence, so a shuffle is the same shuffle every run */
 function seeded(seed = 7) {
@@ -96,4 +96,21 @@ describe('a leftover local run', () => {
     clearLocalRun(2)
     expect(localStorage.getItem('studyos.quiz.2')).toBeNull()
   })
+})
+
+test('the side panel gathers a quiz by topic, in the order the quiz first reaches each', () => {
+  const q = (id: number, conceptId: number, sourcePages: string | null): QuizQuestion => ({
+    id, conceptId, lectureId: 7, topic: `topic ${conceptId}`, lecture: 'Lecture 3.pdf', type: 'MC',
+    prompt: `q${id}`, options: ['a', 'b'], sourcePages,
+  })
+  const quiz = [q(1, 20, '14'), q(2, 10, '3'), q(3, 20, '15,14'), q(4, 30, null)]
+  const run: QuizRun = { order: [1, 2, 3, 4], finished: false, answers: {
+    1: { picked: 0, text: '', correct: true },
+    2: { picked: 1, text: '', correct: false },
+  } }
+  const rows = topicRows(run, quiz, 3)
+  expect(rows.map(r => r.conceptId)).toEqual([20, 10, 30])
+  expect(rows[0]).toMatchObject({ topic: 'topic 20', pages: '14,15', asked: 2, answered: 1, right: 1, current: true })
+  expect(rows[1]).toMatchObject({ pages: '3', asked: 1, answered: 1, right: 0, current: false })
+  expect(rows[2]).toMatchObject({ pages: null, asked: 1, answered: 0, right: 0 })
 })
