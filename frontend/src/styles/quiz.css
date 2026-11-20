@@ -367,6 +367,9 @@
 
 /* ---- an answered multiple-choice question ------------------------------------ */
 
+/* the verdict, the marked options and why, from the slides, are AnswerReview.tsx's, which
+   the study page shows too, so an answered question looks the same in both */
+
 .quiz-review {
   display: flex;
   flex-direction: column;

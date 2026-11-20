@@ -105,7 +105,8 @@ test('the head reads a count of one as singular', async () => {
 
 test('Archive from the course head puts the course away and goes home', async () => {
   renderAt('/courses/2/study')
-  await userEvent.click(await screen.findByRole('button', { name: 'Archive' }))
+  await userEvent.click(await screen.findByRole('button', { name: 'Course options' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Archive' }))
   expect(api.setArchived).toHaveBeenCalledWith(2, true)
   expect(await screen.findByText('home page')).toBeInTheDocument()
 })
@@ -116,14 +117,27 @@ test('an archived course still opens, says so, and offers Restore', async () => 
   ])
   renderAt('/courses/2/study')
   expect(await screen.findByText('Archived · Fall 2026 · 248 concepts · 844 questions')).toBeInTheDocument()
+  await userEvent.click(screen.getByRole('button', { name: 'Course options' }))
   expect(screen.getByRole('button', { name: 'Restore' })).toBeInTheDocument()
   expect(screen.getByText('study page')).toBeInTheDocument()
 })
 
 test('Delete from the course head confirms, deletes, and goes home', async () => {
   renderAt('/courses/2/study')
-  await userEvent.click(await screen.findByRole('button', { name: 'Delete course' }))
+  await userEvent.click(await screen.findByRole('button', { name: 'Course options' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Delete course' }))
+  expect(screen.getByText("Delete CS 149 and its 844 questions? This can't be undone.")).toBeInTheDocument()
+  expect(api.deleteCourse).not.toHaveBeenCalled()
   await userEvent.click(screen.getByRole('button', { name: 'Delete forever' }))
   expect(api.deleteCourse).toHaveBeenCalledWith(2)
   expect(await screen.findByText('home page')).toBeInTheDocument()
+})
+
+test('the course actions fold behind one button beside the name, not a row of the head', async () => {
+  renderAt('/courses/2/study')
+  const options = await screen.findByRole('button', { name: 'Course options' })
+  expect(options.closest('.course-title')).toContainElement(screen.getByRole('heading', { level: 1 }))
+  expect(screen.queryByRole('button', { name: 'Archive' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Delete course' })).not.toBeInTheDocument()
+  expect(document.querySelector('.course-head > .course-actions')).toBeNull()
 })

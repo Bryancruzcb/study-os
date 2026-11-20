@@ -19,6 +19,11 @@
   width: 220px;
 }
 
+/* the progress figure's label stays on one line when the figure turns into a row */
+.progress .figure > span {
+  white-space: nowrap;
+}
+
 /* back through the questions answered this visit, and forward again to the one on the
    table: Previous on the left, where the visit stands in the middle, Next on the right */
 .study-nav {
@@ -114,51 +119,17 @@
   color: var(--ink-soft);
 }
 
-/* the verdict band: a wash in the verdict colour, the bracket beside the word */
-.verdict {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 28px 32px;
-  border-radius: var(--radius);
-  background: var(--sunken);
+/* a written answer the grader could not reach: the dashed circle, in plain ink, says the
+   verdict is still open; the right and wrong lines take their colour from quiz.css */
+.quiz-verdict.is-pending {
+  color: var(--ink-soft);
 }
 
-.verdict--ok {
-  background: var(--ok-wash);
-}
-
-.verdict--bad {
-  background: var(--flag-wash);
-}
-
-.verdict--ok .bracket {
-  color: var(--ok);
-}
-
-.verdict--bad .bracket {
-  color: var(--flag);
-}
-
-.verdict--pending .bracket {
-  color: var(--ink-dim);
-}
-
-.verdict-line {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-  font-size: 22px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-}
-
-.score {
-  font-variant-numeric: tabular-nums;
-  font-size: 16px;
-  font-weight: 500;
-  color: var(--ink-dim);
+/* the verdict takes the caret after a grade, so it shows the same ring as the controls */
+.quiz-verdict:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+  border-radius: 6px;
 }
 
 .verdict-note {
@@ -208,4 +179,48 @@
   flex-wrap: wrap;
   gap: 12px;
   margin-top: 4px;
+}
+
+/* A phone's first screen holds the prompt and the first two options under a one-row top bar:
+   the figure folds into one row beside a shorter bar, and the card, the prompt and the
+   options pack tighter. Measured at 375 by 812 with a one-row top bar, the course head ends
+   at 274px and a three-line prompt's second option at 645px, step buttons included */
+@media (max-width: 600px) {
+  .study {
+    gap: 12px;
+  }
+
+  .progress {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .progress .figure > b {
+    font-size: 22px;
+  }
+
+  .progress .bar {
+    width: 96px;
+  }
+
+  .qcard-big {
+    gap: 16px;
+    padding: 16px;
+  }
+
+  .prompt {
+    font-size: 22px;
+  }
+
+  .opts {
+    gap: 8px;
+  }
+
+  .opt {
+    gap: 12px;
+    min-height: 52px;
+    padding: 10px 14px;
+    font-size: 16px;
+  }
 }
