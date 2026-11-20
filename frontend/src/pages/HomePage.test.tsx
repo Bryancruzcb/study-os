@@ -6,6 +6,7 @@ import { vi } from 'vitest'
 import { api, type Course } from '../api'
 import { dueSplit } from '../shell/courses'
 import { commonTerm } from './commonTerm'
+import { UploadQueueProvider } from '../shell/UploadQueue'
 import HomePage from './HomePage'
 
 const overview = [
@@ -19,6 +20,9 @@ vi.mock('../api', () => ({
     createCourse: vi.fn(),
     setArchived: vi.fn().mockResolvedValue(undefined),
     deleteCourse: vi.fn().mockResolvedValue(undefined),
+    upload: vi.fn(),
+    uploadPhotos: vi.fn(),
+    material: vi.fn(),
   },
 }))
 
@@ -40,6 +44,7 @@ function renderHome() {
         <Route path="*" element={<Probe />} />
       </Routes>
     </MemoryRouter>,
+    { wrapper: UploadQueueProvider },
   )
 }
 
@@ -250,4 +255,87 @@ test('a failed delete keeps the course and shows why', async () => {
   await userEvent.click(screen.getByRole('button', { name: 'Delete forever' }))
   expect(await screen.findByRole('alert')).toHaveTextContent(SERVER_PROBLEM)
   expect(screen.getByRole('link', { name: /CS 46A/ })).toBeInTheDocument()
+})
+
+/* jsdom has no DragEvent; testing-library hands the tile a plain event with this dataTransfer */
+const files = (...list: File[]) => ({ dataTransfer: { types: ['Files'], files: list, dropEffect: 'none' } })
+
+function dragOverWindow() {
+  const event = new Event('dragenter', { bubbles: true, cancelable: true })
+  Object.defineProperty(event, 'dataTransfer', { value: { types: ['Files'], files: [] } })
+  fireEvent(window, event)
+}
+
+const tileOf = async (name: RegExp) => (await screen.findByRole('link', { name })).closest<HTMLElement>('.tile')!
+
+test('a file drag on home says to drop it on a course, and the tile under it says which', async () => {
+  renderHome()
+  const tile = await tileOf(/CS 149/)
+  dragOverWindow()
+  expect(screen.getByText('Drop on a course to add a lecture')).toBeInTheDocument()
+
+  const over = fireEvent.dragOver(tile, files())
+  // marked handled, so the app-wide guard lets this drop through
+  expect(over).toBe(false)
+  expect(tile).toHaveClass('is-drop')
+  expect(screen.getByText('Drop to add to CS 149')).toBeInTheDocument()
+  expect(screen.queryByText('Drop on a course to add a lecture')).toBeNull()
+  expect(await tileOf(/CS 47/)).not.toHaveClass('is-drop')
+
+  fireEvent.dragLeave(tile)
+  expect(tile).not.toHaveClass('is-drop')
+  expect(screen.getByText('Drop on a course to add a lecture')).toBeInTheDocument()
+})
+
+test('a lecture dropped on a tile uploads into that course, and the tile says how it is going', async () => {
+  type Upload = Awaited<ReturnType<typeof api.upload>>
+  let land!: (m: Upload) => void
+  vi.mocked(api.upload).mockReturnValueOnce(new Promise<Upload>(resolve => { land = resolve }))
+  renderHome()
+  const tile = await tileOf(/CS 149/)
+  const deck = new File(['%PDF'], 'week4.pdf', { type: 'application/pdf' })
+  dragOverWindow()
+  fireEvent.dragOver(tile, files(deck))
+  fireEvent.drop(tile, files(deck))
+
+  await waitFor(() => expect(api.upload).toHaveBeenCalledWith(2, deck))
+  expect(tile).not.toHaveClass('is-drop')
+  expect(screen.queryByText('Drop on a course to add a lecture')).toBeNull()
+  expect(tile.querySelector('[role="status"]')).toHaveTextContent('Uploading week4.pdf…')
+  expect((await tileOf(/CS 47/)).querySelector('[role="status"]')).toBeEmptyDOMElement()
+
+  const loads = vi.mocked(api.overview).mock.calls.length
+  land({ id: 9, filename: 'week4.pdf', status: 'INGESTED', errorMessage: null })
+  await waitFor(() => expect(tile.querySelector('[role="status"]')).toBeEmptyDOMElement())
+  // the tile's counts follow the lecture that landed
+  await waitFor(() => expect(vi.mocked(api.overview).mock.calls.length).toBe(loads + 1))
+})
+
+test('a failed upload from home names the course and the file, and can be dismissed', async () => {
+  vi.mocked(api.upload).mockResolvedValueOnce({ id: 9, filename: 'old.ppt', status: 'FAILED', errorMessage: 'This is an older Office file.' })
+  renderHome()
+  const tile = await tileOf(/CS 47/)
+  fireEvent.drop(tile, files(new File(['x'], 'old.ppt')))
+  const alert = await screen.findByRole('alert')
+  expect(alert).toHaveTextContent('CS 47')
+  expect(alert).toHaveTextContent('old.ppt: This is an older Office file.')
+  await userEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
+  expect(screen.queryByRole('alert')).toBeNull()
+})
+
+test('photos dropped on a tile ask on home, naming the course, and one lecture goes into it', async () => {
+  vi.mocked(api.uploadPhotos).mockResolvedValueOnce({ id: 9, filename: 'Board.pdf', status: 'INGESTED', errorMessage: null })
+  renderHome()
+  const tile = await tileOf(/CS 149/)
+  const a = new File(['jpeg'], 'IMG_1.jpg', { type: 'image/jpeg' })
+  const b = new File(['jpeg'], 'IMG_2.jpg', { type: 'image/jpeg' })
+  fireEvent.drop(tile, files(b, a))
+  expect(await screen.findByRole('region', { name: '2 photos for CS 149: make them one lecture, or 2 separate lectures?' }))
+    .toBeInTheDocument()
+  const name = screen.getByLabelText('Lecture name')
+  await userEvent.clear(name)
+  await userEvent.type(name, 'Board')
+  await userEvent.click(screen.getByRole('button', { name: 'One lecture' }))
+  await waitFor(() => expect(api.uploadPhotos).toHaveBeenCalledWith(2, 'Board', [a, b]))
+  expect(api.upload).not.toHaveBeenCalled()
 })

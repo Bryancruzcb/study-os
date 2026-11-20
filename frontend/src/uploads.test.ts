@@ -1,4 +1,16 @@
-import { ingestStatus, MAX_UPLOAD_BYTES, uploadProblem } from './uploads'
+import { ingestStatus, LECTURE_ACCEPT, MAX_UPLOAD_BYTES, photoTooBig, uploadProblem } from './uploads'
+
+test('an iPhone photo can be picked and is not refused, since the browser converts it first', () => {
+  expect(LECTURE_ACCEPT.split(',')).toEqual(expect.arrayContaining(['.heic', '.heif', 'image/heic', 'image/heif']))
+  expect(uploadProblem({ name: 'IMG_0042.HEIC', size: 2_000_000 })).toBeNull()
+  expect(uploadProblem({ name: 'IMG_0043.heif', size: 2_000_000 })).toBeNull()
+})
+
+test('a photo over the limit is let through to be shrunk, and checked again after', () => {
+  expect(uploadProblem({ name: 'scan.png', size: 40 * 1024 * 1024 })).toBeNull()
+  expect(photoTooBig({ size: MAX_UPLOAD_BYTES })).toBeNull()
+  expect(photoTooBig({ size: 40 * 1024 * 1024 })).toBe('is 40.0 MB, over the 32 MB limit. Export it smaller and try again.')
+})
 
 test('a lecture in any readable format can go', () => {
   for (const name of ['week1.pdf', 'deck.pptx', 'notes.docx', 'board.jpg', 'page.html', 'notes.md', 'scan.tiff']) {

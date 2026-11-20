@@ -1,0 +1,40 @@
+/* "5 photos: one lecture, or 5 separate lectures?": a row in the page under the course head,
+   or above the home grid, never a dialog. One plain box on the page, with nothing boxed inside it */
+.photo-choice {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 16px 20px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent-strong);
+  border-radius: var(--radius-control);
+  background: var(--card);
+}
+
+.photo-choice-ask {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.photo-choice-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 16px;
+}
+
+.photo-choice-form .field {
+  flex: 1 1 220px;
+}
+
+.photo-choice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.photo-choice .hint {
+  margin: 0;
+}

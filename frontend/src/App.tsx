@@ -11,31 +11,35 @@ import HomePage from './pages/HomePage'
 import QuizPage from './pages/QuizPage'
 import StudyPage from './pages/StudyPage'
 import { useFileDropGuard } from './shell/fileDrop'
+import { UploadQueueProvider } from './shell/UploadQueue'
 
 export default function App() {
-  // a file dropped where nothing takes it must not replace the app; a course page takes drops
+  // a file dropped where nothing takes it must not replace the app; a course page and a home tile take drops
   useFileDropGuard()
   return (
     <BrowserRouter>
       <AuthGate>
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route element={<Frame />}>
-            <Route path="/courses/:courseId" element={<CourseLayout />}>
-              <Route index element={<Navigate to="study" replace />} />
-              <Route path="study" element={<StudyPage />} />
-              <Route path="quiz" element={<QuizPage />} />
-              <Route path="bank" element={<BankRoute />}>
-                <Route index element={<BankPage />} />
-                <Route path=":conceptId" element={<BankConceptPage />} />
+        {/* one upload queue above every page, so a lecture dropped on home keeps going inside a course */}
+        <UploadQueueProvider>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route element={<Frame />}>
+              <Route path="/courses/:courseId" element={<CourseLayout />}>
+                <Route index element={<Navigate to="study" replace />} />
+                <Route path="study" element={<StudyPage />} />
+                <Route path="quiz" element={<QuizPage />} />
+                <Route path="bank" element={<BankRoute />}>
+                  <Route index element={<BankPage />} />
+                  <Route path=":conceptId" element={<BankConceptPage />} />
+                </Route>
+                <Route path="dashboard" element={<DashboardPage />} />
               </Route>
-              <Route path="dashboard" element={<DashboardPage />} />
+              <Route path="/eval" element={<EvalPage />} />
             </Route>
-            <Route path="/eval" element={<EvalPage />} />
-          </Route>
-          {/* the old top-level /study, /bank and /dashboard, and anything else, land on the grid */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+            {/* the old top-level /study, /bank and /dashboard, and anything else, land on the grid */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </UploadQueueProvider>
       </AuthGate>
     </BrowserRouter>
   )

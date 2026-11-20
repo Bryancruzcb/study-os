@@ -129,6 +129,78 @@
   margin: 0 22px 22px;
 }
 
+/* a lecture on its way into the course, said under the tile's figures; gone while idle */
+.tile-ingest {
+  margin: -8px 22px 16px;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+.tile-ingest:empty {
+  display: none;
+}
+
+/* a file dragged over a tile: a dashed ring and a sentence over the tile, so the target never
+   rests on colour alone. The cover takes no pointer events, so the drag keeps reporting to the tile */
+.tile {
+  position: relative;
+}
+
+.tile.is-drop {
+  outline: 2px dashed var(--accent-strong);
+  outline-offset: 3px;
+  box-shadow: var(--shadow-lift);
+}
+
+.tile-drop {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 8px;
+  padding: 16px;
+  background: color-mix(in srgb, var(--card) 92%, transparent);
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: 600;
+  text-align: center;
+  pointer-events: none;
+}
+
+.tile-drop .icon {
+  color: var(--accent-strong);
+}
+
+/* a file drag anywhere else on home says where it can go; it takes no pointer events, so the
+   tiles under it still take the drop */
+.home-drop-hint {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100% - 32px);
+  margin: 0;
+  padding: 10px 18px;
+  border: 2px dashed var(--accent-strong);
+  border-radius: var(--radius-pill);
+  background: var(--card);
+  box-shadow: var(--shadow-lift);
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 600;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.home-drop-hint .icon {
+  flex: none;
+  color: var(--accent-strong);
+}
+
 /* New course: a small button beside the heading, and its form opens as one row above the grid */
 .new-course {
   display: flex;

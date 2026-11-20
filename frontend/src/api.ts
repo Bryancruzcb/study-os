@@ -277,4 +277,20 @@ export const api = {
   updateExam: (examId: number, body: ExamInput) => put<Exam>(`/api/exams/${examId}`, body),
   deleteExam: (examId: number) => remove(`/api/exams/${examId}`),
   deleteLecture: (materialId: number) => remove(`/api/materials/${materialId}`),
+  /* two to fifty photos as one lecture, page N from the Nth photo; the name becomes the
+     lecture's filename with .pdf added, and an existing lecture of that name is replaced */
+  uploadPhotos: (courseId: number, name: string, photos: readonly File[]) => uploadPhotoSet(courseId, name, photos),
+}
+
+/* The server's 400 for this endpoint carries no reason, so the queue checks the count and the
+   name before it sends (photos.ts); a 413 is the one refusal it cannot rule out ahead of time. */
+async function uploadPhotoSet(courseId: number, name: string, photos: readonly File[]): Promise<Material> {
+  const url = `/api/courses/${courseId}/materials/combined`
+  const form = new FormData()
+  form.append('name', name)
+  for (const photo of photos) form.append('files', photo, photo.name)
+  const res = await send(url, { method: 'POST', body: form })
+  if (res.status === 413) throw new Error('The photos are too big to send together. Send them as two smaller sets.')
+  if (!res.ok) throw new Error(`${res.status} ${url}`)
+  return readJson<Material>(res, url)
 }
