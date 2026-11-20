@@ -67,3 +67,12 @@ test('a refused sign-in shows the form\'s sentence', async () => {
 
   await expect(api.auth.login('bryan', 'nope')).rejects.toThrow('Wrong username or password.')
 })
+
+test('a refused photo set carries the server\'s sentence, and a 413 says to split the set', async () => {
+  const photo = new File(['x'], 'IMG_1.jpg', { type: 'image/jpeg' })
+  answer(JSON.stringify({ error: 'Send at least two photos.' }), 400)
+  await expect(api.uploadPhotos(1, 'Board', [photo])).rejects.toThrow('Send at least two photos.')
+
+  answer('', 413, 'text/plain')
+  await expect(api.uploadPhotos(1, 'Board', [photo, photo])).rejects.toThrow(/two smaller sets/)
+})

@@ -291,6 +291,6 @@ async function uploadPhotoSet(courseId: number, name: string, photos: readonly F
   for (const photo of photos) form.append('files', photo, photo.name)
   const res = await send(url, { method: 'POST', body: form })
   if (res.status === 413) throw new Error('The photos are too big to send together. Send them as two smaller sets.')
-  if (!res.ok) throw new Error(`${res.status} ${url}`)
+  if (!res.ok) throw await failure(res, url)
   return readJson<Material>(res, url)
 }

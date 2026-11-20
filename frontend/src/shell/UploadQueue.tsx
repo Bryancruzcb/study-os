@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react'
 import { api, type Material } from '../api'
+import { messageOf } from '../errors'
 import { byName, isPhotoSet, isPicture, MAX_PHOTOS, MAX_PHOTOS_BYTES, MIN_PHOTOS, photoNameOk, preparePhoto } from '../photos'
 import { plural } from '../plural'
 import { megabytes, photoTooBig, uploadProblem } from '../uploads'
@@ -88,7 +89,7 @@ export function UploadQueueProvider({ children }: { children: ReactNode }) {
       }
       return m.status === 'FAILED' ? [`${name}: ${m.errorMessage ?? 'Ingest failed'}`] : []
     } catch (e) {
-      return [`${name}: ${e instanceof Error ? e.message : String(e)}`]
+      return [`${name}: ${messageOf(e)}`]
     }
   }, [])
 
