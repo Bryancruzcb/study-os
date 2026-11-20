@@ -1,4 +1,5 @@
 import { screen, waitFor, within } from '@testing-library/react'
+import { SERVER_PROBLEM } from '../errors'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import { api, type ConceptWithQuestions, type Question } from '../api'
@@ -178,13 +179,13 @@ test('Restore clears the alert an earlier failure left on screen', async () => {
     question({}),
     question({ id: 12, type: 'SHORT_ANSWER', prompt: 'Why three?', optionsJson: null, correctIndex: null, sourcePages: '4', status: 'RETIRED' }),
   ]))
-  vi.mocked(api.retire).mockRejectedValueOnce(new Error('500 /api/questions/9/retire'))
+  vi.mocked(api.retire).mockRejectedValueOnce(new Error(SERVER_PROBLEM))
   let land!: () => void
   vi.mocked(api.restore).mockReturnValueOnce(new Promise(resolve => { land = () => resolve(undefined) }))
   at()
   await userEvent.click(await screen.findByRole('button', { name: 'Retire' }))
   await userEvent.click(screen.getByRole('button', { name: 'Confirm retire' }))
-  expect(await screen.findByRole('alert')).toHaveTextContent('500 /api/questions/9/retire')
+  expect(await screen.findByRole('alert')).toHaveTextContent(SERVER_PROBLEM)
   await userEvent.click(screen.getByRole('button', { name: 'Restore' }))
   // the stale error goes at the click, not once the restore lands
   expect(screen.queryByRole('alert')).not.toBeInTheDocument()
@@ -193,11 +194,11 @@ test('Restore clears the alert an earlier failure left on screen', async () => {
 })
 
 test('shows a failed retire in the alert', async () => {
-  vi.mocked(api.retire).mockRejectedValueOnce(new Error('500 /api/questions/9/retire'))
+  vi.mocked(api.retire).mockRejectedValueOnce(new Error(SERVER_PROBLEM))
   at()
   await userEvent.click(await screen.findByRole('button', { name: 'Retire' }))
   await userEvent.click(screen.getByRole('button', { name: 'Confirm retire' }))
-  expect(await screen.findByRole('alert')).toHaveTextContent('500 /api/questions/9/retire')
+  expect(await screen.findByRole('alert')).toHaveTextContent(SERVER_PROBLEM)
 })
 
 // the labels sit closed behind one quiet button on each card
@@ -246,11 +247,11 @@ test('closing the labels without saving drops the change', async () => {
 })
 
 test('shows a failed label in the alert and leaves the question unlabelled', async () => {
-  vi.mocked(api.label).mockRejectedValueOnce(new Error('500 /api/questions/9/label'))
+  vi.mocked(api.label).mockRejectedValueOnce(new Error(SERVER_PROBLEM))
   at()
   await openLabels()
   await userEvent.click(screen.getByRole('button', { name: 'Save labels' }))
-  expect(await screen.findByRole('alert')).toHaveTextContent('500 /api/questions/9/label')
+  expect(await screen.findByRole('alert')).toHaveTextContent(SERVER_PROBLEM)
   expect(screen.getByRole('button', { name: 'Save labels' })).toBeInTheDocument()
   expect(screen.queryByText(/Labeled/)).not.toBeInTheDocument()
 })

@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type FocusEvent, type KeyboardEvent } from 'react'
 import { api, type CourseOverview } from '../api'
+import { messageOf } from '../errors'
 import Icon from '../icons'
 import { plural } from '../plural'
 
@@ -22,7 +23,7 @@ function useCourseActions({ course, onArchived, onDeleted }: Props) {
       await action()
       return true
     } catch (e) {
-      setError(String(e))
+      setError(messageOf(e))
       return false
     } finally {
       setBusy(false)

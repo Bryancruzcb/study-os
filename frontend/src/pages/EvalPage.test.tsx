@@ -1,4 +1,5 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
+import { SERVER_PROBLEM } from '../errors'
 import { MemoryRouter } from 'react-router-dom'
 import { vi } from 'vitest'
 import { api, type EvalReport, type ReviewItem } from '../api'
@@ -96,9 +97,9 @@ test('says there is no automatic-grading sample instead of showing a misleading 
 })
 
 test('shows a failed report load in the alert', async () => {
-  vi.mocked(api.evalReport).mockRejectedValueOnce(new Error('500 /api/eval/report'))
+  vi.mocked(api.evalReport).mockRejectedValueOnce(new Error(SERVER_PROBLEM))
   renderPage()
-  await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('500 /api/eval/report'))
+  await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(SERVER_PROBLEM))
 })
 
 test('keeps singular counts readable', async () => {

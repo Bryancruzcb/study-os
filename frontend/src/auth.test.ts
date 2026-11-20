@@ -41,7 +41,7 @@ test('a write carries the CSRF token from the cookie, and a read does not', asyn
 test('a 401 from any call signs the page out', async () => {
   vi.stubGlobal('fetch', vi.fn().mockImplementation(() => Promise.resolve(new Response(null, { status: 401 }))))
 
-  await expect(api.overview()).rejects.toThrow(/401/)
+  await expect(api.overview()).rejects.toThrow('Your sign-in ended. Sign in again.')
   expect(getUser()).toBeNull()
 })
 

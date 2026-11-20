@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { SERVER_PROBLEM } from '../errors'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { vi } from 'vitest'
@@ -104,9 +105,9 @@ test('with no courses the hero says so and only the new-course tile is drawn', a
 })
 
 test('a failed overview shows the alert and no grid', async () => {
-  vi.mocked(api.overview).mockRejectedValueOnce(new Error('500 /api/courses/overview'))
+  vi.mocked(api.overview).mockRejectedValueOnce(new Error(SERVER_PROBLEM))
   renderHome()
-  expect(await screen.findByRole('alert')).toHaveTextContent('500 /api/courses/overview')
+  expect(await screen.findByRole('alert')).toHaveTextContent(SERVER_PROBLEM)
   expect(screen.queryByRole('heading', { name: 'Courses' })).not.toBeInTheDocument()
 })
 
@@ -159,12 +160,12 @@ test('Create is disabled for as long as the create is in flight', async () => {
 })
 
 test('a failed create shows the alert and leaves the form open with what was typed', async () => {
-  vi.mocked(api.createCourse).mockRejectedValueOnce(new Error('500 /api/courses'))
+  vi.mocked(api.createCourse).mockRejectedValueOnce(new Error(SERVER_PROBLEM))
   renderHome()
   await userEvent.click(await screen.findByRole('button', { name: 'New course' }))
   await userEvent.type(screen.getByLabelText('Name'), 'CS 158A')
   await userEvent.click(screen.getByRole('button', { name: 'Create' }))
-  expect(await screen.findByRole('alert')).toHaveTextContent('500 /api/courses')
+  expect(await screen.findByRole('alert')).toHaveTextContent(SERVER_PROBLEM)
   expect(screen.getByLabelText('Name')).toHaveValue('CS 158A')
   expect(screen.getByLabelText('Term')).toHaveValue('Fall 2026')
   // the failure belonged to the form, so closing the form takes it off the page
@@ -243,10 +244,10 @@ test('Delete arms first, names what goes, and only deletes on the second click',
 
 test('a failed delete keeps the course and shows why', async () => {
   vi.mocked(api.overview).mockResolvedValue(withArchived)
-  vi.mocked(api.deleteCourse).mockRejectedValueOnce(new Error('500 /api/courses/3'))
+  vi.mocked(api.deleteCourse).mockRejectedValueOnce(new Error(SERVER_PROBLEM))
   renderHome()
   await userEvent.click(await screen.findByRole('button', { name: 'Delete course' }))
   await userEvent.click(screen.getByRole('button', { name: 'Delete forever' }))
-  expect(await screen.findByRole('alert')).toHaveTextContent('500 /api/courses/3')
+  expect(await screen.findByRole('alert')).toHaveTextContent(SERVER_PROBLEM)
   expect(screen.getByRole('link', { name: /CS 46A/ })).toBeInTheDocument()
 })

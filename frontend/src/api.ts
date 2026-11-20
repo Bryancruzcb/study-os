@@ -1,4 +1,5 @@
 import { markSignedOut } from './auth'
+import { OFFLINE, SERVER_PROBLEM, failureMessage } from './errors'
 
 export interface Course { id: number; name: string; term: string }
 export interface CourseOverview {
@@ -84,14 +85,16 @@ export interface ExamInput { name: string; date: string; lectureIds: number[] }
 
 // A 200 that is not JSON means the request never reached the backend: the vite dev
 // server answers an unproxied /api path with index.html. res.json() would report that
-// as "Unexpected token '<'", which says nothing about the cause, so name it here.
+// as "Unexpected token '<'", which says nothing about the cause, so the console names it
+// and the page gets the plain sentence.
 async function readJson<T>(res: Response, url: string): Promise<T> {
   const type = res.headers.get('content-type') ?? ''
   if (!type.includes('application/json')) {
-    throw new Error(
+    console.debug(
       `${url} answered with ${type || 'no content type'}, not JSON. The backend on :8080 is ` +
       `either down or not proxied — a vite dev server started before the /api proxy was ` +
       `configured serves index.html here and needs a restart.`)
+    throw new Error(SERVER_PROBLEM)
   }
   return res.json()
 }
@@ -106,7 +109,14 @@ async function send(url: string, init: RequestInit = {}): Promise<Response> {
     const token = csrfToken()
     if (token) headers.set('X-XSRF-TOKEN', token)
   }
-  const res = await fetch(url, { ...init, headers })
+  let res: Response
+  try {
+    res = await fetch(url, { ...init, headers })
+  } catch (cause) {
+    // fetch throws only when no answer came back at all: offline, or the server is down
+    console.debug(`${method} ${url} got no answer`, cause)
+    throw new Error(OFFLINE)
+  }
   if (res.status === 401) markSignedOut()
   return res
 }
@@ -117,15 +127,19 @@ function csrfToken(): string | null {
   return match ? decodeURIComponent(match[1]) : null
 }
 
-/* the sign-in endpoints turn a request down with {"error": "<a sentence for the form>"} */
-async function refusal(res: Response): Promise<Error> {
+/* A failed response as the Error a page shows. The server turns a request down with
+   {"error": "<a sentence for the page>"}, and that sentence wins; a response without one, such as a
+   proxy's error page, gets a sentence chosen by its status. The status and URL go to the console. */
+async function failure(res: Response, url: string): Promise<Error> {
+  let sent: string | null = null
   try {
-    const body = await res.json()
-    if (body && typeof body.error === 'string') return new Error(body.error)
+    const body: unknown = await res.json()
+    if (body && typeof body === 'object' && 'error' in body && typeof body.error === 'string') sent = body.error
   } catch {
-    // no JSON body, so the generic sentence below
+    // no JSON body, so the status decides
   }
-  return new Error(`Something went wrong (${res.status}). Try again.`)
+  console.debug(`${res.status} ${url}`)
+  return new Error(failureMessage(res.status, sent))
 }
 
 async function account(url: string, body: unknown): Promise<string> {
@@ -134,13 +148,13 @@ async function account(url: string, body: unknown): Promise<string> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
-  if (!res.ok) throw await refusal(res)
+  if (!res.ok) throw await failure(res, url)
   return (await readJson<{ username: string }>(res, url)).username
 }
 
 async function get<T>(url: string): Promise<T> {
   const res = await send(url)
-  if (!res.ok) throw new Error(`${res.status} ${url}`)
+  if (!res.ok) throw await failure(res, url)
   return readJson<T>(res, url)
 }
 
@@ -150,7 +164,7 @@ async function post<T = unknown>(url: string, body: unknown): Promise<T> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
-  if (!res.ok) throw new Error(`${res.status} ${url}`)
+  if (!res.ok) throw await failure(res, url)
   return readJson<T>(res, url)
 }
 
@@ -160,7 +174,7 @@ async function put<T = unknown>(url: string, body: unknown): Promise<T> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
-  if (!res.ok) throw new Error(`${res.status} ${url}`)
+  if (!res.ok) throw await failure(res, url)
   return readJson<T>(res, url)
 }
 
@@ -171,20 +185,20 @@ async function putEmpty(url: string, body: unknown): Promise<void> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
-  if (!res.ok) throw new Error(`${res.status} ${url}`)
+  if (!res.ok) throw await failure(res, url)
 }
 
 /* a delete answers 204 with no body, so there is nothing to read */
 async function remove(url: string): Promise<void> {
   const res = await send(url, { method: 'DELETE' })
-  if (!res.ok) throw new Error(`${res.status} ${url}`)
+  if (!res.ok) throw await failure(res, url)
 }
 
 async function uploadFile<T = unknown>(url: string, file: File): Promise<T> {
   const form = new FormData()
   form.append('file', file)
   const res = await send(url, { method: 'POST', body: form })
-  if (!res.ok) throw new Error(`${res.status} ${url}`)
+  if (!res.ok) throw await failure(res, url)
   return readJson<T>(res, url)
 }
 
@@ -195,7 +209,7 @@ export const api = {
     me: async (): Promise<string | null> => {
       const res = await send('/api/auth/me')
       if (res.status === 401) return null
-      if (!res.ok) throw new Error(`${res.status} /api/auth/me`)
+      if (!res.ok) throw await failure(res, '/api/auth/me')
       return (await readJson<{ username: string }>(res, '/api/auth/me')).username
     },
     login: (username: string, password: string) => account('/api/auth/login', { username, password }),
@@ -208,7 +222,7 @@ export const api = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, inviteCode }),
       })
-      if (!res.ok) throw await refusal(res)
+      if (!res.ok) throw await failure(res, '/api/auth/forgot-password')
       return (await readJson<{ resetToken: string }>(res, '/api/auth/forgot-password')).resetToken
     },
     resetPassword: (token: string, password: string) =>
@@ -235,7 +249,7 @@ export const api = {
   next: async (courseId: number): Promise<StudyQuestion | null> => {
     const res = await send(`/api/study/next?courseId=${courseId}`)
     if (res.status === 204) return null
-    if (!res.ok) throw new Error(`${res.status} /api/study/next`)
+    if (!res.ok) throw await failure(res, '/api/study/next')
     return readJson<StudyQuestion>(res, '/api/study/next')
   },
   answer: (body: { questionId: number; answerIndex?: number; answerText?: string }) =>
@@ -248,7 +262,7 @@ export const api = {
     const url = `/api/courses/${courseId}/quiz/progress`
     const res = await send(url)
     if (res.status === 204) return null
-    if (!res.ok) throw new Error(`${res.status} ${url}`)
+    if (!res.ok) throw await failure(res, url)
     return readJson<QuizRun>(res, url)
   },
   saveQuizProgress: (courseId: number, run: QuizRun) =>

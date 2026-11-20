@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, useOutletContext } from 'react-router-dom'
 import { api, type Exam, type QuestionReview, type QuizQuestion } from '../api'
+import { messageOf } from '../errors'
 import { dayLabel } from '../dates'
 import Icon from '../icons'
 import { lectureNames } from '../lectures'
@@ -93,7 +94,7 @@ export default function QuizPage() {
         setQuestions(loaded)
         setRun(next)
       })
-      .catch(e => { if (current) setError(String(e)) })
+      .catch(e => { if (current) setError(messageOf(e)) })
     api.exams(course.id)
       .then(loaded => { if (current) setExams(loaded) })
       .catch(() => { /* the exam line is a convenience: without it the quiz still runs */ })
@@ -130,7 +131,7 @@ export default function QuizPage() {
     try {
       await task()
     } catch (e) {
-      setError(String(e))
+      setError(messageOf(e))
     } finally {
       inFlight.current = false
       setBusy(false)
@@ -149,7 +150,7 @@ export default function QuizPage() {
   const loadReview = useCallback((id: number) => {
     api.review(id)
       .then(review => setReviews(r => ({ ...r, [id]: review })))
-      .catch(e => setError(String(e)))
+      .catch(e => setError(messageOf(e)))
   }, [])
 
   function answered(q: QuizQuestion, answer: QuizAnswer): QuizRun | null {
