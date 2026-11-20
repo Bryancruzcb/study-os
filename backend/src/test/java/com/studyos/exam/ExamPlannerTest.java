@@ -112,6 +112,23 @@ class ExamPlannerTest {
     }
 
     @Test
+    void aListedLectureCarriesItsTitleAndItsTopicsInExtractionOrder() {
+        lecture1.filename = "Lecture 3 Fall 2026.pdf";
+        lecture1.title = "Albedo and blackbody radiation";
+        Concept second = new Concept();
+        second.id = 22L;
+        second.name = "Blackbody curves";
+        Concept first = new Concept();
+        first.id = 21L;
+        first.name = "Albedo";
+        ExamPlanner.LectureView view = ExamPlanner.lectureView(lecture1, List.of(second, first));
+        assertEquals("Lecture 3 Fall 2026.pdf", view.filename());
+        assertEquals("Albedo and blackbody radiation", view.lectureTitle());
+        assertEquals(2, view.concepts());
+        assertEquals(List.of("Albedo", "Blackbody curves"), view.topics());
+    }
+
+    @Test
     void theReviewStretchIsAShareOfTheDaysLeftAndNeverTakesTheLastDayToStartOn() {
         assertEquals(new ExamPlanner.Window(14, 3), planner.window(sep(15), TODAY));
         assertEquals(new ExamPlanner.Window(5, 1), planner.window(sep(6), TODAY));

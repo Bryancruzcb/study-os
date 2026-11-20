@@ -3,7 +3,7 @@ import { Link, useOutletContext } from 'react-router-dom'
 import { api, type Exam, type QuestionReview, type QuizQuestion } from '../api'
 import { dayLabel } from '../dates'
 import Icon from '../icons'
-import { lectureTitle } from '../lectures'
+import { lectureNames } from '../lectures'
 import { letter } from '../letter'
 import { leadExam, when } from '../plan'
 import { plural } from '../plural'
@@ -22,10 +22,12 @@ interface Lecture {
 }
 
 /* the course's lectures as the quiz sees them, from its questions, in lecture order */
-function lecturesOf(questions: readonly QuizQuestion[]): Lecture[] {
+function lecturesOf(questions: readonly QuizQuestion[], courseName: string): Lecture[] {
+  const names = lectureNames(questions, courseName)
   const lectures = new Map<number, Lecture>()
   for (const q of questions) {
-    const lecture = lectures.get(q.lectureId) ?? { id: q.lectureId, name: q.lecture ?? `Lecture ${q.lectureId}`, questions: 0 }
+    const name = (q.lecture && names.get(q.lecture)) || `Lecture ${q.lectureId}`
+    const lecture = lectures.get(q.lectureId) ?? { id: q.lectureId, name, questions: 0 }
     lecture.questions++
     lectures.set(q.lectureId, lecture)
   }
@@ -292,12 +294,12 @@ export default function QuizPage() {
       {questions === null && !error && <p className="empty">Loading the quiz…</p>}
 
       {questions !== null && !running && !results && (
-        <Setup questions={questions} landing={takeLanding} onStart={start} />
+        <Setup courseName={course.name} questions={questions} landing={takeLanding} onStart={start} />
       )}
 
       {running && run && onScreen && (
         <div className="quiz-desk">
-          <Rail courseName={course.name} exam={leadExam(exams)} rows={topicRows(run, quiz, onScreen.id)}
+          <Rail courseName={course.name} questions={questions ?? []} exam={leadExam(exams)} rows={topicRows(run, quiz, onScreen.id)}
             right={right} missed={count - right} left={quiz.length - count} canOpenSlide={slide !== null} />
 
           <div className="quiz-main">
@@ -379,8 +381,10 @@ export default function QuizPage() {
 
 /* The quiz at a glance, beside the question: the nearest exam, the score so far, and every topic
    the quiz covers with its lecture, its slides and how it has gone. */
-function Rail({ courseName, exam, rows, right, missed, left, canOpenSlide }: {
+function Rail({ courseName, questions, exam, rows, right, missed, left, canOpenSlide }: {
   courseName: string
+  // every question in the course, so a lecture is named here as it is on the quiz's setup
+  questions: readonly QuizQuestion[]
   exam: Exam | null
   rows: TopicRow[]
   right: number
@@ -389,6 +393,7 @@ function Rail({ courseName, exam, rows, right, missed, left, canOpenSlide }: {
   canOpenSlide: boolean
 }) {
   const total = right + missed + left
+  const names = useMemo(() => lectureNames(questions, courseName), [questions, courseName])
   return (
     <aside className="quiz-rail" aria-label="This quiz">
       {exam && (
@@ -411,7 +416,7 @@ function Rail({ courseName, exam, rows, right, missed, left, canOpenSlide }: {
       <ol className="quiz-topics" aria-label="Topics in this quiz">
         {rows.map(row => {
           const state = row.answered === 0 ? 'todo' : row.right < row.answered ? 'missed' : 'right'
-          const where = [row.lecture ? lectureTitle(row.lecture, courseName) : null, row.pages ? slides(row.pages) : null]
+          const where = [row.lecture ? names.get(row.lecture) ?? null : null, row.pages ? slides(row.pages) : null]
             .filter(Boolean).join(' · ')
           return (
             <li key={row.conceptId} className={`quiz-topic is-${state}${row.current ? ' is-current' : ''}`}
@@ -435,12 +440,13 @@ function Rail({ courseName, exam, rows, right, missed, left, canOpenSlide }: {
 }
 
 /* Picks what the quiz covers: the lectures, all of them to start with, and how many questions. */
-function Setup({ questions, landing, onStart }: {
+function Setup({ courseName, questions, landing, onStart }: {
+  courseName: string
   questions: QuizQuestion[]
   landing: (el: HTMLElement | null) => void
   onStart: (order: number[]) => void
 }) {
-  const lectures = useMemo(() => lecturesOf(questions), [questions])
+  const lectures = useMemo(() => lecturesOf(questions, courseName), [questions, courseName])
   const [picked, setPicked] = useState(() => new Set(lectures.map(l => l.id)))
   const [length, setLength] = useState<number | null>(null)
   const pool = lectures.filter(l => picked.has(l.id)).reduce((sum, l) => sum + l.questions, 0)

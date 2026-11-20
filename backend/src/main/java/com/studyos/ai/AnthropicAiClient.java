@@ -37,8 +37,11 @@ public class AnthropicAiClient implements AiClient {
     @Override
     public IngestPayload extract(byte[] pdfBytes, String courseName) {
         String prompt = """
-            These are lecture slides for the course "%s". Extract the distinct concepts a student
-            must master. For each concept: a short name, a one-line summary, the 1-indexed page
+            These are lecture slides for the course "%s". First give the lecture a title: its
+            subject in 2 to 6 words, as a student would name it, for example "Albedo and blackbody
+            radiation". Never use the file name, course code, week, lecture number or term.
+
+            Then extract the distinct concepts a student must master. For each concept: a short name, a one-line summary, the 1-indexed page
             numbers it comes from, and 2-4 questions. Mix types: "MC" (4 options, correctIndex
             0-3, modelAnswer/rubric null) and "SHORT_ANSWER" (options/correctIndex null, a model
             answer, and a 2-3 bullet grading rubric). Every question must be answerable from the

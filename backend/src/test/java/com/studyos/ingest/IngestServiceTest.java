@@ -82,7 +82,7 @@ class IngestServiceTest {
             concepts.add(new ConceptPayload(
                 "concept " + i, sample.summary(), sample.sourcePages(), sample.questions()));
         }
-        return new IngestPayload(concepts);
+        return new IngestPayload(null, concepts);
     }
 
     private static ReviewStateRepo.DueDateCount dueCount(LocalDate dueDate, long total) {
@@ -143,6 +143,38 @@ class IngestServiceTest {
     }
 
     @Test
+    void anIngestedLectureKeepsTheTitleExtractionGaveIt() {
+        ai.nextExtract = FakeAiClient.samplePayload();
+        Material m = service.ingest(1L, "Lecture 3 Fall 2026.pdf", PDF);
+        assertEquals("The TCP handshake", m.title);
+    }
+
+    @Test
+    void aTitleIsTrimmedBeforeItIsStored() {
+        ai.nextExtract = new IngestPayload("  Albedo and blackbody radiation \n", payloadOf(1).concepts());
+        Material m = service.ingest(1L, "week1.pdf", PDF);
+        assertEquals("Albedo and blackbody radiation", m.title);
+    }
+
+    @Test
+    void aMissingBlankOrOverlongTitleIsLeftOffAndTheLectureStillIngests() {
+        for (String title : new String[] {null, "   ", "x".repeat(121)}) {
+            ai.nextExtract = new IngestPayload(title, payloadOf(1).concepts());
+            Material m = service.ingest(1L, "week1.pdf", PDF);
+            assertEquals(MaterialStatus.INGESTED, m.status);
+            assertNull(m.title);
+        }
+        assertEquals(3, ai.extractCalls);
+    }
+
+    @Test
+    void aTitleOfExactlyOneHundredTwentyCharactersIsKept() {
+        String title = "y".repeat(120);
+        ai.nextExtract = new IngestPayload(title, payloadOf(1).concepts());
+        assertEquals(title, service.ingest(1L, "week1.pdf", PDF).title);
+    }
+
+    @Test
     void duplicateHashIsNoOp() {
         Material existing = new Material();
         existing.status = MaterialStatus.INGESTED;
@@ -167,7 +199,7 @@ class IngestServiceTest {
         ConceptPayload good = FakeAiClient.samplePayload().concepts().get(0);
         QuestionPayload bad = new QuestionPayload("multiple_choice", "How many steps in the TCP handshake?",
             List.of("1", "2", "3", "4"), 2, null, null, List.of(3), null, null, null);
-        ai.nextExtract = new IngestPayload(List.of(new ConceptPayload(
+        ai.nextExtract = new IngestPayload(null, List.of(new ConceptPayload(
             good.name(), good.summary(), good.sourcePages(), List.of(bad, good.questions().get(1)))));
         Material m = service.ingest(1L, "week1.pdf", PDF);
         assertEquals(MaterialStatus.FAILED, m.status);
@@ -198,7 +230,7 @@ class IngestServiceTest {
 
     @Test
     void emptyExtractionRetriesOnceThenFails() {
-        ai.nextExtract = new IngestPayload(List.of());
+        ai.nextExtract = new IngestPayload(null, List.of());
         Material m = service.ingest(1L, "week1.pdf", PDF);
         assertEquals(MaterialStatus.FAILED, m.status);
         assertTrue(m.errorMessage.contains("no concepts"));
@@ -209,7 +241,7 @@ class IngestServiceTest {
     @Test
     void conceptWithNoQuestionsRetriesOnceThenFails() {
         ConceptPayload good = FakeAiClient.samplePayload().concepts().get(0);
-        ai.nextExtract = new IngestPayload(List.of(new ConceptPayload(
+        ai.nextExtract = new IngestPayload(null, List.of(new ConceptPayload(
             good.name(), good.summary(), good.sourcePages(), List.of())));
         Material m = service.ingest(1L, "week1.pdf", PDF);
         assertEquals(MaterialStatus.FAILED, m.status);
@@ -224,7 +256,7 @@ class IngestServiceTest {
         ConceptPayload good = FakeAiClient.samplePayload().concepts().get(0);
         QuestionPayload bad = new QuestionPayload("MC", "How many steps in the TCP handshake?",
             null, 2, null, null, List.of(3), null, null, null);
-        ai.nextExtract = new IngestPayload(List.of(new ConceptPayload(
+        ai.nextExtract = new IngestPayload(null, List.of(new ConceptPayload(
             good.name(), good.summary(), good.sourcePages(), List.of(bad, good.questions().get(1)))));
         Material m = service.ingest(1L, "week1.pdf", PDF);
         assertEquals(MaterialStatus.FAILED, m.status);
@@ -239,7 +271,7 @@ class IngestServiceTest {
         ConceptPayload good = FakeAiClient.samplePayload().concepts().get(0);
         QuestionPayload bad = new QuestionPayload("MC", "How many steps in the TCP handshake?",
             List.of("1", "2", "3", "4"), 4, null, null, List.of(3), null, null, null);
-        ai.nextExtract = new IngestPayload(List.of(new ConceptPayload(
+        ai.nextExtract = new IngestPayload(null, List.of(new ConceptPayload(
             good.name(), good.summary(), good.sourcePages(), List.of(bad, good.questions().get(1)))));
         Material m = service.ingest(1L, "week1.pdf", PDF);
         assertEquals(MaterialStatus.FAILED, m.status);
@@ -254,7 +286,7 @@ class IngestServiceTest {
         ConceptPayload good = FakeAiClient.samplePayload().concepts().get(0);
         QuestionPayload bad = new QuestionPayload("SHORT_ANSWER", "Describe the TCP three-way handshake.",
             null, null, null, "- names all three segments\n- correct order", List.of(3, 4), null, null, null);
-        ai.nextExtract = new IngestPayload(List.of(new ConceptPayload(
+        ai.nextExtract = new IngestPayload(null, List.of(new ConceptPayload(
             good.name(), good.summary(), good.sourcePages(), List.of(good.questions().get(0), bad))));
         Material m = service.ingest(1L, "week1.pdf", PDF);
         assertEquals(MaterialStatus.FAILED, m.status);
@@ -511,7 +543,7 @@ class IngestServiceTest {
         QuestionPayload mc = good.questions().get(0);
         QuestionPayload changed = new QuestionPayload(mc.type(), mc.prompt(), mc.options(), mc.correctIndex(),
             mc.modelAnswer(), mc.rubric(), mc.sourcePages(), explanation, optionExplanations, diagram);
-        return new IngestPayload(List.of(new ConceptPayload(
+        return new IngestPayload(null, List.of(new ConceptPayload(
             good.name(), good.summary(), good.sourcePages(), List.of(changed, good.questions().get(1)))));
     }
 
@@ -571,7 +603,7 @@ class IngestServiceTest {
         QuestionPayload sa = good.questions().get(1);
         QuestionPayload withNotes = new QuestionPayload(sa.type(), sa.prompt(), sa.options(), sa.correctIndex(),
             sa.modelAnswer(), sa.rubric(), sa.sourcePages(), sa.explanation(), List.of("a stray note"), null);
-        ai.nextExtract = new IngestPayload(List.of(new ConceptPayload(
+        ai.nextExtract = new IngestPayload(null, List.of(new ConceptPayload(
             good.name(), good.summary(), good.sourcePages(), List.of(good.questions().get(0), withNotes))));
         service.ingest(1L, "week1.pdf", PDF);
         assertNull(savedQuestions().get(1).optionExplanationsJson);
@@ -722,7 +754,7 @@ class IngestServiceTest {
         QuestionPayload pastTheDeck = new QuestionPayload(cited.type(), cited.prompt(), cited.options(),
             cited.correctIndex(), cited.modelAnswer(), cited.rubric(), List.of(5),
             cited.explanation(), cited.optionExplanations(), cited.diagram());
-        ai.nextExtract = new IngestPayload(List.of(new ConceptPayload(
+        ai.nextExtract = new IngestPayload(null, List.of(new ConceptPayload(
             good.name(), good.summary(), good.sourcePages(), List.of(pastTheDeck, good.questions().get(1)))));
         Material m = service.ingest(1L, "week1.pdf", PDF);
         assertEquals(MaterialStatus.FAILED, m.status);
@@ -736,7 +768,7 @@ class IngestServiceTest {
     @Test
     void conceptSlidePastTheDeckRetriesOnceThenFails() {
         ConceptPayload good = FakeAiClient.samplePayload().concepts().get(0);
-        ai.nextExtract = new IngestPayload(List.of(new ConceptPayload(
+        ai.nextExtract = new IngestPayload(null, List.of(new ConceptPayload(
             good.name(), good.summary(), List.of(0), good.questions())));
         Material m = service.ingest(1L, "week1.pdf", PDF);
         assertEquals(MaterialStatus.FAILED, m.status);
@@ -798,7 +830,7 @@ class IngestServiceTest {
             .map(q -> new QuestionPayload(q.type(), q.prompt(), q.options(), q.correctIndex(), q.modelAnswer(),
                 q.rubric(), List.of(1), q.explanation(), q.optionExplanations(), q.diagram()))
             .toList();
-        return new IngestPayload(List.of(
+        return new IngestPayload(null, List.of(
             new ConceptPayload(sample.name(), sample.summary(), List.of(1), questions)));
     }
 

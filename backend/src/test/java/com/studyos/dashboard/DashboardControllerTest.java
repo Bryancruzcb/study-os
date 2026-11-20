@@ -58,6 +58,7 @@ class DashboardControllerTest {
         c.sourcePages = "3,4";
         c.material = new Material();
         c.material.filename = "Lecture 3.pdf";
+        c.material.title = "The TCP handshake";
         ReviewState rs = ReviewState.initial(c, LocalDate.of(2026, 9, 1));
         rs.streak = 1;
         Attempt good = new Attempt();
@@ -73,6 +74,7 @@ class DashboardControllerTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.dueToday").value(1))
             .andExpect(jsonPath("$.concepts[0].lecture").value("Lecture 3.pdf"))
+            .andExpect(jsonPath("$.concepts[0].lectureTitle").value("The TCP handshake"))
             .andExpect(jsonPath("$.concepts[0].sourcePages").value("3,4"))
             .andExpect(jsonPath("$.concepts[0].attempts").value(2))
             .andExpect(jsonPath("$.concepts[0].correct").value(1))

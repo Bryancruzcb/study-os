@@ -43,7 +43,7 @@ beforeEach(() => {
   vi.mocked(api.overview).mockResolvedValue([course])
   vi.mocked(api.bank).mockResolvedValue(bank)
   vi.mocked(api.lectures).mockResolvedValue([
-    { id: 11, filename: 'Lecture 3.pdf', concepts: 1 },
+    { id: 11, filename: 'Lecture 3.pdf', lectureTitle: 'Reliable transport', concepts: 1, topics: ['TCP handshake'] },
   ])
   vi.mocked(api.deleteLecture).mockResolvedValue(undefined)
 })
@@ -229,7 +229,7 @@ test('the lectures sit closed under the list head, and open in place', async () 
   expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument()
   await userEvent.click(lectures)
   expect(lectures).toHaveAttribute('aria-expanded', 'true')
-  expect(within(screen.getByRole('list', { name: 'Lectures' })).getByText('Lecture 3.pdf')).toBeInTheDocument()
+  expect(within(screen.getByRole('list', { name: 'Lectures' })).getByText('Reliable transport')).toBeInTheDocument()
   await userEvent.click(lectures)
   expect(screen.queryByRole('list', { name: 'Lectures' })).not.toBeInTheDocument()
 })
@@ -256,7 +256,7 @@ test('deleting a lecture removes it and refreshes the bank', async () => {
   const { container } = renderBank('/courses/1/bank')
   await screen.findByRole('link', { name: /TCP handshake/ })
   await userEvent.click(screen.getByRole('button', { name: 'Lectures (1)' }))
-  expect(screen.getByText('Lecture 3.pdf')).toBeInTheDocument()
+  expect(screen.getByText('Reliable transport')).toBeInTheDocument()
   const bankCalls = vi.mocked(api.bank).mock.calls.length
   const overviewCalls = vi.mocked(api.overview).mock.calls.length
   await userEvent.click(screen.getByRole('button', { name: 'Delete' }))

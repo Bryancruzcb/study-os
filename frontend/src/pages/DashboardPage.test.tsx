@@ -123,14 +123,17 @@ test('every lecture sits on the path: its share correct and how its concepts sta
   expect(await path()).toHaveTextContent('Your path through 2 lectures')
   expect(screen.getByText('3 of 4 topics started.')).toBeInTheDocument()
   expect(screen.getByText('How this is counted')).toBeInTheDocument()
-  expect(lectureNames()).toEqual(['Lecture 3', 'Lecture 4'])
-  const three = within(lecture('Lecture 3'))
+  // the files are only numbered, so each lecture goes by its first two topics, and its number
+  // stays beside them
+  expect(lectureNames()).toEqual(['TCP and UDP', 'Routing and Congestion'])
+  const three = within(lecture('TCP and UDP'))
+  expect(three.getByText('Lecture 3')).toBeInTheDocument()
   expect(three.getByText('2 topics')).toBeInTheDocument()
   expect(three.getByText('75% correct')).toBeInTheDocument()
   expect(three.getByText('1 right')).toBeInTheDocument()
   expect(three.getByText('0 to work on')).toBeInTheDocument()
   expect(three.getByText('1 not started')).toBeInTheDocument()
-  const four = within(lecture('Lecture 4'))
+  const four = within(lecture('Routing and Congestion'))
   expect(four.getByText('33% correct')).toBeInTheDocument()
   expect(four.getByText('2 to work on')).toBeInTheDocument()
 })
@@ -142,30 +145,48 @@ test('a lecture nobody has started says so, and the work picks up at the first l
   })
   renderInCourse(<DashboardPage />, 'dashboard')
   await path()
-  expect(within(lecture('Lecture 2')).getByText('not started')).toBeInTheDocument()
-  expect(lecture('Lecture 2')).not.toHaveClass('is-here')
-  expect(lecture('Lecture 4')).toHaveClass('is-here')
-  expect(within(lecture('Lecture 4')).getByText('Pick up here')).toBeInTheDocument()
+  expect(within(lecture('Framing')).getByText('not started')).toBeInTheDocument()
+  expect(lecture('Framing')).not.toHaveClass('is-here')
+  expect(lecture('Routing and Congestion')).toHaveClass('is-here')
+  expect(within(lecture('Routing and Congestion')).getByText('Pick up here')).toBeInTheDocument()
   expect(screen.getAllByText('Pick up here')).toHaveLength(1)
 })
 
 test('a lecture opens to its own concepts, weakest first, each linked to its questions', async () => {
   renderInCourse(<DashboardPage />, 'dashboard')
   await path()
-  const four = lecture('Lecture 4')
+  const four = lecture('Routing and Congestion')
   expect(within(four).getByText('See its 2 concepts')).toBeInTheDocument()
-  // the table names the file the concepts came from
-  expect(within(four).getByRole('table', { name: 'Lecture 4.pdf' })).toBeInTheDocument()
+  // the table is named for the lecture the concepts came from
+  expect(within(four).getByRole('table', { name: 'Routing and Congestion' })).toBeInTheDocument()
   const names = within(four).getAllByRole('row').slice(1).map(tr => within(tr).getByRole('link').textContent)
   expect(names).toEqual(['Congestion', 'Routing'])
   expect(within(four).getByText('slide 12')).toBeInTheDocument()
   expect(within(four).getByText('Congestion').closest('tr')).toHaveClass('is-weak')
   expect(within(four).getAllByText('needs work')).toHaveLength(2)
-  const three = lecture('Lecture 3')
+  const three = lecture('TCP and UDP')
   expect(within(three).getByText('UDP').closest('tr')).toHaveClass('is-new')
   expect(within(three).getByText('new')).toBeInTheDocument()
   expect(within(three).getByRole('link', { name: 'TCP' })).toHaveAttribute('href', '/courses/1/bank/5')
   expect(within(three).getAllByText('Sat, Sep 5', { selector: 'td' })).toHaveLength(2)
+})
+
+test('a lecture goes by the title extraction gave it, with the number from its filename beside it', async () => {
+  vi.mocked(api.dashboard).mockResolvedValueOnce({
+    dueToday: 0,
+    concepts: [
+      stats({ conceptId: 30, name: 'Albedo', lecture: 'GEOG1 Lecture 3 Fall 2026.pptx', lectureTitle: 'Albedo and blackbody radiation' }),
+      stats({ conceptId: 31, name: 'Seek time', lecture: 'Hard Disk Drives.pdf', lectureTitle: null }),
+    ],
+  })
+  renderInCourse(<DashboardPage />, 'dashboard')
+  await path()
+  expect(lectureNames()).toEqual(['Albedo and blackbody radiation', 'Hard Disk Drives'])
+  const albedo = lecture('Albedo and blackbody radiation')
+  expect(within(albedo).getByText('Lecture 3')).toBeInTheDocument()
+  expect(albedo).not.toHaveTextContent(/GEOG1|Fall 2026/)
+  // a filename with no number has no second line to add
+  expect(lecture('Hard Disk Drives').querySelector('.lecture-desc')!.firstElementChild).toHaveTextContent('1 topic')
 })
 
 test('every lecture is on one path, with no pages to turn', async () => {

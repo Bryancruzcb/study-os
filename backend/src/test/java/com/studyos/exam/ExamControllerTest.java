@@ -54,12 +54,15 @@ class ExamControllerTest {
 
     @Test
     void theLecturesAnExamCanCoverAreListed() throws Exception {
-        when(planner.lectures(1L)).thenReturn(List.of(new ExamPlanner.LectureView(11L, "Lecture 1.pdf", 9)));
+        when(planner.lectures(1L)).thenReturn(List.of(new ExamPlanner.LectureView(11L, "Lecture 1.pdf", "Process scheduling", 9,
+            List.of("Round robin", "Shortest job first"))));
         mvc.perform(get("/api/courses/1/lectures"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[0].id").value(11))
             .andExpect(jsonPath("$[0].filename").value("Lecture 1.pdf"))
-            .andExpect(jsonPath("$[0].concepts").value(9));
+            .andExpect(jsonPath("$[0].lectureTitle").value("Process scheduling"))
+            .andExpect(jsonPath("$[0].concepts").value(9))
+            .andExpect(jsonPath("$[0].topics[0]").value("Round robin"));
     }
 
     @Test

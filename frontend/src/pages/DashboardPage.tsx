@@ -3,7 +3,7 @@ import { Link, useOutletContext } from 'react-router-dom'
 import { api, type ConceptStats, type Dashboard } from '../api'
 import { dayLabel } from '../dates'
 import Icon from '../icons'
-import { lectureIcon, lectureTint, lectureTitle } from '../lectures'
+import { lectureIcon, lectureLabel, lectureName, lectureTint } from '../lectures'
 import { plural } from '../plural'
 import {
   byLecture, moreToWorkOn, NO_LECTURE, percent, pickUpHere, standing, weakestFirst, type LectureProgress,
@@ -50,7 +50,7 @@ export default function DashboardPage() {
     <div className="dashboard">
       <div className={`dash-hero${empty ? ' dash-hero--solo' : ''}`}>
         {/* what today holds for the nearest exam leads: the rest of the page is paced to it */}
-        <Exams courseId={course.id} lecturesLanded={ingest.finished} onChange={() => { setPlanned(p => p + 1); void refresh() }}
+        <Exams courseId={course.id} courseName={course.name} lecturesLanded={ingest.finished} onChange={() => { setPlanned(p => p + 1); void refresh() }}
           dueToday={course.dueToday} empty={empty} start={start}>
           {!empty && (
             <ul className="figs" aria-label="Course numbers">
@@ -174,7 +174,10 @@ function LecturePath({ courseName, concepts }: { courseName: string; concepts: C
    hidden from screen readers. */
 function PathNode({ lecture, courseName, here }: { lecture: LectureProgress; courseName: string; here: boolean }) {
   const { right, weak, new: fresh } = lecture.counts
-  const title = lecture.name === NO_LECTURE ? NO_LECTURE : lectureTitle(lecture.name, courseName)
+  const title = lecture.name === NO_LECTURE ? NO_LECTURE
+    : lectureName(lecture.name, courseName, lecture.concepts[0]?.lectureTitle, lecture.concepts.map(c => c.name))
+  // the file's own "Lecture 3", under a name that does not already say it
+  const label = lecture.name === NO_LECTURE ? null : lectureLabel(lecture.name, courseName)
   const topics = lecture.concepts.length
   return (
     <li className={`path-node${here ? ' is-here' : ''}`}>
@@ -185,6 +188,7 @@ function PathNode({ lecture, courseName, here }: { lecture: LectureProgress; cou
       <div className="path-what">
         <h3 className="lecture-name">{title}</h3>
         <p className="lecture-desc">
+          {label && label !== title && <span>{label}</span>}
           <span>{plural(topics, 'topic')}</span>
           {right + weak === 0 ? (
             <span className="k-new"><Icon name="circle-dashed" size={14} />not started</span>
@@ -207,7 +211,7 @@ function PathNode({ lecture, courseName, here }: { lecture: LectureProgress; cou
         <summary><Icon name="chevron-right" size={16} />See its {plural(topics, 'concept')}</summary>
         <div className="lecture-table">
           <table className="ledger">
-            <caption>{lecture.name}</caption>
+            <caption>{title}</caption>
             <thead><tr><th>Concept</th><th>Correct</th><th>Streak</th><th>Due</th></tr></thead>
             <tbody>
               {weakestFirst(lecture.concepts).map(c => <ConceptRow key={c.conceptId} concept={c} />)}
