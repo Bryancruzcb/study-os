@@ -13,17 +13,18 @@ import java.util.List;
  * from, never the answer key or eval labels. The topic, lecture and pages let the student check a question
  * against the slides it was drawn from, and the lecture id is what the quiz narrows to the lectures picked.
  * The concept id is how the study page tells which earlier answers a later one has made final, since only a
- * concept's most recent attempt can still be overridden or self-graded.
+ * concept's most recent attempt can still be overridden or self-graded. lectureTitle is the lecture's
+ * subject, null for a lecture ingested before titles existed.
  */
-public record QuestionView(Long id, Long conceptId, String topic, String lecture, Long lectureId, String type,
-                           String prompt, List<String> options, String sourcePages) {
+public record QuestionView(Long id, Long conceptId, String topic, String lecture, String lectureTitle, Long lectureId,
+                           String type, String prompt, List<String> options, String sourcePages) {
     private static final TypeReference<List<String>> STRING_LIST = new TypeReference<>() {};
 
     public static QuestionView from(Question q, ObjectMapper mapper) {
         Concept c = q.concept;
         Material m = c == null ? null : c.material;
         return new QuestionView(q.id, c == null ? null : c.id, c == null ? null : c.name,
-            m == null ? null : m.filename, m == null ? null : m.id,
+            m == null ? null : m.filename, m == null ? null : m.title, m == null ? null : m.id,
             q.type == null ? null : q.type.name(), q.prompt, parseOptions(q, mapper), q.sourcePages);
     }
 

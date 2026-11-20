@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEve
 import { api, type Exam, type ExamInput, type Lecture } from '../api'
 import { dayLabel } from '../dates'
 import Icon from '../icons'
+import { lectureName } from '../lectures'
 import { coverage, dueClause, headline, leadExam, outlook, todayLine, when } from '../plan'
 import { plural } from '../plural'
 
@@ -14,8 +15,10 @@ import { plural } from '../plural'
    (null while the page is still finding out), start is the page's main button and children
    are the figures that sit under the buttons. lecturesLanded moves when an upload finishes:
    a new lecture joins the nearest exam ahead, so the exams and lectures load again. */
-export default function Exams({ courseId, onChange, lecturesLanded = 0, dueToday = 0, empty = false, start, children }: {
+export default function Exams({ courseId, courseName, onChange, lecturesLanded = 0, dueToday = 0, empty = false, start, children }: {
   courseId: number
+  // the course's name, which a lecture's filename may start with
+  courseName: string
   onChange: () => void
   lecturesLanded?: number
   dueToday?: number
@@ -76,7 +79,7 @@ export default function Exams({ courseId, onChange, lecturesLanded = 0, dueToday
   const covered = new Set((exams ?? []).flatMap(exam => exam.lectureIds))
 
   const form = (exam: Exam) => (
-    <ExamForm lectures={lectures}
+    <ExamForm lectures={lectures} courseName={courseName}
       initial={{ name: exam.name, date: exam.date, lectureIds: exam.lectureIds }}
       onSave={body => api.updateExam(exam.id, body).then(changed)}
       onDelete={() => api.deleteExam(exam.id).then(changed)}
@@ -108,7 +111,7 @@ export default function Exams({ courseId, onChange, lecturesLanded = 0, dueToday
         )}
       </div>
       {editing === 'new' && (
-        <ExamForm lectures={lectures}
+        <ExamForm lectures={lectures} courseName={courseName}
           initial={{ name: '', date: '', lectureIds: lectures.filter(l => !covered.has(l.id)).map(l => l.id) }}
           onSave={body => api.createExam(courseId, body).then(changed)}
           onCancel={close} setError={setError} />
@@ -194,8 +197,9 @@ function PlanSkeleton() {
   )
 }
 
-function ExamForm({ lectures, initial, onSave, onDelete, onCancel, setError }: {
+function ExamForm({ lectures, courseName, initial, onSave, onDelete, onCancel, setError }: {
   lectures: Lecture[]
+  courseName: string
   initial: ExamInput
   onSave: (body: ExamInput) => Promise<void>
   onDelete?: () => Promise<void>
@@ -264,7 +268,9 @@ function ExamForm({ lectures, initial, onSave, onDelete, onCancel, setError }: {
         ) : lectures.map(lecture => (
           <label key={lecture.id} className="exam-lecture">
             <input type="checkbox" checked={picked.has(lecture.id)} onChange={() => toggle(lecture.id)} />
-            <span className="exam-lecture-name">{lecture.filename}</span>
+            <span className="exam-lecture-name">
+              {lectureName(lecture.filename, courseName, lecture.lectureTitle, lecture.topics)}
+            </span>
             <span className="count">{plural(lecture.concepts, 'topic')}</span>
           </label>
         ))}

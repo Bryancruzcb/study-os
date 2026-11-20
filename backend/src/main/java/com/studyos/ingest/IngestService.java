@@ -59,6 +59,8 @@ public class IngestService {
     private static final int EXPLANATION_MAX = 4000;
     private static final int OPTION_EXPLANATIONS_MAX = 8000;
     private static final int DIAGRAM_MAX = 4000;
+    // well under the column's 200: a lecture's subject in a few words is never this long
+    private static final int TITLE_MAX = 120;
     // the diagram kinds the quiz page draws; anything else, or one carrying an init directive, a
     // click handler or a link, is left off instead of being handed to mermaid
     private static final Pattern DIAGRAM_HEADER =
@@ -258,6 +260,7 @@ public class IngestService {
             courseId = course.id;
         }
         material.pageCount = pages;
+        material.title = usableTitle(payload.title());
 
         LocalDate today = LocalDate.now(clock);
         Map<LocalDate, Long> scheduled = scheduledPerDayFrom(courseId, today);
@@ -460,6 +463,13 @@ public class IngestService {
         if (text == null || text.isBlank()) return null;
         String stripped = text.strip();
         return stripped.length() <= max ? stripped : null;
+    }
+
+    // The title only names the lecture on screen, so like an explanation it is an extra: a blank
+    // one, or one long enough to be a sentence rather than a name, is left off and the app falls
+    // back to the filename instead of failing the lecture.
+    static String usableTitle(String title) {
+        return usableText(title, TITLE_MAX);
     }
 
     private String usableOptionExplanations(QuestionType type, QuestionPayload qp) {

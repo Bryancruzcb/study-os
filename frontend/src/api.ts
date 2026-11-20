@@ -28,8 +28,9 @@ export interface ConceptWithQuestions {
   name: string
   summary: string
   sourcePages: string | null
-  // the lecture file the concept was drawn from
+  // the lecture file the concept was drawn from, and that lecture's subject when extraction named it
   lecture: string | null
+  lectureTitle?: string | null
   questions: Question[]
 }
 export interface Material {
@@ -38,8 +39,9 @@ export interface Material {
   status: 'PENDING' | 'INGESTED' | 'FAILED'
   errorMessage: string | null
 }
-/* the lecture id is null only for a question whose concept lost its lecture; it opens the cited slide */
-export interface StudyQuestion { id: number; conceptId: number; topic: string | null; lecture: string | null; lectureId: number | null; type: 'MC' | 'SHORT_ANSWER'; prompt: string; options: string[]; sourcePages: string | null }
+/* the lecture id is null only for a question whose concept lost its lecture; it opens the cited slide.
+   lectureTitle is the lecture's subject, null for a lecture ingested before titles existed. */
+export interface StudyQuestion { id: number; conceptId: number; topic: string | null; lecture: string | null; lectureTitle?: string | null; lectureId: number | null; type: 'MC' | 'SHORT_ANSWER'; prompt: string; options: string[]; sourcePages: string | null }
 /* a question in the quiz, with the id of the lecture it came from, which the quiz narrows by */
 export interface QuizQuestion extends StudyQuestion { lectureId: number }
 export interface QuizAnswer {
@@ -67,13 +69,14 @@ export interface QuestionReview {
 }
 export interface Attempt { id: number; verdict: 'CORRECT' | 'INCORRECT' | 'PENDING'; score: number | null; feedback: string | null }
 export interface AnsweredAttempt extends Attempt { answerKey: string | null }
-export interface ConceptStats { conceptId: number; name: string; lecture: string | null; sourcePages: string | null; streak: number; attempts: number; correct: number; dueDate: string; neverAttempted: boolean }
+export interface ConceptStats { conceptId: number; name: string; lecture: string | null; lectureTitle?: string | null; sourcePages: string | null; streak: number; attempts: number; correct: number; dueDate: string; neverAttempted: boolean }
 export interface Dashboard { dueToday: number; concepts: ConceptStats[] }
 /* a labeled question that failed at least one check, with where it lives so the page can link to its card */
 export interface ReviewItem { questionId: number; courseId: number; course: string; conceptId: number; concept: string; prompt: string; answerable: boolean; correctAnswer: boolean; unambiguous: boolean }
 export interface EvalReport { labeled: number; pctAnswerable: number; pctCorrectAnswer: number; pctUnambiguous: number; gradedShortAnswers: number; graderAgreement: number; needsReview: ReviewItem[] }
-/* a lecture the course has ingested, for picking what an exam covers */
-export interface Lecture { id: number; filename: string; concepts: number }
+/* a lecture the course has ingested, for picking what an exam covers: its subject when extraction
+   named it, and its concepts' names in order, which name it when neither title nor filename can */
+export interface Lecture { id: number; filename: string; lectureTitle: string | null; concepts: number; topics: string[] }
 /* where an exam's plan stands today, worked out again by the server every day */
 export interface ExamPlan { daysLeft: number; reviewDays: number; lastNewDay: string; topics: number; topicsLeft: number; newToday: number; reviewsToday: number }
 export interface Exam { id: number; name: string; date: string; lectureIds: number[]; status: 'upcoming' | 'today' | 'past'; plan: ExamPlan | null }

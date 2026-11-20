@@ -20,6 +20,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -67,7 +68,9 @@ public class ExamPlanner {
 
     public record ExamRequest(String name, LocalDate date, List<Long> lectureIds) {}
 
-    public record LectureView(Long id, String filename, long concepts) {}
+    // lectureTitle is the lecture's subject, null for a lecture ingested before titles existed; topics
+    // are its concepts' names, which name a lecture that has neither a title nor a telling filename
+    public record LectureView(Long id, String filename, String lectureTitle, long concepts, List<String> topics) {}
 
     /** Where an exam's plan stands today: its days, its topics, and what today holds for it. */
     public record Plan(long daysLeft, long reviewDays, LocalDate lastNewDay, long topics, long topicsLeft,
@@ -229,8 +232,18 @@ public class ExamPlanner {
     @Transactional(readOnly = true)
     public List<LectureView> lectures(Long courseId) {
         return materialRepo.findByCourseIdAndStatusOrderByIdAsc(courseId, MaterialStatus.INGESTED).stream()
-            .map(lecture -> new LectureView(lecture.id, lecture.filename, conceptRepo.findByMaterialId(lecture.id).size()))
+            .map(lecture -> lectureView(lecture, conceptRepo.findByMaterialId(lecture.id)))
             .toList();
+    }
+
+    // the topics go out in the order extraction gave them, so a lecture with no title of its own is
+    // named after its first ones the same way on every page
+    static LectureView lectureView(Material lecture, List<Concept> concepts) {
+        List<String> topics = concepts.stream()
+            .sorted(Comparator.comparing((Concept c) -> c.id, Comparator.nullsLast(Comparator.naturalOrder())))
+            .map(c -> c.name)
+            .toList();
+        return new LectureView(lecture.id, lecture.filename, lecture.title, concepts.size(), topics);
     }
 
     private static final class Tally {

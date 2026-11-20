@@ -13,6 +13,9 @@ public class Material {
     @JsonIgnore
     public Course course;
     public String filename;
+    // the lecture's subject as extraction named it; null for lectures ingested before titles existed
+    @Column(length = 200)
+    public String title;
     public String fileHash;
     public Integer pageCount;
     @Enumerated(EnumType.STRING)

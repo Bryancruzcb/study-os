@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { NavLink, Outlet, useLocation, useOutletContext, useSearchParams } from 'react-router-dom'
 import { api, type ConceptWithQuestions, type Lecture } from '../api'
 import Icon from '../icons'
+import { lectureName } from '../lectures'
 import { plural } from '../plural'
 import type { CourseContext } from '../shell/CourseLayout'
 import { LECTURE_ACCEPT, LECTURE_KINDS, type IngestPhase } from '../uploads'
@@ -235,7 +236,7 @@ export default function BankRoute() {
           {lecturesOpen && lectures.length > 0 && (
             <ul id="bank-lectures" className="lecture-manage" aria-label="Lectures">
               {lectures.map(lecture => (
-                <LectureDelete key={lecture.id} lecture={lecture} disabled={ingest.uploading || generating}
+                <LectureDelete key={lecture.id} lecture={lecture} courseName={course.name} disabled={ingest.uploading || generating}
                   onDelete={() => onDeleteLecture(lecture.id)} />
               ))}
             </ul>
@@ -281,8 +282,9 @@ function uploadLabel(phase: IngestPhase): string {
 }
 
 /* one lecture with a delete that arms first, matching the exam form's confirm pattern */
-function LectureDelete({ lecture, disabled, onDelete }: {
+function LectureDelete({ lecture, courseName, disabled, onDelete }: {
   lecture: Lecture
+  courseName: string
   disabled: boolean
   onDelete: () => Promise<void>
 }) {
@@ -291,7 +293,9 @@ function LectureDelete({ lecture, disabled, onDelete }: {
 
   return (
     <li className="lecture-manage-row">
-      <span className="lecture-manage-name">{lecture.filename}</span>
+      <span className="lecture-manage-name">
+        {lectureName(lecture.filename, courseName, lecture.lectureTitle, lecture.topics)}
+      </span>
       <span className="count">{plural(lecture.concepts, 'topic')}</span>
       {confirming ? (
         <>

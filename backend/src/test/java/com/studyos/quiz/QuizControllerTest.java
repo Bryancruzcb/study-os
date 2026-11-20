@@ -46,6 +46,7 @@ class QuizControllerTest {
         q.concept.material = new Material();
         q.concept.material.id = 7L;
         q.concept.material.filename = "Lecture 3.pdf";
+        q.concept.material.title = "The TCP handshake";
         return q;
     }
 
@@ -106,6 +107,7 @@ class QuizControllerTest {
             .andExpect(jsonPath("$[0].id").value(9))
             .andExpect(jsonPath("$[0].topic").value("TCP handshake"))
             .andExpect(jsonPath("$[0].lecture").value("Lecture 3.pdf"))
+            .andExpect(jsonPath("$[0].lectureTitle").value("The TCP handshake"))
             .andExpect(jsonPath("$[0].lectureId").value(7))
             .andExpect(jsonPath("$[0].options.length()").value(4))
             .andExpect(jsonPath("$[0].correctIndex").doesNotExist())

@@ -35,7 +35,7 @@ public class FakeAiClient implements AiClient {
     }
 
     public static IngestPayload samplePayload() {
-        return new IngestPayload(List.of(new ConceptPayload(
+        return new IngestPayload("The TCP handshake", List.of(new ConceptPayload(
             "TCP handshake", "Three-way SYN/SYN-ACK/ACK connection setup", List.of(3, 4),
             List.of(
                 new QuestionPayload("MC", "How many steps in the TCP handshake?",

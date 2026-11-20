@@ -20,11 +20,11 @@ vi.mock('./Diagram', () => ({
 }))
 
 const mc: QuizQuestion = {
-  id: 9, conceptId: 1, lectureId: 7, topic: 'TCP handshake', lecture: 'Lecture 3.pdf', type: 'MC',
+  id: 9, conceptId: 1, lectureId: 7, topic: 'TCP handshake', lecture: 'Lecture 3.pdf', lectureTitle: 'TCP connections', type: 'MC',
   prompt: 'How many segments open a TCP connection?', options: ['1', '2', '3', '4'], sourcePages: '3',
 }
 const sa: QuizQuestion = {
-  id: 10, conceptId: 2, lectureId: 7, topic: 'Connection setup', lecture: 'Lecture 3.pdf', type: 'SHORT_ANSWER',
+  id: 10, conceptId: 2, lectureId: 7, topic: 'Connection setup', lecture: 'Lecture 3.pdf', lectureTitle: 'TCP connections', type: 'SHORT_ANSWER',
   prompt: 'Describe the handshake.', options: [], sourcePages: '3,4',
 }
 const tlb: QuizQuestion = {
@@ -76,8 +76,8 @@ async function startQuiz() {
 test('the setup covers every lecture and starts a quiz of every question in the course', async () => {
   renderInCourse(<QuizPage />, 'quiz')
   expect(await screen.findByRole('heading', { name: 'Quiz' })).toBeInTheDocument()
-  expect(screen.getByRole('checkbox', { name: /Lecture 3\.pdf/ })).toBeChecked()
-  expect(screen.getByRole('checkbox', { name: /Paging\.pdf/ })).toBeChecked()
+  expect(screen.getByRole('checkbox', { name: /TCP connections/ })).toBeChecked()
+  expect(screen.getByRole('checkbox', { name: /^Paging/ })).toBeChecked()
   await userEvent.click(screen.getByRole('button', { name: 'Start the quiz · 3 questions' }))
   expect(await screen.findByText(mc.prompt)).toBeInTheDocument()
   expect(screen.getByText('Question 1 of 3')).toBeInTheDocument()
@@ -91,13 +91,23 @@ test('the setup covers every lecture and starts a quiz of every question in the 
   })))
 })
 
+test('a lecture with no title and a numbered filename is named after its first two topics', async () => {
+  vi.mocked(api.quiz).mockResolvedValueOnce([{ ...mc, lectureTitle: null }, { ...sa, lectureTitle: null }, tlb])
+  renderInCourse(<QuizPage />, 'quiz')
+  expect(await screen.findByRole('checkbox', { name: /TCP handshake and Connection setup/ })).toBeChecked()
+  expect(screen.queryByText(/Lecture 3/)).not.toBeInTheDocument()
+  await userEvent.click(screen.getByRole('button', { name: 'Start the quiz · 3 questions' }))
+  await screen.findByText(mc.prompt)
+  expect(within(rail()).getAllByRole('listitem')[0]).toHaveTextContent('TCP handshake and Connection setup · slide 3')
+})
+
 test('unticking a lecture leaves its questions out, and no lectures is no quiz', async () => {
   renderInCourse(<QuizPage />, 'quiz')
-  await userEvent.click(await screen.findByRole('checkbox', { name: /Lecture 3\.pdf/ }))
+  await userEvent.click(await screen.findByRole('checkbox', { name: /TCP connections/ }))
   expect(screen.getByRole('button', { name: 'Start the quiz · 1 question' })).toBeEnabled()
   await userEvent.click(screen.getByRole('button', { name: 'None' }))
   expect(screen.getByRole('button', { name: 'Start the quiz · 0 questions' })).toBeDisabled()
-  await userEvent.click(screen.getByRole('checkbox', { name: /Paging\.pdf/ }))
+  await userEvent.click(screen.getByRole('checkbox', { name: /^Paging/ }))
   await userEvent.click(screen.getByRole('button', { name: 'Start the quiz · 1 question' }))
   expect(await screen.findByText(tlb.prompt)).toBeInTheDocument()
   expect(screen.getByText('Question 1 of 1')).toBeInTheDocument()
@@ -262,9 +272,9 @@ test('the side panel lists every topic with its lecture, its slides and how it h
   expect(topics).toHaveLength(3)
   expect(topics[0]).toHaveAttribute('aria-current', 'step')
   expect(topics[0]).toHaveTextContent('TCP handshake')
-  expect(topics[0]).toHaveTextContent('Lecture 3 · slide 3 · on now')
+  expect(topics[0]).toHaveTextContent('TCP connections · slide 3 · on now')
   expect(topics[0]).toHaveTextContent('0 of 1')
-  expect(topics[1]).toHaveTextContent('Lecture 3 · slides 3, 4')
+  expect(topics[1]).toHaveTextContent('TCP connections · slides 3, 4')
   expect(topics[2]).toHaveTextContent('Paging · slide 12')
   expect(rail()).toHaveTextContent('0 right · 0 missed · 3 to go')
   expect(within(rail()).getByText('O')).toBeInTheDocument()
@@ -336,7 +346,7 @@ test('the setup shows how many questions are available and links to generate in 
   expect(await screen.findByText('3 questions available for this selection.')).toBeInTheDocument()
   const link = screen.getByRole('link', { name: 'Need more? Generate in Bank' })
   expect(link).toHaveAttribute('href', '/courses/1/bank?concepts=1,2,3')
-  await userEvent.click(screen.getByRole('checkbox', { name: /Paging\.pdf/ }))
+  await userEvent.click(screen.getByRole('checkbox', { name: /^Paging/ }))
   expect(screen.getByText('2 questions available for this selection.')).toBeInTheDocument()
   expect(screen.getByRole('link', { name: 'Need more? Generate in Bank' }))
     .toHaveAttribute('href', '/courses/1/bank?concepts=1,2')

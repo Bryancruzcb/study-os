@@ -56,6 +56,7 @@ class StudyControllerTest {
         q.concept.name = "TCP handshake";
         q.concept.material = new Material();
         q.concept.material.filename = "Lecture 3.pdf";
+        q.concept.material.title = "The TCP handshake";
         when(studyService.next(1L)).thenReturn(Optional.of(q));
         mvc.perform(get("/api/study/next").param("courseId", "1"))
             .andExpect(status().isOk())
@@ -63,6 +64,7 @@ class StudyControllerTest {
             .andExpect(jsonPath("$.conceptId").value(4))
             .andExpect(jsonPath("$.topic").value("TCP handshake"))
             .andExpect(jsonPath("$.lecture").value("Lecture 3.pdf"))
+            .andExpect(jsonPath("$.lectureTitle").value("The TCP handshake"))
             .andExpect(jsonPath("$.type").value("MC"))
             .andExpect(jsonPath("$.prompt").value("Steps in the TCP handshake?"))
             .andExpect(jsonPath("$.options[0]").value("1"))
