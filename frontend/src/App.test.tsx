@@ -40,19 +40,10 @@ test('renders the wordmark', async () => {
   await screen.findByRole('heading', { name: 'Courses' })
 })
 
-test('the nav carries the eval counts once they load', async () => {
-  render(<App />)
-  await waitFor(() => expect(screen.getByText('31 labeled')).toBeInTheDocument())
-  expect(screen.getByText('1 graded')).toBeInTheDocument()
-  expect(screen.getByText('100% agreement')).toBeInTheDocument()
-})
-
-test('a failed eval load leaves the nav showing the brand and links alone', async () => {
-  vi.mocked(api.evalReport).mockRejectedValueOnce(new Error('500'))
+test('the nav carries no eval counts', async () => {
   render(<App />)
   await screen.findByRole('heading', { name: 'Courses' })
-  expect(screen.queryByText(/labeled/)).not.toBeInTheDocument()
-  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  expect(screen.queryByText(/labeled|graded|agreement/)).not.toBeInTheDocument()
 })
 
 test('an unknown path lands on the course grid', async () => {

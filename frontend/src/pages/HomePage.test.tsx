@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { vi } from 'vitest'
 import { api, type Course } from '../api'
 import { dueSplit } from '../shell/courses'
+import { commonTerm } from './commonTerm'
 import HomePage from './HomePage'
 
 const overview = [
@@ -17,10 +18,6 @@ vi.mock('../api', () => ({
     createCourse: vi.fn(),
     setArchived: vi.fn().mockResolvedValue(undefined),
     deleteCourse: vi.fn().mockResolvedValue(undefined),
-    evalReport: vi.fn().mockResolvedValue({
-      labeled: 31, pctAnswerable: 1, pctCorrectAnswer: 0.97, pctUnambiguous: 0.94,
-      gradedShortAnswers: 1, graderAgreement: 1,
-    }),
   },
 }))
 
@@ -60,6 +57,35 @@ test('draws a tile per course with its figure and counts, linking into the cours
   expect(tile).toHaveTextContent('16')
   expect(tile).toHaveTextContent('248 concepts · 844 questions')
   expect(screen.getByRole('link', { name: /CS 47/ })).toHaveAttribute('href', '/courses/1/study')
+})
+
+test('a tile shows its term only when it differs from the term most courses share', async () => {
+  renderHome()
+  const spring = await screen.findByRole('link', { name: /CS 47/ })
+  expect(spring).toHaveTextContent('Spring 2026')
+  expect(screen.getByRole('link', { name: /CS 149/ })).not.toHaveTextContent('Fall 2026')
+})
+
+test('commonTerm picks the most shared term and, on a tie, the newest course', () => {
+  const c = (id: number, term: string) => ({ id, name: `C${id}`, term, concepts: 0, questions: 0, dueToday: 0, archived: false })
+  expect(commonTerm([])).toBeUndefined()
+  expect(commonTerm([c(1, 'Spring 2026'), c(2, 'Fall 2026')])).toBe('Fall 2026')
+  expect(commonTerm([c(1, 'Spring 2026'), c(2, 'Spring 2026'), c(3, 'Fall 2026')])).toBe('Spring 2026')
+})
+
+test('a course with something due offers Study N, and a course with nothing due says so quietly', async () => {
+  vi.mocked(api.overview).mockResolvedValueOnce([
+    { id: 1, name: 'CS 47', term: 'Fall 2026', concepts: 18, questions: 55, dueToday: 0, archived: false },
+    { id: 2, name: 'CS 149', term: 'Fall 2026', concepts: 248, questions: 844, dueToday: 6, archived: false },
+  ])
+  renderHome()
+  expect(await screen.findByRole('link', { name: 'Study 6' })).toHaveAttribute('href', '/courses/2/study')
+  expect(screen.queryByRole('link', { name: /^Study 0/ })).not.toBeInTheDocument()
+  expect(screen.getAllByRole('link', { name: /^Study/ })).toHaveLength(1)
+  const quiet = screen.getByRole('link', { name: /CS 47/ })
+  expect(quiet).toHaveTextContent('Nothing due')
+  expect(quiet).not.toHaveTextContent('due today')
+  expect(quiet).toHaveAttribute('href', '/courses/1/study')
 })
 
 test('the hero sums what is due and names the split', async () => {

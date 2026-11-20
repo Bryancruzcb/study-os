@@ -90,16 +90,6 @@
   margin-left: auto;
 }
 
-.readout {
-  font-size: 14px;
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-dim);
-}
-
-.readout span + span::before {
-  content: ' · ';
-}
-
 .nav-account {
   display: flex;
   align-items: center;
@@ -355,19 +345,26 @@
 }
 
 @media (max-width: 720px) {
-  .nav-end {
-    margin-left: 0;
-    width: 100%;
+  /* the bar stays one row on a phone: the places, then the account and the theme */
+  .nav {
+    flex-wrap: nowrap;
+    gap: 8px 10px;
   }
 
-  .readout {
-    flex: 1 1 100%;
+  .nav-links a {
+    padding: 6px 10px;
   }
+}
 
-  .theme-toggle {
-    margin-left: auto;
+@media (max-width: 480px) {
+  /* the places and the controls are the bar; the wordmark and the name give way */
+  .wordmark,
+  .nav-user {
+    display: none;
   }
+}
 
+@media (max-width: 720px) {
   .course-id h1 {
     font-size: 28px;
   }
