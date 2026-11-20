@@ -5,6 +5,7 @@ import { api, type AnsweredAttempt, type Attempt, type QuestionReview, type Stud
 import Icon from '../icons'
 import { letter } from '../letter'
 import type { CourseContext } from '../shell/CourseLayout'
+import Loading, { SkBlock, SkLine } from '../shell/Loading'
 import { McReview, Verdict, Why } from './AnswerReview'
 import QuestionHead from './QuestionHead'
 
@@ -260,6 +261,17 @@ export default function StudyPage() {
             } />
           )}
         </article>
+      )}
+      {back === null && !live && !visit.done && !error && (
+        <Loading what="the next question" className="qcard-big">
+          <div className="sk-stack">
+            <SkLine w="mid" />
+            <SkLine w="long" tall />
+            <SkBlock h="sm" />
+            <SkBlock h="sm" />
+            <SkBlock h="sm" />
+          </div>
+        </Loading>
       )}
       {back === null && visit.done && (
         <div className="qcard-big">

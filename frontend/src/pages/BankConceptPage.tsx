@@ -5,6 +5,7 @@ import Icon from '../icons'
 import { letter } from '../letter'
 import { plural } from '../plural'
 import type { BankContext } from './BankRoute'
+import Loading, { SkBlock, SkLine } from '../shell/Loading'
 import { citation, slides } from '../source'
 
 interface LabelBody { answerable: boolean; correctAnswer: boolean; unambiguous: boolean }
@@ -44,10 +45,23 @@ function modelAnswerOf(q: Question): string | null {
   return typeof value === 'string' && value.trim() !== '' ? value.trim() : null
 }
 
+/* the open concept before the bank arrives: the name, then a card or two */
+export function ConceptSkeleton() {
+  return (
+    <Loading what="the concept">
+      <div className="sk-stack">
+        <SkLine w="mid" tall />
+        <SkBlock h="md" />
+        <SkBlock h="md" />
+      </div>
+    </Loading>
+  )
+}
+
 export default function BankConceptPage() {
   const { conceptId } = useParams()
   const { bank, reload, refresh, setError } = useOutletContext<BankContext>()
-  if (!bank) return <p className="empty">Loading…</p>
+  if (!bank) return <ConceptSkeleton />
   const concept = bank.find(c => c.id === Number(conceptId))
   // the list is right there, so a bad id needs no way back, only the word
   if (!concept) return <p className="alert" role="alert">No concept has id {conceptId}.</p>

@@ -542,6 +542,58 @@ button {
   }
 }
 
+/* the shared skeleton shapes: lines and blocks that screens compose to match their layout */
+.sk-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.sk-line {
+  height: 14px;
+}
+
+.sk-line--tall {
+  height: 30px;
+}
+
+.sk-w-full {
+  width: 100%;
+}
+
+.sk-w-long {
+  width: 80%;
+}
+
+.sk-w-mid {
+  width: 55%;
+}
+
+.sk-w-short {
+  width: 30%;
+}
+
+.sk-block {
+  width: 100%;
+}
+
+.sk-h-sm {
+  height: 48px;
+}
+
+.sk-h-md {
+  height: 96px;
+}
+
+.sk-h-lg {
+  height: 180px;
+}
+
+.sk-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+
 @keyframes skeleton-pulse {
   to {
     opacity: 0.55;

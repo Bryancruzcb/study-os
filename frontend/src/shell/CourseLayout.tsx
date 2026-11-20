@@ -7,6 +7,7 @@ import { ingestStatus, LECTURE_KINDS, uploadProblem, type IngestPhase } from '..
 import { CourseMenu } from './CourseActions'
 import { useCourses } from './courses'
 import { useFileDrop } from './fileDrop'
+import Loading, { SkBlock, SkLine } from './Loading'
 
 export interface CourseContext {
   course: CourseOverview
@@ -169,7 +170,13 @@ export default function CourseLayout() {
   if (!courses) {
     return (
       <div className="page">
-        <p className="empty">Loading…</p>
+        <Loading what="the course">
+          <div className="sk-stack">
+            <SkLine w="mid" tall />
+            <SkLine w="long" />
+            <SkBlock h="lg" />
+          </div>
+        </Loading>
       </div>
     )
   }

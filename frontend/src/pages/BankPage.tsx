@@ -1,5 +1,6 @@
 import { Navigate, useLocation, useOutletContext } from 'react-router-dom'
 import type { BankContext } from './BankRoute'
+import { ConceptSkeleton } from './BankConceptPage'
 
 /* /bank on its own: open the first concept, or say what to do when there is none yet */
 export default function BankPage() {
@@ -8,7 +9,7 @@ export default function BankPage() {
   // commits leaves this page mounted at the bare path under a new location, with the same
   // Navigate, whose effect would never fire again. A new key remounts it, and it fires
   const { key } = useLocation()
-  if (!bank) return <p className="empty">Loading…</p>
+  if (!bank) return <ConceptSkeleton />
   if (bank.length === 0) {
     return (
       <div className="bank-empty">

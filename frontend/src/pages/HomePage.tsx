@@ -6,6 +6,7 @@ import { TINTS } from '../lectures'
 import { plural } from '../plural'
 import { commonTerm } from './commonTerm'
 import CourseActions from '../shell/CourseActions'
+import Loading, { SkBlock, SkLine } from '../shell/Loading'
 import Nav from '../shell/Nav'
 import { dueSplit, useCourses } from '../shell/courses'
 
@@ -103,7 +104,16 @@ export default function HomePage() {
       </div>
       <main className="wrap home">
         {shown && <p className="alert" role="alert">{shown}</p>}
-        {!courses && !error && <p className="empty">Loading…</p>}
+        {!courses && !error && (
+          <Loading what="courses">
+            <SkLine w="short" tall />
+            <div className="sk-grid">
+              <SkBlock h="lg" />
+              <SkBlock h="lg" />
+              <SkBlock h="lg" />
+            </div>
+          </Loading>
+        )}
         {courses && (
           <section className="courses">
             <div className="section-head">
