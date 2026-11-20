@@ -17,6 +17,7 @@ import com.studyos.domain.*;
 import com.studyos.exam.ExamPlanner;
 import com.studyos.repo.*;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -24,7 +25,9 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.apache.pdfbox.Loader;
@@ -88,7 +91,7 @@ public class IngestService {
      */
     @Transactional
     public Material ingest(Long courseId, String filename, byte[] upload) {
-        Prepared prepared = prepare(courseId, filename, upload);
+        Prepared prepared = prepare(courseId, filename, sha256(upload), () -> LectureFile.toPdf(upload, filename));
         if (prepared.next() != Next.RUN) return prepared.material();
         return complete(prepared.material(), prepared.pdf());
     }
@@ -100,7 +103,30 @@ public class IngestService {
      */
     @Transactional
     public Material accept(Long courseId, String filename, byte[] upload) {
-        Prepared prepared = prepare(courseId, filename, upload);
+        return queue(prepare(courseId, filename, sha256(upload), () -> LectureFile.toPdf(upload, filename)));
+    }
+
+    /**
+     * Accept several photos as one lecture, one page per photo in the order sent, under the name
+     * the student gave it. The same set sent again is the same lecture; a set holding anything
+     * that is not a readable picture becomes a FAILED row naming that file. The controller has
+     * checked the name (trimmed, not blank) and that there are at least two photos.
+     *
+     * @param names each photo's filename as sent, at the same index as its bytes
+     */
+    @Transactional
+    public Material acceptPhotos(Long courseId, String name, List<byte[]> photos, List<String> names) {
+        return queue(prepare(courseId, photosFilename(name), sha256(photos),
+            () -> LectureFile.picturesPdf(photos, names)));
+    }
+
+    // a lecture made of photos is served and listed as the PDF it becomes
+    static String photosFilename(String name) {
+        String lecture = name.strip();
+        return lecture.toLowerCase(Locale.ROOT).endsWith(".pdf") ? lecture : lecture + ".pdf";
+    }
+
+    private Material queue(Prepared prepared) {
         if (prepared.next() == Next.RUN) {
             events.publishEvent(new IngestRequested(prepared.material().id, prepared.pdf()));
         }
@@ -133,16 +159,15 @@ public class IngestService {
 
     // Hash lookup, FAILED reuse, conversion to PDF. RUN means extraction still has to happen on
     // this row. The hash is of the file as uploaded, so a PDF hashes as it always did and the same
-    // deck uploaded twice is recognized before it is converted again.
-    private Prepared prepare(Long courseId, String filename, byte[] upload) {
-        String hash = sha256(upload);
+    // deck uploaded twice is recognized before it is converted again. convert runs at most once.
+    private Prepared prepare(Long courseId, String filename, String hash, Supplier<LectureFile.Conversion> convert) {
         var existing = materialRepo.findByCourseIdAndFileHash(courseId, hash);
         // INGESTED is a no-op; PENDING is already being worked, so do not start a second job
         if (existing.isPresent() && existing.get().status != MaterialStatus.FAILED) {
             Material kept = existing.get();
             // older lectures may lack stored bytes; a re-upload of the same file fills them in
             if (materialPdfRepo.findById(kept.id).isEmpty()
-                    && LectureFile.toPdf(upload, filename) instanceof LectureFile.Converted converted) {
+                    && convert.get() instanceof LectureFile.Converted converted) {
                 keepPdf(kept.id, converted.pdf());
             }
             return new Prepared(kept, Next.DONE, null);
@@ -178,7 +203,7 @@ public class IngestService {
         // and re-uploading the same bad file reuses this row instead of tripping the course's unique fileHash.
         // Slides, documents, pictures and text become a PDF here; nothing below knows the difference.
         final byte[] pdf;
-        switch (LectureFile.toPdf(upload, filename)) {
+        switch (convert.get()) {
             case LectureFile.Rejected rejected -> {
                 material.status = MaterialStatus.FAILED;
                 material.errorMessage = truncateForColumn(rejected.message());
@@ -606,8 +631,23 @@ public class IngestService {
     }
 
     private static String sha256(byte[] bytes) {
+        return HexFormat.of().formatHex(sha256Digest().digest(bytes));
+    }
+
+    // Every photo in order, each after its length: the same set sent again hashes the same, and
+    // the lengths keep two different sets with the same bytes end to end apart.
+    static String sha256(List<byte[]> files) {
+        MessageDigest digest = sha256Digest();
+        for (byte[] file : files) {
+            digest.update(ByteBuffer.allocate(Long.BYTES).putLong(file.length).array());
+            digest.update(file);
+        }
+        return HexFormat.of().formatHex(digest.digest());
+    }
+
+    private static MessageDigest sha256Digest() {
         try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+            return MessageDigest.getInstance("SHA-256");
         } catch (Exception e) {
             throw new IllegalStateException(e);
         }

@@ -90,6 +90,98 @@ class IngestControllerTest {
         verifyNoInteractions(ingestService);
     }
 
+    // --- several photos as one lecture --------------------------------------------------------
+
+    private static MockMultipartFile photo(String name, int marker) {
+        return new MockMultipartFile("files", name, "image/jpeg", new byte[] {(byte) marker});
+    }
+
+    @Test
+    void photosIntoAnotherAccountsCourseAreNotFoundAndCostNothing() throws Exception {
+        when(owned.course(SignedInMvc.ME.id(), 2L)).thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND));
+        mvc.perform(multipart("/api/courses/2/materials/combined")
+                .file(photo("a.jpg", 1)).file(photo("b.jpg", 2)).param("name", "Week 4"))
+            .andExpect(status().isNotFound());
+        verifyNoInteractions(ingestService);
+    }
+
+    // a stranger's course is not found, even when the request is also malformed
+    @Test
+    void ownershipIsCheckedBeforeTheRequestIsJudged() throws Exception {
+        when(owned.course(SignedInMvc.ME.id(), 2L)).thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND));
+        mvc.perform(multipart("/api/courses/2/materials/combined").file(photo("a.jpg", 1)))
+            .andExpect(status().isNotFound());
+        verifyNoInteractions(ingestService);
+    }
+
+    @Test
+    void photosAreHandedOnInTheOrderSentUnderTheTrimmedName() throws Exception {
+        Material m = new Material();
+        m.id = 8L;
+        m.filename = "Week 4.pdf";
+        m.status = MaterialStatus.PENDING;
+        when(ingestService.acceptPhotos(eq(1L), eq("Week 4"), any(), any())).thenReturn(m);
+        mvc.perform(multipart("/api/courses/1/materials/combined")
+                .file(photo("b.jpg", 2)).file(photo("a.jpg", 1)).file(photo("c.jpg", 3))
+                .param("name", "  Week 4  "))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.id").value(8))
+            .andExpect(jsonPath("$.filename").value("Week 4.pdf"))
+            .andExpect(jsonPath("$.status").value("PENDING"));
+        var inOrder = inOrder(owned, ingestService);
+        inOrder.verify(owned).course(SignedInMvc.ME.id(), 1L);
+        inOrder.verify(ingestService).acceptPhotos(eq(1L), eq("Week 4"),
+            argThat(photos -> photos.size() == 3 && photos.get(0)[0] == 2 && photos.get(1)[0] == 1
+                && photos.get(2)[0] == 3),
+            eq(List.of("b.jpg", "a.jpg", "c.jpg")));
+    }
+
+    @Test
+    void onePhotoIsABadRequest() throws Exception {
+        mvc.perform(multipart("/api/courses/1/materials/combined").file(photo("a.jpg", 1)).param("name", "Week 4"))
+            .andExpect(status().isBadRequest());
+        verify(owned).course(SignedInMvc.ME.id(), 1L);
+        verifyNoInteractions(ingestService);
+    }
+
+    @Test
+    void noPhotosAtAllIsABadRequest() throws Exception {
+        mvc.perform(multipart("/api/courses/1/materials/combined").param("name", "Week 4"))
+            .andExpect(status().isBadRequest());
+        verifyNoInteractions(ingestService);
+    }
+
+    @Test
+    void moreThanFiftyPhotosIsABadRequest() throws Exception {
+        var request = multipart("/api/courses/1/materials/combined");
+        for (int i = 0; i < 51; i++) request.file(photo("p" + i + ".jpg", i));
+        request.param("name", "Week 4");
+        mvc.perform(request).andExpect(status().isBadRequest());
+        verifyNoInteractions(ingestService);
+    }
+
+    @Test
+    void aMissingOrBlankNameIsABadRequest() throws Exception {
+        mvc.perform(multipart("/api/courses/1/materials/combined").file(photo("a.jpg", 1)).file(photo("b.jpg", 2)))
+            .andExpect(status().isBadRequest());
+        mvc.perform(multipart("/api/courses/1/materials/combined").file(photo("a.jpg", 1)).file(photo("b.jpg", 2))
+                .param("name", "   "))
+            .andExpect(status().isBadRequest());
+        verifyNoInteractions(ingestService);
+    }
+
+    @Test
+    void aNameLongerThan120CharactersIsABadRequest() throws Exception {
+        mvc.perform(multipart("/api/courses/1/materials/combined").file(photo("a.jpg", 1)).file(photo("b.jpg", 2))
+                .param("name", "x".repeat(121)))
+            .andExpect(status().isBadRequest());
+        verifyNoInteractions(ingestService);
+        when(ingestService.acceptPhotos(any(), any(), any(), any())).thenReturn(new Material());
+        mvc.perform(multipart("/api/courses/1/materials/combined").file(photo("a.jpg", 1)).file(photo("b.jpg", 2))
+                .param("name", "x".repeat(120)))
+            .andExpect(status().isOk());
+    }
+
     @Test
     void theCourseListIsOnlyTheSignedInAccountsCourses() throws Exception {
         Course mine = new Course();

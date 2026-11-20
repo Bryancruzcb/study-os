@@ -7,16 +7,19 @@ import com.studyos.repo.*;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api")
@@ -64,6 +67,44 @@ public class IngestController {
                            @RequestParam("file") MultipartFile file) throws IOException {
         owned.course(me.id(), courseId);
         return ingestService.accept(courseId, file.getOriginalFilename(), file.getBytes());
+    }
+
+    // a set of photos makes one lecture. The client downscales them, so even fifty fit the
+    // 33 MB request limit in application.yml
+    static final int MIN_PHOTOS = 2;
+    static final int MAX_PHOTOS = 50;
+    static final int MAX_LECTURE_NAME = 120;
+
+    /**
+     * Several photos as one lecture: parts "files" (2 to 50 pictures, in lecture order) and
+     * "name". The course is checked before anything else, so a stranger's course answers 404
+     * whatever the request holds; then a missing name or a wrong count answers 400.
+     */
+    @PostMapping("/courses/{courseId}/materials/combined")
+    public Material uploadPhotos(@AuthenticationPrincipal SignedIn me, @PathVariable Long courseId,
+                                 @RequestParam(value = "files", required = false) List<MultipartFile> files,
+                                 @RequestParam(value = "name", required = false) String name) throws IOException {
+        owned.course(me.id(), courseId);
+        String lecture = name == null ? "" : name.strip();
+        if (lecture.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Give the lecture a name.");
+        }
+        if (lecture.codePointCount(0, lecture.length()) > MAX_LECTURE_NAME) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "Keep the lecture name to " + MAX_LECTURE_NAME + " characters.");
+        }
+        int count = files == null ? 0 : files.size();
+        if (count < MIN_PHOTOS || count > MAX_PHOTOS) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "Send between " + MIN_PHOTOS + " and " + MAX_PHOTOS + " photos; one photo uploads on its own.");
+        }
+        List<byte[]> photos = new ArrayList<>(count);
+        List<String> names = new ArrayList<>(count);
+        for (MultipartFile file : files) {
+            photos.add(file.getBytes());
+            names.add(file.getOriginalFilename());
+        }
+        return ingestService.acceptPhotos(courseId, lecture, photos, names);
     }
 
     @GetMapping("/materials/{id}")

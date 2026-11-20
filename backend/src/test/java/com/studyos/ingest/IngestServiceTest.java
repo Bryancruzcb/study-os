@@ -367,6 +367,75 @@ class IngestServiceTest {
         assertEquals(0, ai.extractCalls);
     }
 
+    // --- several photos sent as one lecture ------------------------------------------------
+
+    @Test
+    void photosAreAcceptedAsOneLectureNamedAfterTheNameGiven() throws IOException {
+        when(materialRepo.save(any())).thenAnswer(inv -> {
+            Material m = inv.getArgument(0);
+            if (m.id == null) m.id = 42L;
+            return m;
+        });
+        Material accepted = service.acceptPhotos(1L, "  Week 4 whiteboard ",
+            List.of(LectureFileTest.png(400, 200), LectureFileTest.png(200, 400), LectureFileTest.png(300, 300)),
+            List.of("IMG_1.png", "IMG_2.png", "IMG_3.png"));
+        assertEquals(MaterialStatus.PENDING, accepted.status);
+        assertEquals("Week 4 whiteboard.pdf", accepted.filename);
+        assertEquals(3, accepted.pageCount);
+        assertEquals(0, ai.extractCalls);
+        ArgumentCaptor<MaterialPdf> kept = ArgumentCaptor.forClass(MaterialPdf.class);
+        verify(materialPdfRepo).save(kept.capture());
+        assertTrue(startsWithPdfMagic(kept.getValue().bytes));
+        ArgumentCaptor<IngestRequested> queued = ArgumentCaptor.forClass(IngestRequested.class);
+        verify(events).publishEvent(queued.capture());
+        assertEquals(42L, queued.getValue().materialId());
+    }
+
+    @Test
+    void aLectureNameThatAlreadyEndsInPdfIsKeptAsItIs() {
+        assertEquals("Board.PDF", IngestService.photosFilename("Board.PDF"));
+        assertEquals("Lab 2.pdf", IngestService.photosFilename(" Lab 2 "));
+    }
+
+    @Test
+    void theSameSetOfPhotosSentAgainIsRecognizedAndADifferentOrderIsNot() throws IOException {
+        byte[] first = LectureFileTest.png(40, 20);
+        byte[] second = LectureFileTest.png(20, 40);
+        String once = IngestService.sha256(List.of(first, second));
+        assertEquals(once, IngestService.sha256(List.of(first.clone(), second.clone())));
+        assertNotEquals(once, IngestService.sha256(List.of(second, first)));
+
+        // and the lookup uses that hash, so a set already ingested costs nothing the second time
+        Material existing = new Material();
+        existing.id = 7L;
+        existing.status = MaterialStatus.INGESTED;
+        when(materialRepo.findByCourseIdAndFileHash(1L, once)).thenReturn(Optional.of(existing));
+        when(materialPdfRepo.findById(7L)).thenReturn(Optional.of(new MaterialPdf()));
+        Material again = service.acceptPhotos(1L, "Board", List.of(first, second), List.of("a.png", "b.png"));
+        assertSame(existing, again);
+        verify(events, never()).publishEvent(any());
+    }
+
+    @Test
+    void theSetsHashCannotBeMatchedBySplittingTheSameBytesDifferently() {
+        byte[] ab = {1, 2};
+        assertNotEquals(IngestService.sha256(List.of(ab, new byte[] {3})),
+            IngestService.sha256(List.of(new byte[] {1}, new byte[] {2, 3})));
+    }
+
+    @Test
+    void aFileInThePhotoSetThatIsNotAPictureFailsTheLectureAndNamesTheFile() throws IOException {
+        Material m = service.acceptPhotos(1L, "Week 4", List.of(LectureFileTest.png(40, 20),
+            "Typed notes, not a photo.".getBytes(StandardCharsets.UTF_8)), List.of("IMG_1.png", "notes.txt"));
+        assertEquals(MaterialStatus.FAILED, m.status);
+        assertEquals("Week 4.pdf", m.filename);
+        assertTrue(m.errorMessage.contains("notes.txt"), m.errorMessage);
+        assertTrue(m.errorMessage.contains("send the photos again"), m.errorMessage);
+        assertEquals(0, ai.extractCalls);
+        verify(events, never()).publishEvent(any());
+        verify(materialPdfRepo, never()).save(any());
+    }
+
     // --- new concepts are spread over the calendar instead of all landing today ---------
 
     @Test

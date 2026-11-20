@@ -18,6 +18,7 @@ import java.nio.charset.Charset;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -40,8 +41,12 @@ import org.apache.pdfbox.pdmodel.font.PDType0Font;
 import org.apache.pdfbox.pdmodel.graphics.image.JPEGFactory;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.apache.poi.sl.draw.Drawable;
+import org.apache.poi.sl.usermodel.Placeholder;
 import org.apache.poi.xslf.usermodel.XMLSlideShow;
+import org.apache.poi.xslf.usermodel.XSLFNotes;
+import org.apache.poi.xslf.usermodel.XSLFShape;
 import org.apache.poi.xslf.usermodel.XSLFSlide;
+import org.apache.poi.xslf.usermodel.XSLFTextShape;
 import org.apache.poi.xwpf.extractor.XWPFWordExtractor;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.jsoup.Jsoup;
@@ -59,7 +64,8 @@ import org.jsoup.select.NodeTraversor;
  * text becomes one here, at the edge, and nothing after it has to know what it was.
  *
  * <p>One PDF page is one slide, one picture, or one printed page of text, so "slide N" in a
- * citation still points at something the student can find.
+ * citation still points at something the student can find. A slide's speaker notes sit under it
+ * on that same page, and a set of photos sent as one lecture is one page per photo.
  *
  * <p>The bytes decide the kind and the extension only breaks a tie: a .pptx renamed to .pdf is
  * still read as slides. Anything it cannot read comes back as a {@link Rejected} with a
@@ -291,21 +297,82 @@ final class LectureFile {
     // --- pictures: one page each ---------------------------------------------------------------
 
     private static byte[] picturePdf(byte[] bytes) throws IOException {
-        int turn = exifRotation(bytes);
         try (PDDocument doc = new PDDocument()) {
-            List<BufferedImage> pictures;
-            try {
-                pictures = readPictures(bytes);
-            } catch (IOException unreadable) {
-                // ImageIO cannot decode a CMYK JPEG, but a PDF can carry that JPEG as it is
-                if (!startsWith(bytes, JPEG_MAGIC)) throw unreadable;
-                addPicturePage(doc, JPEGFactory.createFromByteArray(doc, bytes), turn);
-                return save(doc);
-            }
-            for (BufferedImage picture : pictures) {
-                addPicturePage(doc, JPEGFactory.createFromImage(doc, upright(picture, turn), JPEG_QUALITY), 0);
-            }
+            addPictures(doc, bytes);
             return save(doc);
+        }
+    }
+
+    /**
+     * Several photos of one lecture (a whiteboard, a handout, pages of notes) as one PDF: one
+     * upright page per picture, in the order given, so "slide N" is the Nth photo. Anything in
+     * the set that is not a readable picture refuses the whole set, naming that file, because a
+     * lecture with a page quietly missing would cite the wrong photo.
+     *
+     * @param pictures the photos' bytes, in lecture order
+     * @param names    each photo's filename as sent, at the same index; a name may be null
+     */
+    static Conversion picturesPdf(List<byte[]> pictures, List<String> names) {
+        try (PDDocument doc = new PDDocument()) {
+            for (int i = 0; i < pictures.size(); i++) {
+                byte[] bytes = pictures.get(i);
+                String photo = photoLabel(i, i < names.size() ? names.get(i) : null);
+                String refusal = notAPhoto(bytes, i < names.size() ? names.get(i) : null);
+                if (refusal != null) return new Rejected(photo + " " + refusal);
+                try {
+                    addPictures(doc, bytes);
+                } catch (IOException | RuntimeException e) {
+                    return new Rejected(photo + " could not be opened. Save it again as JPEG or PNG, or "
+                        + "take it out, and send the photos again.");
+                }
+            }
+            return new Converted(save(doc));
+        } catch (IOException e) {
+            return new Rejected("Study OS could not put these photos together. Send them again.");
+        }
+    }
+
+    // what is wrong with one file of a photo set, finishing the sentence its label starts; null
+    // when it is a picture
+    private static String notAPhoto(byte[] bytes, String name) {
+        if (bytes == null || bytes.length == 0) {
+            return "is empty. Take it out or add it again, and send the photos again.";
+        }
+        return switch (detect(bytes, name)) {
+            case PICTURE -> null;
+            case HEIC -> "is HEIC or AVIF, which Study OS cannot read. Export it as JPEG or PNG (on an "
+                + "iPhone: Settings > Camera > Formats > Most Compatible) and send the photos again.";
+            default -> "is not a picture. A lecture made from photos takes JPEG, PNG, GIF, BMP, TIFF or "
+                + "WebP. Take it out (a PDF, slides or a document can be uploaded on its own) and send "
+                + "the photos again.";
+        };
+    }
+
+    // "Photo 3 ("IMG_0042.HEIC")": the position finds it in a set of look-alike camera names
+    private static String photoLabel(int index, String name) {
+        String label = "Photo " + (index + 1);
+        if (name == null || name.isBlank()) return label;
+        String shown = name.strip();
+        if (shown.length() > 80) shown = shown.substring(0, 80) + "...";
+        return label + " (\"" + shown + "\")";
+    }
+
+    // one upright page per picture, or per page of a TIFF scan
+    private static void addPictures(PDDocument doc, byte[] bytes) throws IOException {
+        int turn = exifRotation(bytes);
+        List<BufferedImage> pictures;
+        try {
+            pictures = readPictures(bytes);
+        } catch (IOException unreadable) {
+            // ImageIO cannot decode a CMYK JPEG, but a PDF can carry that JPEG as it is
+            if (!startsWith(bytes, JPEG_MAGIC)) throw unreadable;
+            addPicturePage(doc, JPEGFactory.createFromByteArray(doc, bytes), turn);
+            return;
+        }
+        for (int i = 0; i < pictures.size(); i++) {
+            addPicturePage(doc, JPEGFactory.createFromImage(doc, upright(pictures.get(i), turn), JPEG_QUALITY), 0);
+            // the decoded picture is the big thing in memory; once it is a JPEG it can go
+            pictures.set(i, null);
         }
     }
 
@@ -436,6 +503,11 @@ final class LectureFile {
             double scale = SLIDE_WIDTH_PX / size.getWidth();
             int w = (int) Math.round(size.getWidth() * scale);
             int h = (int) Math.round(size.getHeight() * scale);
+            float slideW = (float) size.getWidth();
+            float slideH = (float) size.getHeight();
+            // loaded on the first slide with notes, so a deck without any carries no font
+            PDType0Font font = null;
+            Map<Integer, Boolean> drawable = new HashMap<>();
             // hidden slides stay in, so slide N here is slide N in PowerPoint
             for (XSLFSlide slide : show.getSlides()) {
                 BufferedImage drawn = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
@@ -455,15 +527,135 @@ final class LectureFile {
                     g.dispose();
                 }
                 PDImageXObject image = JPEGFactory.createFromImage(doc, drawn, SLIDE_JPEG_QUALITY);
-                PDPage page = new PDPage(new PDRectangle((float) size.getWidth(), (float) size.getHeight()));
+                String notes = speakerNotes(slide);
+                NotesBand band = null;
+                if (!notes.isEmpty()) {
+                    if (font == null) font = textFont(doc);
+                    band = NotesBand.of(notes, font, drawable, slideW, slideH);
+                }
+                float bandH = band == null ? 0f : band.height();
+                // the notes sit under the slide on its own page, so page N is still slide N
+                PDPage page = new PDPage(new PDRectangle(slideW, slideH + bandH));
                 doc.addPage(page);
                 try (PDPageContentStream content = new PDPageContentStream(doc, page)) {
-                    content.drawImage(image, 0, 0, page.getMediaBox().getWidth(), page.getMediaBox().getHeight());
+                    content.drawImage(image, 0, bandH, slideW, slideH);
+                    if (band != null) band.draw(content, font, slideW);
                 }
             }
             return new Converted(save(doc));
         }
     }
+
+    // the notes page's own furniture: none of it is what the lecturer wrote
+    private static final Set<Placeholder> NOTES_FURNITURE = EnumSet.of(
+        Placeholder.SLIDE_IMAGE, Placeholder.SLIDE_NUMBER, Placeholder.DATETIME, Placeholder.FOOTER,
+        Placeholder.HEADER);
+
+    /** What the lecturer typed under a slide, one paragraph per line; empty when nothing. */
+    static String speakerNotes(XSLFSlide slide) {
+        XSLFNotes notes = slide.getNotes();
+        if (notes == null) return "";
+        StringBuilder out = new StringBuilder();
+        for (XSLFShape shape : notes.getShapes()) {
+            if (!(shape instanceof XSLFTextShape box)) continue;
+            Placeholder role = box.getPlaceholder();
+            if (role != null && NOTES_FURNITURE.contains(role)) continue;
+            String text = box.getText();
+            if (text != null && !text.isBlank()) out.append(text).append("\n\n");
+        }
+        return tidy(out.toString());
+    }
+
+    // notes are set in this size, smaller only when they would not fit, and never under the floor
+    private static final float NOTES_SIZE = 14f;
+    private static final float NOTES_MIN_SIZE = 9f;
+    private static final float NOTES_LABEL_SIZE = 10f;
+    private static final float NOTES_PAD = 24f;
+    private static final float NOTES_LABEL_GAP = 8f;
+    private static final String NOTES_LABEL = "Speaker notes";
+    private static final String NOTES_GO_ON = "[The speaker notes continue in the PowerPoint file.]";
+
+    /**
+     * The light band of speaker notes under a slide: its text size, its lines, and how tall it
+     * is. It is at most as tall as the slide, so a page is never more than twice the slide; notes
+     * that do not fit even at the smallest size are cut with a line saying they continue.
+     */
+    private record NotesBand(float size, List<String> lines, float height) {
+
+        static NotesBand of(String notes, PDType0Font font, Map<Integer, Boolean> drawable, float slideW,
+                            float slideH) throws IOException {
+            float textW = slideW - 2 * NOTES_PAD;
+            float room = slideH - 2 * NOTES_PAD - NOTES_LABEL_SIZE - NOTES_LABEL_GAP;
+            List<String> lines = List.of();
+            for (float size = NOTES_SIZE; size >= NOTES_MIN_SIZE; size--) {
+                lines = notesLines(notes, font, drawable, size, textW);
+                if (lines.size() * leading(size) <= room) return sized(size, lines);
+            }
+            // still too long at the floor: keep what fits and say there is more
+            int fit = Math.max(1, (int) (room / leading(NOTES_MIN_SIZE)));
+            List<String> kept = new ArrayList<>(lines.subList(0, Math.min(lines.size(), fit - 1)));
+            while (!kept.isEmpty() && kept.get(kept.size() - 1).isEmpty()) kept.remove(kept.size() - 1);
+            kept.add(NOTES_GO_ON);
+            return sized(NOTES_MIN_SIZE, kept);
+        }
+
+        private static NotesBand sized(float size, List<String> lines) {
+            float height = 2 * NOTES_PAD + NOTES_LABEL_SIZE + NOTES_LABEL_GAP + lines.size() * leading(size);
+            return new NotesBand(size, List.copyOf(lines), height);
+        }
+
+        private static float leading(float size) {
+            return size * 1.35f;
+        }
+
+        // one blank line between paragraphs, each paragraph wrapped to the band
+        private static List<String> notesLines(String notes, PDType0Font font, Map<Integer, Boolean> drawable,
+                                               float size, float textW) throws IOException {
+            List<String> lines = new ArrayList<>();
+            for (String paragraph : notes.split("\n", -1)) {
+                List<String> wrapped = wrap(printable(paragraph, font, drawable), font, size, textW);
+                if (wrapped.isEmpty()) lines.add("");
+                lines.addAll(wrapped);
+            }
+            return lines;
+        }
+
+        void draw(PDPageContentStream content, PDType0Font font, float slideW) throws IOException {
+            content.setNonStrokingColor(NOTES_GROUND);
+            content.addRect(0, 0, slideW, height);
+            content.fill();
+            // a hairline where the slide ends, so a white slide does not run into the band
+            content.setStrokingColor(NOTES_RULE);
+            content.setLineWidth(1f);
+            content.moveTo(0, height);
+            content.lineTo(slideW, height);
+            content.stroke();
+            float y = height - NOTES_PAD - NOTES_LABEL_SIZE;
+            content.setNonStrokingColor(NOTES_LABEL_INK);
+            line(content, font, NOTES_LABEL_SIZE, y, NOTES_LABEL);
+            y -= NOTES_LABEL_GAP + size;
+            content.setNonStrokingColor(NOTES_INK);
+            for (String text : lines) {
+                if (!text.isEmpty()) line(content, font, size, y, text);
+                y -= leading(size);
+            }
+        }
+
+        private static void line(PDPageContentStream content, PDType0Font font, float size, float y, String text)
+                throws IOException {
+            content.beginText();
+            content.setFont(font, size);
+            content.newLineAtOffset(NOTES_PAD, y);
+            content.showText(text);
+            content.endText();
+        }
+    }
+
+    // PDF colours of the notes band, not the app's theme: the page prints the same in any theme
+    private static final Color NOTES_GROUND = new Color(244, 242, 236);
+    private static final Color NOTES_RULE = new Color(210, 205, 194);
+    private static final Color NOTES_LABEL_INK = new Color(91, 87, 77);
+    private static final Color NOTES_INK = new Color(28, 27, 24);
 
     /**
      * Office fonts that are not installed, mapped to the open fonts drawn to the same metrics,
@@ -557,20 +749,24 @@ final class LectureFile {
                 + "or a picture, upload it as an image or a PDF instead.");
         }
         try (PDDocument doc = new PDDocument()) {
-            PDType0Font font;
-            try (InputStream in = PDDocument.class.getResourceAsStream(TEXT_FONT)) {
-                if (in == null) throw new IOException("PDFBox no longer ships " + TEXT_FONT);
-                font = PDType0Font.load(doc, in);
-            }
+            PDType0Font font = textFont(doc);
             Map<Integer, Boolean> drawable = new HashMap<>();
             try (TextPages pages = new TextPages(doc, font)) {
                 for (String paragraph : text.split("\n", -1)) {
-                    List<String> lines = wrap(printable(paragraph, font, drawable), font);
+                    List<String> lines = wrap(printable(paragraph, font, drawable), font, FONT_SIZE, TEXT_WIDTH);
                     if (lines.isEmpty()) pages.skipLine();
                     for (String line : lines) pages.write(line);
                 }
             }
             return new Converted(save(doc));
+        }
+    }
+
+    // Liberation Sans, embedded as only the characters the document uses
+    private static PDType0Font textFont(PDDocument doc) throws IOException {
+        try (InputStream in = PDDocument.class.getResourceAsStream(TEXT_FONT)) {
+            if (in == null) throw new IOException("PDFBox no longer ships " + TEXT_FONT);
+            return PDType0Font.load(doc, in);
         }
     }
 
@@ -595,8 +791,10 @@ final class LectureFile {
         }
     }
 
-    // greedy word wrap inside the margins; a word longer than a line (a URL) is cut at the edge
-    private static List<String> wrap(String paragraph, PDType0Font font) throws IOException {
+    // greedy word wrap at this size into this width; a word longer than a line (a URL) is cut at
+    // the edge
+    private static List<String> wrap(String paragraph, PDType0Font font, float size, float maxWidth)
+            throws IOException {
         List<String> lines = new ArrayList<>();
         String body = paragraph.stripLeading();
         String indent = paragraph.substring(0, paragraph.length() - body.length());
@@ -605,7 +803,7 @@ final class LectureFile {
         for (String word : body.split(" +")) {
             if (word.isEmpty()) continue;
             String candidate = empty ? line + word : line + " " + word;
-            if (width(candidate, font) <= TEXT_WIDTH) {
+            if (width(candidate, font, size) <= maxWidth) {
                 line.setLength(0);
                 line.append(candidate);
                 empty = false;
@@ -614,8 +812,8 @@ final class LectureFile {
             if (!empty) lines.add(line.toString());
             line.setLength(0);
             String rest = word;
-            while (width(rest, font) > TEXT_WIDTH) {
-                int cut = fitting(rest, font);
+            while (width(rest, font, size) > maxWidth) {
+                int cut = fitting(rest, font, size, maxWidth);
                 lines.add(rest.substring(0, cut));
                 rest = rest.substring(cut);
             }
@@ -627,18 +825,18 @@ final class LectureFile {
     }
 
     // how many chars of the word fit on one line, at least one code point
-    private static int fitting(String word, PDType0Font font) throws IOException {
+    private static int fitting(String word, PDType0Font font, float size, float maxWidth) throws IOException {
         int end = word.offsetByCodePoints(0, 1);
         while (end < word.length()) {
             int next = word.offsetByCodePoints(end, 1);
-            if (width(word.substring(0, next), font) > TEXT_WIDTH) break;
+            if (width(word.substring(0, next), font, size) > maxWidth) break;
             end = next;
         }
         return end;
     }
 
-    private static float width(String text, PDType0Font font) throws IOException {
-        return font.getStringWidth(text) / 1000f * FONT_SIZE;
+    private static float width(String text, PDType0Font font, float size) throws IOException {
+        return font.getStringWidth(text) / 1000f * size;
     }
 
     /** Lines of text poured onto Letter pages, a new page when one fills. */
