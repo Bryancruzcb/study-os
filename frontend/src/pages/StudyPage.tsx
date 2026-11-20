@@ -1,19 +1,20 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type Ref } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useOutletContext } from 'react-router-dom'
-import { api, type AnsweredAttempt, type Attempt, type StudyQuestion } from '../api'
+import { api, type AnsweredAttempt, type Attempt, type QuestionReview, type StudyQuestion } from '../api'
+import Icon from '../icons'
+import { letter } from '../letter'
 import type { CourseContext } from '../shell/CourseLayout'
+import { McReview, Verdict, Why } from './AnswerReview'
 import QuestionHead from './QuestionHead'
-
-const LETTERS = 'ABCDEFGHIJ'
-const letter = (i: number) => LETTERS[i] ?? String(i + 1)
 
 /* a question as this visit met it: what was asked and, once answered, how it went */
 interface Card {
   question: StudyQuestion
   attempt: Attempt | null
+  // the key the answer came back with, which stands in when the review fails to load
   answerKey: string | null
-  // the option clicked, for the verdict's "You picked"
+  // the option clicked, marked "Your answer" among the options
   picked: number | null
   // the short answer as it was sent
   submitted: string
@@ -58,14 +59,17 @@ export default function StudyPage() {
   const [text, setText] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // why each answered question's answer is what it is, by question id: fetched once, on the
+  // answer, and kept for a look back
+  const [reviews, setReviews] = useState<Readonly<Record<number, QuestionReview>>>({})
   // a ref, not the state: two clicks in one tick both read the pre-render value of `submitting`
   const inFlight = useRef(false)
   // what was due when the visit started, so the bar has a whole to fill against
   const [startOfVisit] = useState(course.dueToday)
-  // grading unmounts the control the caret sat on; the band takes it, so the next Tab
-  // reaches its buttons rather than starting over from the top of the page
+  // grading unmounts the control the caret sat on; the verdict line takes it, so the next Tab
+  // goes on down through the answer to its buttons rather than starting over from the top
   const band = useRef<HTMLDivElement>(null)
-  // a one-shot command, set by every saved verdict, to put the caret on the band once it
+  // a one-shot command, set by every saved verdict, to put the caret on the verdict once it
   // renders: on the question on the table, or on a card looked back on. A step through the
   // visit changes which attempt is on screen too, and must not take the caret with it
   const wantBand = useRef(false)
@@ -162,19 +166,35 @@ export default function StudyPage() {
     })
   }
 
-  function submitAnswer(call: () => Promise<AnsweredAttempt>) {
+  // the review is fetched before the verdict shows, so the answer arrives whole rather than
+  // growing its options and its explanation a moment later under the caret
+  function submitAnswer(questionId: number, call: () => Promise<AnsweredAttempt>) {
     return saveAttempt(async () => {
       const result = await call()
       updateLive({ answerKey: result.answerKey })
+      await loadReview(questionId)
       return result
     })
+  }
+
+  // The review is extra: when it fails the attempt is still saved, the verdict and the key the
+  // answer came back with still show, and the alert says what went wrong. Runs inside run(),
+  // after it has cleared the last error, so the alert stays up
+  async function loadReview(id: number) {
+    if (reviews[id]) return
+    try {
+      const review = await api.review(id)
+      setReviews(r => ({ ...r, [id]: review }))
+    } catch (e) {
+      setError(String(e))
+    }
   }
 
   function answerMc(index: number) {
     if (!live) return
     const question = live.question
     updateLive({ picked: index })
-    submitAnswer(() => api.answer({ questionId: question.id, answerIndex: index }))
+    submitAnswer(question.id, () => api.answer({ questionId: question.id, answerIndex: index }))
   }
 
   function answerShort() {
@@ -183,7 +203,7 @@ export default function StudyPage() {
     // trimmed on the way out for the same reason Submit is gated on the trim: the
     // padding is not part of the answer and it is billed and stored either way
     const answer = text.trim()
-    submitAnswer(async () => {
+    submitAnswer(question.id, async () => {
       const a = await api.answer({ questionId: question.id, answerText: answer })
       updateLive({ submitted: answer })
       setText('')
@@ -230,12 +250,12 @@ export default function StudyPage() {
         <article className="qcard-big" key={past.index}>
           <QuestionHead question={past.card.question} landing={takeLanding} />
           {stillOpen(visit, past.index) ? (
-            <Outcome card={past.card} band={band} actions={
+            <Outcome card={past.card} review={reviews[past.card.question.id]} band={band} actions={
               <Changes attempt={past.card.attempt} submitting={submitting}
                 save={call => saveAttempt(call, past.index)} />
             } />
           ) : (
-            <Outcome card={past.card} band={band} final actions={
+            <Outcome card={past.card} review={reviews[past.card.question.id]} band={band} final actions={
               <p className="verdict-note">You answered this concept again later in the visit, so this verdict is final.</p>
             } />
           )}
@@ -268,7 +288,7 @@ export default function StudyPage() {
             </div>
           )}
           {attempt && (
-            <Outcome card={{ ...live, attempt }} band={band} actions={
+            <Outcome card={{ ...live, attempt }} review={reviews[live.question.id]} band={band} actions={
               <Changes attempt={attempt} submitting={submitting} save={call => saveAttempt(call)}>
                 <button className="btn" disabled={submitting} onClick={next}>Next question</button>
               </Changes>
@@ -280,53 +300,52 @@ export default function StudyPage() {
   )
 }
 
-/* How an answered question went: the answer as sent, the verdict and the key, with the
-   controls that can still change it. A final verdict, whose concept was answered again
-   later in the visit, carries a note where the controls would be */
-function Outcome({ card, band, actions, final = false }: {
+/* How an answered question went, the way the quiz shows one. A pick: the verdict first, where
+   the caret lands, then every option marked with why, then why from the slides. A written
+   answer: the answer as sent, the verdict, the grader's word, the model answer and what a right
+   answer needs, then why. Without the review, which failed to load, the key the answer came
+   back with stands in for the marks. The controls that can still change the verdict come last;
+   a final verdict, whose concept was answered again later in the visit, carries a note there. */
+function Outcome({ card, review, band, actions, final = false }: {
   card: AnsweredCard
+  review: QuestionReview | undefined
   band: Ref<HTMLDivElement>
   actions: ReactNode
   final?: boolean
 }) {
   const { question, attempt, answerKey, picked, submitted } = card
-  const review = (summary: string, open?: boolean) => answerKey && (
-    <details className="answer-review" open={open}>
-      <summary>{summary}</summary>
-      <p className="answer-key"><span>Answer key</span>{answerKey}</p>
-    </details>
-  )
-
+  const mc = question.type === 'MC'
+  if (mc && review && attempt.verdict !== 'PENDING') {
+    return (
+      <>
+        <McReview question={question} picked={picked} correct={attempt.verdict === 'CORRECT'} review={review} band={band} />
+        {actions}
+      </>
+    )
+  }
+  const key = mc ? answerKey : review?.modelAnswer ?? answerKey
   return (
     <>
       {submitted && <p className="your-answer">{submitted}</p>}
       {attempt.verdict === 'PENDING' ? (
-        <>
-          {review(final ? 'Check the answer' : 'Check the answer before self-grading')}
-          <div ref={band} tabIndex={-1} className="verdict verdict--pending">
-            <p className="verdict-line">
-              <span className="bracket" aria-hidden="true" />
-              {final ? 'Grader unavailable, and never self-graded.' : 'Grader unavailable. Self-grade this one:'}
-            </p>
-            {actions}
-          </div>
-        </>
+        <div ref={band} tabIndex={-1} className="quiz-verdict is-pending">
+          <Icon name="circle-dashed" size={20} />
+          {final ? 'Grader unavailable, and never self-graded' : 'Grader unavailable. Grade this one yourself'}
+        </div>
       ) : (
-        <div ref={band} tabIndex={-1}
-          className={`verdict ${attempt.verdict === 'CORRECT' ? 'verdict--ok' : 'verdict--bad'}`}>
-          <p className="verdict-line">
-            <span className="bracket" aria-hidden="true" />
-            {attempt.verdict === 'CORRECT' ? 'Correct' : 'Incorrect'}
-            {attempt.score != null && <span className="score">{attempt.score}</span>}
-          </p>
-          {picked != null && question.type === 'MC' && (
-            <p className="verdict-note">You picked {letter(picked)}: {question.options[picked]}</p>
-          )}
-          {attempt.feedback && <p className="verdict-note">Grader: {attempt.feedback}</p>}
-          {review('Check the answer', attempt.verdict === 'INCORRECT')}
-          {actions}
+        <Verdict correct={attempt.verdict === 'CORRECT'} band={band} />
+      )}
+      {mc && picked != null && <p className="verdict-note">You picked {letter(picked)}: {question.options[picked]}</p>}
+      {attempt.feedback && <p className="verdict-note">Grader: {attempt.feedback}</p>}
+      {key && <p className="answer-key"><span>{mc ? 'Right answer' : 'Model answer'}</span>{key}</p>}
+      {review?.rubric && (
+        <div className="answer-key">
+          <span>What a right answer needs</span>
+          <p className="quiz-rubric">{review.rubric}</p>
         </div>
       )}
+      {review && <Why question={question} review={review} />}
+      {actions}
     </>
   )
 }

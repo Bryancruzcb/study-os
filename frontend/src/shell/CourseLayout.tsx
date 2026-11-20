@@ -4,7 +4,7 @@ import { api, type CourseOverview } from '../api'
 import Icon from '../icons'
 import { plural } from '../plural'
 import { ingestStatus, LECTURE_KINDS, uploadProblem, type IngestPhase } from '../uploads'
-import CourseActions from './CourseActions'
+import { CourseMenu } from './CourseActions'
 import { useCourses } from './courses'
 import { useFileDrop } from './fileDrop'
 
@@ -208,7 +208,15 @@ export default function CourseLayout() {
       <header className="course-head">
         <div className="course-id">
           <Link className="course-back" to="/"><Icon name="chevron-left" size={16} />All courses</Link>
-          <h1>{course.name}</h1>
+          {/* the course's own actions sit folded beside its name, so they never take a row of
+              the head; archiving sends you home, where the course now sits under Archived,
+              and restoring keeps you here */}
+          <div className="course-title">
+            <h1>{course.name}</h1>
+            <CourseMenu course={course}
+              onArchived={archived => (archived ? navigate('/') : refresh())}
+              onDeleted={() => navigate('/')} />
+          </div>
           <p className="course-meta">{course.archived && 'Archived · '}{course.term} · {plural(course.concepts, 'concept')} · {plural(course.questions, 'question')}</p>
         </div>
         <nav className="tabs" aria-label="Course">
@@ -219,10 +227,6 @@ export default function CourseLayout() {
           <NavLink to="bank" replace={pathname.startsWith(`/courses/${course.id}/bank`)} className={tab}>Bank</NavLink>
           <NavLink to="dashboard" className={tab}>Dashboard</NavLink>
         </nav>
-        {/* archiving sends you home, where the course now sits under Archived; restoring keeps you here */}
-        <CourseActions course={course}
-          onArchived={archived => (archived ? navigate('/') : refresh())}
-          onDeleted={() => navigate('/')} />
         <div className="course-head-slot" ref={setSlot} />
       </header>
       {/* a file dropped on the study page or the dashboard uploads where it fell, and these say

@@ -38,7 +38,8 @@ export interface Material {
   status: 'PENDING' | 'INGESTED' | 'FAILED'
   errorMessage: string | null
 }
-export interface StudyQuestion { id: number; conceptId: number; topic: string | null; lecture: string | null; type: 'MC' | 'SHORT_ANSWER'; prompt: string; options: string[]; sourcePages: string | null }
+/* the lecture id is null only for a question whose concept lost its lecture; it opens the cited slide */
+export interface StudyQuestion { id: number; conceptId: number; topic: string | null; lecture: string | null; lectureId: number | null; type: 'MC' | 'SHORT_ANSWER'; prompt: string; options: string[]; sourcePages: string | null }
 /* a question in the quiz, with the id of the lecture it came from, which the quiz narrows by */
 export interface QuizQuestion extends StudyQuestion { lectureId: number }
 export interface QuizAnswer {

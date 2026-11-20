@@ -1,7 +1,7 @@
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, vi } from 'vitest'
-import { api, type AnsweredAttempt, type Attempt, type StudyQuestion } from '../api'
+import { api, type AnsweredAttempt, type Attempt, type QuestionReview, type StudyQuestion } from '../api'
 import { renderInCourse } from '../test/render'
 import StudyPage from './StudyPage'
 
@@ -14,20 +14,35 @@ vi.mock('../api', () => ({
     answer: vi.fn(),
     override: vi.fn(),
     selfGrade: vi.fn(),
+    review: vi.fn(),
   },
 }))
+
+const reviews: Record<number, QuestionReview> = {
+  9: {
+    id: 9, correctIndex: 2, modelAnswer: null, rubric: null, explanation: 'Slide 3 shows SYN, SYN-ACK and ACK.',
+    optionExplanations: ['Only the SYN.', 'Stops before the ACK.', 'All three on slide 3.', 'Slide 3 never shows a fourth.'],
+    diagram: null,
+  },
+  10: {
+    id: 10, correctIndex: null, modelAnswer: 'SYN, then SYN-ACK, then ACK.', rubric: '- names all three segments\n- in order',
+    explanation: 'Slides 3 and 4 name the three segments in order.', optionExplanations: [], diagram: null,
+  },
+  12: { id: 12, correctIndex: 3, modelAnswer: null, rubric: null, explanation: null, optionExplanations: [], diagram: null },
+}
 
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(api.overview).mockResolvedValue([course])
   vi.mocked(api.next).mockResolvedValue({
-    id: 9, conceptId: 1, topic: 'TCP handshake', lecture: 'Lecture 3.pdf', type: 'MC', prompt: 'Steps in the TCP handshake?', options: ['1', '2', '3', '4'], sourcePages: '3',
+    id: 9, conceptId: 1, topic: 'TCP handshake', lecture: 'Lecture 3.pdf', lectureId: 4, type: 'MC', prompt: 'Steps in the TCP handshake?', options: ['1', '2', '3', '4'], sourcePages: '3',
   })
   vi.mocked(api.answer).mockResolvedValue({ id: 1, verdict: 'CORRECT', score: 1, feedback: null, answerKey: '3' })
+  vi.mocked(api.review).mockImplementation(async id => reviews[id])
 })
 
 const shortAnswer: StudyQuestion = {
-  id: 10, conceptId: 2, topic: 'Connection setup', lecture: 'Lecture 3.pdf', type: 'SHORT_ANSWER', prompt: 'Describe the handshake.', options: [], sourcePages: '3,4',
+  id: 10, conceptId: 2, topic: 'Connection setup', lecture: 'Lecture 3.pdf', lectureId: 4, type: 'SHORT_ANSWER', prompt: 'Describe the handshake.', options: [], sourcePages: '3,4',
 }
 
 async function renderWithQuestion() {
@@ -44,34 +59,94 @@ async function renderShortAnswer(attempt: Attempt) {
   await userEvent.click(screen.getByRole('button', { name: /submit/i }))
 }
 
-test('shows the question with its type, concept, lecture and slide, submits an MC answer, shows the verdict', async () => {
+const meta = () => document.querySelector<HTMLElement>('.quiz-meta')!
+const marked = () => screen.getByRole('list', { name: 'Why each option is right or wrong' })
+const option = (text: string) => within(marked()).getByText(text).closest('li')!
+
+test('shows the question under one meta line with its concept, lecture and slide, and type', async () => {
   await renderWithQuestion()
-  expect(screen.getByText('Multiple choice')).toBeInTheDocument()
-  expect(screen.getByText('TCP handshake')).toBeInTheDocument()
-  expect(screen.getByText('Lecture 3.pdf · slide 3')).toBeInTheDocument()
+  expect(meta()).toHaveTextContent('TCP handshake')
+  expect(meta()).toHaveTextContent('Multiple choice')
+  expect(within(meta()).getByText('Lecture 3.pdf · slide 3')).toBeInTheDocument()
+  // the meta line comes before the prompt it describes
+  expect(meta().compareDocumentPosition(screen.getByText('Steps in the TCP handshake?')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(document.querySelector('.chip')).toBeNull()
+})
+
+test('a right pick leads with the verdict and keeps every option on screen, marked, with why', async () => {
+  await renderWithQuestion()
   await userEvent.click(screen.getByRole('button', { name: '3' }))
-  await waitFor(() => expect(screen.getByText(/Correct/)).toBeInTheDocument())
-  expect(screen.getByText('You picked C: 3')).toBeInTheDocument()
+  const verdict = await screen.findByText('Correct')
   expect(api.answer).toHaveBeenCalledWith({ questionId: 9, answerIndex: 2 })
+  expect(api.review).toHaveBeenCalledWith(9)
+  expect(verdict.compareDocumentPosition(marked()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(within(marked()).getAllByRole('listitem')).toHaveLength(4)
+  expect(option('3')).toHaveTextContent('Your answer, right')
+  expect(option('3')).toHaveTextContent('All three on slide 3.')
+  expect(option('1')).toHaveTextContent('Only the SYN.')
+  // the marks say which was picked, and a raw score never sits beside the verdict
+  expect(screen.queryByText(/You picked/)).not.toBeInTheDocument()
+  expect(verdict).toHaveTextContent(/^Correct$/)
+  // nothing to click: an answered question is not answered again
+  expect(screen.queryByRole('button', { name: '1' })).not.toBeInTheDocument()
 })
 
-test('offers the answer key after an answer is submitted', async () => {
+test('a wrong pick marks Your answer and Right answer, then the explanation from the slide with Open slide', async () => {
+  vi.mocked(api.answer).mockResolvedValueOnce({ id: 1, verdict: 'INCORRECT', score: 0, feedback: null, answerKey: '3' })
   await renderWithQuestion()
-  await userEvent.click(screen.getByRole('button', { name: '3' }))
-  const review = (await screen.findByText('Check the answer')).closest('details')!
-  expect(review).toHaveTextContent('Answer key3')
-  expect(review).not.toHaveAttribute('open')
+  await userEvent.click(screen.getByRole('button', { name: '1' }))
+  expect(await screen.findByText('Incorrect')).toBeInTheDocument()
+  expect(option('1')).toHaveTextContent('Your answer')
+  expect(option('1')).toHaveClass('is-miss')
+  expect(option('3')).toHaveTextContent('Right answer')
+  expect(option('3')).toHaveClass('is-key')
+  expect(option('2')).not.toHaveTextContent(/answer/)
+  const why = screen.getByRole('region', { name: 'Why, from the slides' })
+  expect(within(why).getByText('From slide 3')).toBeInTheDocument()
+  expect(why).toHaveTextContent('Slide 3 shows SYN, SYN-ACK and ACK.')
+  expect(within(why).getByRole('link', { name: 'Open slide 3' })).toHaveAttribute('href', '/api/materials/4/pdf#page=3')
+  // no disclosure to open and no box holding the answer
+  expect(document.querySelector('details')).toBeNull()
 })
 
-test('opens the answer key automatically after an incorrect answer', async () => {
-  vi.mocked(api.answer).mockResolvedValueOnce({
-    id: 1, verdict: 'INCORRECT', score: 0, feedback: null, answerKey: '4',
-  })
+test('when the review fails to load, the verdict and the key the answer came back with still show', async () => {
+  vi.mocked(api.review).mockRejectedValueOnce(new Error('500 /api/questions/9/review'))
   await renderWithQuestion()
   await userEvent.click(screen.getByRole('button', { name: '3' }))
-  const review = (await screen.findByText('Check the answer')).closest('details')!
-  expect(review).toHaveAttribute('open')
-  expect(review).toHaveTextContent('Answer key4')
+  expect(await screen.findByText('Correct')).toBeInTheDocument()
+  expect(screen.getByRole('alert')).toHaveTextContent('500 /api/questions/9/review')
+  expect(screen.getByText('You picked C: 3')).toBeInTheDocument()
+  expect(screen.getByText('Right answer').closest('.answer-key')).toHaveTextContent('Right answer3')
+  // the attempt was saved all the same, and the visit goes on
+  expect(api.answer).toHaveBeenCalledTimes(1)
+  expect(screen.getByRole('button', { name: 'Next question' })).toBeEnabled()
+})
+
+test('a question met again in the visit uses the review it already has', async () => {
+  await renderWithQuestion()
+  await userEvent.click(screen.getByRole('button', { name: '3' }))
+  await userEvent.click(await screen.findByRole('button', { name: 'Next question' }))
+  await screen.findByRole('button', { name: '3' })
+  await userEvent.click(screen.getByRole('button', { name: '3' }))
+  expect(await screen.findByText('Correct')).toBeInTheDocument()
+  expect(api.answer).toHaveBeenCalledTimes(2)
+  expect(api.review).toHaveBeenCalledTimes(1)
+})
+
+test('I was actually right reverses a wrong pick, refetches the head figure, and keeps the marks', async () => {
+  vi.mocked(api.answer).mockResolvedValueOnce({ id: 1, verdict: 'INCORRECT', score: 0, feedback: null, answerKey: '3' })
+  vi.mocked(api.override).mockResolvedValueOnce({ id: 1, verdict: 'CORRECT', score: 1, feedback: null })
+  await renderWithQuestion()
+  await userEvent.click(screen.getByRole('button', { name: '1' }))
+  await userEvent.click(await screen.findByRole('button', { name: 'I was actually right' }))
+  expect(await screen.findByText('Correct')).toBeInTheDocument()
+  expect(api.override).toHaveBeenCalledWith(1)
+  // the override is a verdict like any other: it moves the schedule and the evaluation counts it
+  await waitFor(() => expect(api.overview).toHaveBeenCalledTimes(3))
+  expect(screen.getByRole('button', { name: 'I was actually wrong' })).toBeInTheDocument()
+  expect(option('1')).toHaveTextContent('Your answer')
+  expect(option('3')).toHaveTextContent('Right answer')
+  expect(api.review).toHaveBeenCalledTimes(1)
 })
 
 test('the head figure shows what is left and the overview is refetched after an answer', async () => {
@@ -146,20 +221,46 @@ test('keeps the graded question locked when loading the next one fails', async (
   expect(api.answer).toHaveBeenCalledTimes(1)
 })
 
-test('short answer flow shows the submitted text, the verdict, the feedback and the override', async () => {
+test('a short answer shows the answer as sent, the verdict, the grader, the model answer and rubric, then why', async () => {
   await renderShortAnswer({ id: 2, verdict: 'INCORRECT', score: 0.4, feedback: 'Missed ACK.' })
-  await waitFor(() => expect(screen.getByText(/Incorrect/)).toBeInTheDocument())
-  expect(screen.getByText('SYN then SYN-ACK')).toBeInTheDocument()
-  expect(screen.getByText('Grader: Missed ACK.')).toBeInTheDocument()
-  expect(screen.getByRole('button', { name: /I was actually right/i })).toBeInTheDocument()
+  const verdict = await screen.findByText('Incorrect')
   expect(api.answer).toHaveBeenCalledWith({ questionId: 10, answerText: 'SYN then SYN-ACK' })
+  expect(api.review).toHaveBeenCalledWith(10)
+  const sent = screen.getByText('SYN then SYN-ACK')
+  const grader = screen.getByText('Grader: Missed ACK.')
+  // the model answer is the review's, and the rubric under it says what a right answer needs
+  const model = screen.getByText('Model answer').closest('.answer-key')!
+  expect(model).toHaveTextContent('SYN, then SYN-ACK, then ACK.')
+  expect(screen.getByText('What a right answer needs').closest('.answer-key')).toHaveTextContent('names all three segments')
+  const why = screen.getByRole('region', { name: 'Why, from the slides' })
+  expect(within(why).getByText('From slides 3, 4')).toBeInTheDocument()
+  expect(within(why).getByRole('link', { name: 'Open slide 3' })).toBeInTheDocument()
+  const inOrder = [sent, verdict, grader, model, why, screen.getByRole('button', { name: 'I was actually right' })]
+  for (let i = 1; i < inOrder.length; i++) {
+    expect(inOrder[i - 1].compareDocumentPosition(inOrder[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  }
+  // the grader's score stays off the screen: the verdict says it
+  expect(screen.queryByText('0.4')).not.toBeInTheDocument()
 })
 
-test('pending verdict offers self-grade', async () => {
+test('a pending verdict shows the model answer, then offers self-grade', async () => {
   await renderShortAnswer({ id: 2, verdict: 'PENDING', score: null, feedback: null })
-  await waitFor(() => expect(screen.getByText(/grader unavailable/i)).toBeInTheDocument())
-  expect(screen.getByRole('button', { name: /I got it right/i })).toBeInTheDocument()
+  expect(await screen.findByText('Grader unavailable. Grade this one yourself')).toBeInTheDocument()
+  const model = screen.getByText('Model answer').closest('.answer-key')!
+  expect(model).toHaveTextContent('SYN, then SYN-ACK, then ACK.')
+  const right = screen.getByRole('button', { name: /I got it right/i })
+  expect(model.compareDocumentPosition(right) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   expect(screen.getByRole('button', { name: /I got it wrong/i })).toBeInTheDocument()
+})
+
+test('a short answer whose review fails still shows the key the answer came back with', async () => {
+  vi.mocked(api.review).mockRejectedValueOnce(new Error('500 /api/questions/10/review'))
+  await renderShortAnswer({ id: 2, verdict: 'PENDING', score: null, feedback: null })
+  await screen.findByText('Grader unavailable. Grade this one yourself')
+  expect(screen.getByRole('alert')).toHaveTextContent('500 /api/questions/10/review')
+  expect(screen.getByText('Model answer').closest('.answer-key')).toHaveTextContent('SYN, SYN-ACK, ACK')
+  expect(screen.queryByRole('region', { name: 'Why, from the slides' })).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: /I got it right/i })).toBeEnabled()
 })
 
 test('shows an alert when self-grading fails and keeps the self-grade buttons', async () => {
@@ -221,25 +322,29 @@ test('will not send a blank or whitespace-only short answer to the grader', asyn
 
 test('shows no citation for a question with no lecture and no source pages', async () => {
   vi.mocked(api.next).mockResolvedValueOnce({
-    id: 11, conceptId: 1, topic: 'TCP handshake', lecture: null, type: 'MC', prompt: 'Steps in the TCP handshake?', options: ['1', '2', '3', '4'], sourcePages: null,
+    id: 11, conceptId: 1, topic: 'TCP handshake', lecture: null, lectureId: null, type: 'MC', prompt: 'Steps in the TCP handshake?', options: ['1', '2', '3', '4'], sourcePages: null,
   })
   renderInCourse(<StudyPage />, 'study')
   await waitFor(() => expect(screen.getByText('Steps in the TCP handshake?')).toBeInTheDocument())
   expect(screen.queryByText(/slide|Lecture/)).not.toBeInTheDocument()
 })
 
-test('grading hands focus to the verdict band, so the next Tab reaches its buttons', async () => {
+test('grading hands focus to the verdict, so the next Tab goes on down through the answer', async () => {
   await renderWithQuestion()
   await userEvent.click(screen.getByRole('button', { name: '3' }))
-  const band = (await screen.findByText(/Correct/)).closest('.verdict')!
+  const band = (await screen.findByText(/Correct/)).closest('.quiz-verdict')!
   await waitFor(() => expect(band).toHaveFocus())
+  await userEvent.tab()
+  expect(screen.getByRole('link', { name: 'Open slide 3' })).toHaveFocus()
+  await userEvent.tab()
+  expect(screen.getByRole('button', { name: 'I was actually wrong' })).toHaveFocus()
 })
 
 test('a self-grade hands focus to the verdict that replaces the pending band', async () => {
   vi.mocked(api.selfGrade).mockResolvedValueOnce({ id: 2, verdict: 'CORRECT', score: 1, feedback: null })
   await renderShortAnswer({ id: 2, verdict: 'PENDING', score: null, feedback: null })
   await userEvent.click(await screen.findByRole('button', { name: /I got it right/i }))
-  const band = (await screen.findByText(/Correct/)).closest('.verdict')!
+  const band = (await screen.findByText(/Correct/)).closest('.quiz-verdict')!
   await waitFor(() => expect(band).toHaveFocus())
 })
 
@@ -292,7 +397,7 @@ test('when the queue runs out after Next question, focus lands on the empty stat
 /* ---- looking back through the visit ---------------------------------------------------- */
 
 const secondMc: StudyQuestion = {
-  id: 12, conceptId: 3, topic: 'Connection teardown', lecture: 'Lecture 4.pdf', type: 'MC', prompt: 'Which flag closes a connection?', options: ['1', '2', '3', '4'], sourcePages: '9',
+  id: 12, conceptId: 3, topic: 'Connection teardown', lecture: 'Lecture 4.pdf', lectureId: 5, type: 'MC', prompt: 'Which flag closes a connection?', options: ['1', '2', '3', '4'], sourcePages: '9',
 }
 
 /* answers the MC question on the table with option 3 and takes Next question to the given one */
@@ -320,8 +425,8 @@ test('after Next question the answered question is one step back, as it went', a
   expect(screen.getByText('1 of 2')).toBeInTheDocument()
   expect(screen.getByText('Steps in the TCP handshake?')).toBeInTheDocument()
   expect(screen.getByText('Correct')).toBeInTheDocument()
-  expect(screen.getByText('You picked C: 3')).toBeInTheDocument()
-  expect(screen.getByText('Check the answer').closest('details')).toHaveTextContent('Answer key3')
+  expect(option('3')).toHaveTextContent('Your answer, right')
+  expect(screen.getByText('From slide 3')).toBeInTheDocument()
   expect(screen.queryByText('Describe the handshake.')).not.toBeInTheDocument()
 
   await userEvent.click(screen.getByRole('button', { name: 'Next' }))
@@ -352,13 +457,14 @@ test('a question looked back on can be self-graded there, and its new band takes
   await screen.findByText('Which flag closes a connection?')
 
   await userEvent.click(screen.getByRole('button', { name: 'Previous' }))
-  expect(screen.getByText('Grader unavailable. Self-grade this one:')).toBeInTheDocument()
+  expect(screen.getByText('Grader unavailable. Grade this one yourself')).toBeInTheDocument()
+  expect(screen.getByText('Model answer').closest('.answer-key')).toHaveTextContent('SYN, then SYN-ACK, then ACK.')
   // looking back changes a verdict; it never answers again or moves the queue on
   expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Next question' })).not.toBeInTheDocument()
 
   await userEvent.click(screen.getByRole('button', { name: /I got it right/i }))
-  const band = (await screen.findByText('Correct')).closest('.verdict')!
+  const band = (await screen.findByText('Correct')).closest('.quiz-verdict')!
   await waitFor(() => expect(band).toHaveFocus())
   expect(api.selfGrade).toHaveBeenCalledWith(2, true)
   expect(screen.getByText('1 of 2')).toBeInTheDocument()
@@ -416,6 +522,8 @@ test('a later answer on the same concept makes the earlier verdict final', async
   expect(screen.getByText('Steps in the TCP handshake?')).toBeInTheDocument()
   expect(screen.getByText('You answered this concept again later in the visit, so this verdict is final.')).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: /I was actually/i })).not.toBeInTheDocument()
+  // a final verdict still shows how it went
+  expect(option('3')).toHaveTextContent('Your answer, right')
 })
 
 test('a step to either end of the visit hands the caret to the card that arrived', async () => {
@@ -460,6 +568,6 @@ test('when the queue runs out, the answered questions are still one step back', 
   await screen.findByText('Nothing due. Come back tomorrow.')
   expect(screen.getByText('2 of 2')).toBeInTheDocument()
   await userEvent.click(screen.getByRole('button', { name: 'Previous' }))
-  expect(screen.getByText('You picked C: 3')).toBeInTheDocument()
+  expect(option('3')).toHaveTextContent('Your answer, right')
   expect(screen.queryByText('Nothing due. Come back tomorrow.')).not.toBeInTheDocument()
 })

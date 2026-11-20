@@ -1,18 +1,17 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type Ref } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, useOutletContext } from 'react-router-dom'
 import { api, type Exam, type QuestionReview, type QuizQuestion } from '../api'
 import { dayLabel } from '../dates'
 import Icon from '../icons'
 import { lectureTitle } from '../lectures'
+import { letter } from '../letter'
 import { leadExam, when } from '../plan'
 import { plural } from '../plural'
 import { asked, buildQuiz, byLecture, clearLocalRun, shuffle, takeLocalRun, tally, topicRows, type QuizAnswer, type QuizRun, type TopicRow } from '../quiz'
 import type { CourseContext } from '../shell/CourseLayout'
-import { citation, firstSlide, slideHref, slides } from '../source'
-import Diagram from './Diagram'
+import { citation, slideHref, slides } from '../source'
+import { McReview, Why } from './AnswerReview'
 
-const LETTERS = 'ABCDEFGHIJ'
-const letter = (i: number) => LETTERS[i] ?? String(i + 1)
 // the shorter quizzes on offer, each shown only when the chosen lectures hold more questions than it asks
 const LENGTHS = [50, 25, 10]
 
@@ -320,7 +319,8 @@ export default function QuizPage() {
               <p className="prompt" tabIndex={-1} ref={takeLanding}>{onScreen.prompt}</p>
               {onScreen.type === 'MC' ? (
                 mcAnswered ? (
-                  <McReview question={onScreen} answer={run.answers[onScreen.id]} review={reviews[onScreen.id]} band={band} />
+                  <McReview question={onScreen} picked={run.answers[onScreen.id].picked} correct={run.answers[onScreen.id].correct}
+                    review={reviews[onScreen.id]} band={band} />
                 ) : (
                   <div className="opts">
                     {onScreen.options.map((option, i) => (
@@ -532,71 +532,6 @@ function conceptIdsFor(questions: readonly QuizQuestion[], picked: Set<number>):
     if (picked.has(q.lectureId)) ids.add(q.conceptId)
   }
   return [...ids].sort((a, b) => a - b).join(',')
-}
-
-/* An answered multiple-choice question: the verdict first, where the caret lands, then every
-   option marked, each with why the slides make it right or wrong, then the explanation. The
-   marks say which was picked, so the verdict needs no "you picked" line of its own. */
-function McReview({ question, answer, review, band }: {
-  question: QuizQuestion
-  answer: QuizAnswer
-  review: QuestionReview
-  band: Ref<HTMLDivElement>
-}) {
-  const picked = answer.picked ?? -1
-  return (
-    <>
-      <div ref={band} tabIndex={-1} className={`quiz-verdict ${answer.correct ? 'is-ok' : 'is-bad'}`}>
-        <Icon name={answer.correct ? 'check' : 'x'} size={20} />
-        {answer.correct ? 'Correct' : 'Incorrect'}
-      </div>
-      <ol className="quiz-review" aria-label="Why each option is right or wrong">
-        {question.options.map((option, i) => {
-          const isKey = i === review.correctIndex
-          const isPick = i === picked
-          const tag = isKey && isPick ? 'Your answer, right' : isKey ? 'Right answer' : isPick ? 'Your answer' : null
-          return (
-            <li key={i} className={`quiz-opt${isKey ? ' is-key' : ''}${isPick && !isKey ? ' is-miss' : ''}`}>
-              <span className="letter" aria-hidden="true">{isKey ? <Icon name="check" size={16} /> : letter(i)}</span>
-              <span className="quiz-opt-main">
-                <span className="quiz-opt-text">{option}</span>
-                {tag && <span className="quiz-tag">{tag}</span>}
-              </span>
-              {review.optionExplanations[i] && <p className="quiz-opt-why">{review.optionExplanations[i]}</p>}
-            </li>
-          )
-        })}
-      </ol>
-      <Why question={question} review={review} />
-    </>
-  )
-}
-
-/* why the answer is what it is, from the slides: the explanation, a diagram where one helps, and
-   the lecture and slides to check it against, with the slide itself a click away */
-function Why({ question, review }: { question: QuizQuestion; review: QuestionReview }) {
-  const source = citation(question.lecture, question.sourcePages)
-  const first = firstSlide(question.sourcePages)
-  const href = slideHref(question.lectureId, question.sourcePages)
-  return (
-    <section className="why" aria-label="Why, from the slides">
-      <p className="why-label">{question.sourcePages ? `From ${slides(question.sourcePages)}` : 'From the slides'}</p>
-      {review.explanation
-        ? review.explanation.split(/\n{2,}/).map((paragraph, i) => <p key={i} className="why-text">{paragraph}</p>)
-        : <p className="why-text">No explanation has been written for this question yet.</p>}
-      {review.diagram && <Diagram source={review.diagram} label={`Diagram: ${question.prompt}`} />}
-      {(source || href) && (
-        <p className="why-source">
-          {source && <span>{source}</span>}
-          {href && (
-            <a className="why-open" href={href} target="_blank" rel="noopener">
-              Open slide {first}<Icon name="external-link" size={14} />
-            </a>
-          )}
-        </p>
-      )}
-    </section>
-  )
 }
 
 /* How the quiz went: the score, each lecture weakest first, and the missed questions to look back

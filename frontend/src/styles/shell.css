@@ -164,9 +164,20 @@
   min-width: 0;
 }
 
-.course-id h1 {
+/* the name and, right after it, the button that folds the course's own actions away; the
+   button's list opens under this row */
+.course-title {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-top: 2px;
+}
+
+.course-id h1 {
+  min-width: 0;
   font-size: 30px;
+  overflow-wrap: anywhere;
 }
 
 .course-meta {
@@ -204,7 +215,94 @@
   display: none;
 }
 
-/* Archive / Restore / Delete, beside the tabs and on each archived row */
+/* Course options: one small round button beside the name, so the actions never take a row
+   of the head or sit beside the tabs */
+.course-menu-button {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--card);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.course-menu-button:hover,
+.course-menu-button[aria-expanded='true'] {
+  border-color: var(--ink-dim);
+  color: var(--ink);
+}
+
+/* the list it opens, over the head and the page under it, never pushing them down */
+.course-menu-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: max-content;
+  min-width: 200px;
+  max-width: min(340px, 100%);
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--card);
+  box-shadow: var(--shadow-lift);
+}
+
+.course-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.course-menu-item:hover:not(:disabled),
+.course-menu-item:focus-visible {
+  background: var(--sunken);
+}
+
+.course-menu-item:disabled {
+  cursor: not-allowed;
+  color: var(--ink-dim);
+}
+
+/* the icon and the word say it deletes; the flag colour only repeats it */
+.course-menu-item--danger:not(:disabled) {
+  color: var(--flag);
+}
+
+.course-menu-panel .course-actions-warn {
+  padding: 6px 8px 2px;
+}
+
+.course-menu-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 6px 8px;
+}
+
+.course-menu-panel .alert {
+  margin: 4px 8px;
+}
+
+/* Archive / Restore / Delete in a row, on each archived course on the home page */
 .course-actions {
   display: flex;
   flex-wrap: wrap;
@@ -272,6 +370,12 @@
 
   .course-id h1 {
     font-size: 28px;
+  }
+
+  /* the head packs tighter, so a phone's first screen keeps room for the question */
+  .course-head {
+    gap: 10px 16px;
+    padding-bottom: 14px;
   }
 }
 
