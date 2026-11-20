@@ -14,6 +14,7 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageWriter;
@@ -22,9 +23,12 @@ import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.text.PDFTextStripper;
+import org.apache.poi.sl.usermodel.Placeholder;
 import org.apache.poi.xslf.usermodel.XMLSlideShow;
+import org.apache.poi.xslf.usermodel.XSLFNotes;
 import org.apache.poi.xslf.usermodel.XSLFSlide;
 import org.apache.poi.xslf.usermodel.XSLFTextBox;
+import org.apache.poi.xslf.usermodel.XSLFTextShape;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.junit.jupiter.api.Test;
@@ -89,6 +93,69 @@ class LectureFileTest {
             // a 16:9 deck is 960 x 540 points
             assertEquals(960f, first.getMediaBox().getWidth(), 1f);
             assertEquals(540f, first.getMediaBox().getHeight(), 1f);
+        }
+    }
+
+    @Test
+    void speakerNotesSitUnderTheirSlideOnTheSamePage() throws IOException {
+        byte[] deck = pptxWithNotes(new String[] {"Paging", "TLB", "Faults"},
+            new String[] {null, "The TLB caches recent page table entries.", null});
+        try (PDDocument pdf = converted(deck, "week 5.pptx")) {
+            // page N is still slide N, so a citation of slide 3 still finds slide 3
+            assertEquals(3, pdf.getNumberOfPages());
+            String second = pageText(pdf, 2);
+            assertTrue(second.contains("The TLB caches recent page table entries."), second);
+            assertTrue(second.contains("Speaker notes"), second);
+            assertFalse(pageText(pdf, 1).contains("TLB caches"));
+            assertFalse(pageText(pdf, 3).contains("TLB caches"));
+            assertFalse(pageText(pdf, 1).contains("Speaker notes"));
+        }
+    }
+
+    @Test
+    void aSlideWithoutNotesKeepsTheDecksShapeAndOneWithNotesGrowsDownward() throws IOException {
+        byte[] deck = pptxWithNotes(new String[] {"One", "Two"}, new String[] {null, "Say the two cases."});
+        try (PDDocument pdf = converted(deck, "deck.pptx")) {
+            PDPage plain = pdf.getPage(0);
+            assertEquals(960f, plain.getMediaBox().getWidth(), 1f);
+            assertEquals(540f, plain.getMediaBox().getHeight(), 1f);
+            PDPage noted = pdf.getPage(1);
+            assertEquals(960f, noted.getMediaBox().getWidth(), 1f);
+            assertTrue(noted.getMediaBox().getHeight() > 540f, "notes page: " + noted.getMediaBox());
+        }
+    }
+
+    @Test
+    void theNotesPagesNumberDateAndFooterAreNotTakenForNotes() throws IOException {
+        XSLFSlide[] slide = new XSLFSlide[1];
+        byte[] deck = deck(show -> {
+            slide[0] = show.createSlide();
+            XSLFNotes notes = show.getNotesSlide(slide[0]);
+            for (XSLFTextShape box : notes.getPlaceholders()) {
+                if (box.getTextType() == Placeholder.BODY) box.setText("What the lecturer says.");
+            }
+            // a notes page's footer, drawn by hand the way a template might leave it
+            XSLFTextBox footer = notes.createTextBox();
+            footer.setPlaceholder(Placeholder.FOOTER);
+            footer.setText("Confidential - do not distribute");
+        });
+        try (XMLSlideShow show = new XMLSlideShow(new java.io.ByteArrayInputStream(deck))) {
+            String notes = LectureFile.speakerNotes(show.getSlides().get(0));
+            assertEquals("What the lecturer says.", notes);
+        }
+    }
+
+    @Test
+    void notesTooLongForTheBandStopWithALineSayingTheyContinue() throws IOException {
+        String essay = "Virtual memory lets each process see its own address space. ".repeat(600);
+        byte[] deck = pptxWithNotes(new String[] {"Memory"}, new String[] {essay});
+        try (PDDocument pdf = converted(deck, "long.pptx")) {
+            assertEquals(1, pdf.getNumberOfPages());
+            // at most the slide again under the slide
+            assertTrue(pdf.getPage(0).getMediaBox().getHeight() <= 2 * 540f + 1f, "" + pdf.getPage(0).getMediaBox());
+            String text = pageText(pdf, 1);
+            assertTrue(text.contains("Virtual memory lets each process"), text.substring(0, 100));
+            assertTrue(text.contains("The speaker notes continue in the PowerPoint file."), text);
         }
     }
 
@@ -208,7 +275,89 @@ class LectureFileTest {
         }
     }
 
+    // --- several photos as one lecture ----------------------------------------------------------
+
+    @Test
+    void photosBecomeOneUprightPagePerPhotoInTheOrderSent() throws IOException {
+        // wide, tall, then a phone photo stored wide but tagged to stand up: the shapes give the order
+        byte[] wide = png(400, 200);
+        byte[] tall = png(200, 400);
+        byte[] phone = withExifOrientation(jpeg(300, 100), 6);
+        Conversion conversion = LectureFile.picturesPdf(List.of(wide, tall, phone),
+            List.of("board-1.png", "board-2.png", "IMG_0042.jpg"));
+        try (PDDocument pdf = Loader.loadPDF(assertInstanceOf(Converted.class, conversion).pdf())) {
+            assertEquals(3, pdf.getNumberOfPages());
+            assertEquals(2f, aspect(pdf.getPage(0)), 0.01f);
+            assertEquals(0.5f, aspect(pdf.getPage(1)), 0.01f);
+            assertEquals(1 / 3f, aspect(pdf.getPage(2)), 0.01f);
+        }
+    }
+
+    @Test
+    void aFileInTheSetThatIsNotAPictureRefusesTheSetAndNamesTheFile() throws IOException {
+        Rejected rejected = assertInstanceOf(Rejected.class, LectureFile.picturesPdf(
+            List.of(png(40, 20), pdfWithPages(1), png(40, 20)), List.of("a.png", "handout.pdf", "c.png")));
+        assertTrue(rejected.message().startsWith("Photo 2 (\"handout.pdf\") is not a picture"), rejected.message());
+        assertTrue(rejected.message().contains("send the photos again"), rejected.message());
+    }
+
+    @Test
+    void aHeicPhotoInTheSetSaysHowToExportIt() throws IOException {
+        Rejected rejected = assertInstanceOf(Rejected.class, LectureFile.picturesPdf(
+            List.of(png(40, 20), ascii("\0\0\0\u0018ftypheic\0\0\0\0")), List.of("a.png", "IMG_7.HEIC")));
+        assertTrue(rejected.message().contains("IMG_7.HEIC"), rejected.message());
+        assertTrue(rejected.message().contains("JPEG"), rejected.message());
+    }
+
+    @Test
+    void aDamagedPhotoInTheSetIsNamedByPositionWhenItHasNoName() {
+        byte[] cutShort = {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 13};
+        Rejected rejected = assertInstanceOf(Rejected.class, LectureFile.picturesPdf(
+            List.of(cutShort, cutShort), java.util.Arrays.asList(null, null)));
+        assertTrue(rejected.message().startsWith("Photo 1 could not be opened"), rejected.message());
+    }
+
     // --- helpers -------------------------------------------------------------------------------
+
+    private static float aspect(PDPage page) {
+        return page.getMediaBox().getWidth() / page.getMediaBox().getHeight();
+    }
+
+    private static String pageText(PDDocument pdf, int page) throws IOException {
+        PDFTextStripper stripper = new PDFTextStripper();
+        stripper.setStartPage(page);
+        stripper.setEndPage(page);
+        return stripper.getText(pdf);
+    }
+
+    private interface DeckBuilder {
+        void build(XMLSlideShow show) throws IOException;
+    }
+
+    private static byte[] deck(DeckBuilder builder) throws IOException {
+        try (XMLSlideShow show = new XMLSlideShow(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            show.setPageSize(new Dimension(960, 540));
+            builder.build(show);
+            show.write(out);
+            return out.toByteArray();
+        }
+    }
+
+    // a deck of titled slides; notes[i] is slide i's speaker notes, or null for none
+    private static byte[] pptxWithNotes(String[] titles, String[] notes) throws IOException {
+        return deck(show -> {
+            for (int i = 0; i < titles.length; i++) {
+                XSLFSlide slide = show.createSlide();
+                XSLFTextBox box = slide.createTextBox();
+                box.setAnchor(new Rectangle(60, 60, 800, 100));
+                box.setText(titles[i]);
+                if (notes[i] == null) continue;
+                for (XSLFTextShape body : show.getNotesSlide(slide).getPlaceholders()) {
+                    if (body.getTextType() == Placeholder.BODY) body.setText(notes[i]);
+                }
+            }
+        });
+    }
 
     private static PDDocument converted(byte[] bytes, String filename) throws IOException {
         Conversion conversion = LectureFile.toPdf(bytes, filename);
@@ -280,7 +429,7 @@ class LectureFileTest {
         return out.toByteArray();
     }
 
-    private static byte[] png(int w, int h) throws IOException {
+    static byte[] png(int w, int h) throws IOException {
         return picture("png", w, h);
     }
 
