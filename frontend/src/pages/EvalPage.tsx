@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, type EvalReport, type ReviewItem } from '../api'
 import { plural } from '../plural'
+import Loading, { SkBlock, SkLine } from '../shell/Loading'
 
 const REAL_SAMPLE = 30
 
@@ -25,7 +26,15 @@ export default function EvalPage() {
         </div>
       </header>
       {error && <p className="alert" role="alert">{error}</p>}
-      {!report && !error && <p className="empty">Loading…</p>}
+      {!report && !error && (
+        <Loading what="the evaluation">
+          <div className="sk-stack">
+            <SkLine w="mid" tall />
+            <SkBlock h="sm" />
+            <SkBlock h="lg" />
+          </div>
+        </Loading>
+      )}
       {report && (
         <dl className="eval-figures" aria-label="Evaluation figures">
           <div><dt>Questions labeled</dt><dd>{report.labeled}</dd></div>

@@ -183,7 +183,8 @@ test('cancelling hands the caret back to the new-course tile', async () => {
 test('says Loading until the overview lands, with no grid and no alert yet', () => {
   vi.mocked(api.overview).mockReturnValueOnce(new Promise<never>(() => {}))
   renderHome()
-  expect(screen.getByText('Loading…')).toBeInTheDocument()
+  expect(screen.getByText('Loading courses…')).toBeInTheDocument()
+  expect(screen.getByText('Loading courses…').parentElement).toHaveAttribute('aria-busy', 'true')
   expect(screen.queryByRole('heading', { name: 'Courses' })).not.toBeInTheDocument()
   expect(screen.queryByRole('alert')).not.toBeInTheDocument()
 })

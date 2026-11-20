@@ -5,6 +5,7 @@ import { api, type ConceptWithQuestions, type Lecture } from '../api'
 import Icon from '../icons'
 import { plural } from '../plural'
 import type { CourseContext } from '../shell/CourseLayout'
+import Loading, { SkLine } from '../shell/Loading'
 import { LECTURE_ACCEPT, LECTURE_KINDS, type IngestPhase } from '../uploads'
 
 export interface BankContext extends CourseContext {
@@ -172,7 +173,9 @@ export default function BankRoute() {
               handler makes sure the caret lands whatever the browser does with a fragment */}
           <a className="skip" href="#concept" onClick={() => detail.current?.focus()}>Skip to the open concept</a>
           <div className="clist-top">
-            <p className="clist-head">{bank ? plural(bank.length, 'concept') : 'Loading…'}</p>
+            {bank
+              ? <p className="clist-head">{plural(bank.length, 'concept')}</p>
+              : <Loading as="p" what="concepts" className="clist-head"><SkLine w="short" /></Loading>}
             <div className="clist-tools">
               {bank && bank.length > 0 && (
                 <button type="button" className="disclose" aria-expanded={generateOpen} aria-controls="bank-generate"
@@ -241,6 +244,13 @@ export default function BankRoute() {
             </ul>
           )}
           <nav aria-label="Concepts">
+            {!bank && (
+              <Loading what="the concept list">
+                <div className="sk-stack">
+                  {Array.from({ length: 6 }, (_, i) => <SkLine key={i} tall />)}
+                </div>
+              </Loading>
+            )}
             {/* opening a row hands the caret to the open concept, so its cards are one Tab away
                 instead of the rest of the list. preventScroll keeps a mouse click from jumping
                 the page, and a pointer-started focus draws no ring. The checkboxes that pick

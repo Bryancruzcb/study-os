@@ -9,6 +9,7 @@ import { leadExam, when } from '../plan'
 import { plural } from '../plural'
 import { asked, buildQuiz, byLecture, clearLocalRun, shuffle, takeLocalRun, tally, topicRows, type QuizAnswer, type QuizRun, type TopicRow } from '../quiz'
 import type { CourseContext } from '../shell/CourseLayout'
+import Loading, { SkBlock, SkLine } from '../shell/Loading'
 import { citation, slideHref, slides } from '../source'
 import { McReview, Why } from './AnswerReview'
 
@@ -289,7 +290,15 @@ export default function QuizPage() {
           <button className="btn btn--ghost btn--micro" disabled={busy} onClick={undoReport}>Undo</button>
         </p>
       )}
-      {questions === null && !error && <p className="empty">Loading the quiz…</p>}
+      {questions === null && !error && (
+        <Loading what="the quiz">
+          <div className="sk-stack">
+            <SkLine w="mid" tall />
+            <SkLine w="long" />
+            <SkBlock h="lg" />
+          </div>
+        </Loading>
+      )}
 
       {questions !== null && !running && !results && (
         <Setup questions={questions} landing={takeLanding} onStart={start} />
