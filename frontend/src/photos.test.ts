@@ -1,7 +1,7 @@
 import heic2any from 'heic2any'
 import { vi } from 'vitest'
 import {
-  byName, conversionFailure, isHeic, isPhotoSet, isPicture, jpegName, MAX_PHOTO_NAME, PHOTO_EDGE,
+  byName, conversionFailure, isHeic, isPhotoSet, isPicture, jpegName, MAX_PHOTO_NAME, MAX_PHOTOS_BYTES, PHOTO_EDGE,
   photoNameOk, photoSetName, preparePhoto, scaledSize,
 } from './photos'
 
@@ -48,9 +48,17 @@ test('a converted or shrunk photo is named for what it now is', () => {
   expect(jpegName('noextension')).toBe('noextension.jpg')
 })
 
-test('the offered name is the day the photos arrived', () => {
-  expect(photoSetName(new Date(2026, 10, 20))).toBe('Photos, Nov 20')
-  expect(photoSetName(new Date(2027, 0, 3))).toBe('Photos, Jan 3')
+test('the offered name is the day and minute the photos arrived, so two sets in a day differ', () => {
+  expect(photoSetName(new Date(2026, 10, 20, 9, 30))).toBe('Photos, Nov 20, 9:30 AM')
+  expect(photoSetName(new Date(2026, 10, 20, 14, 5))).toBe('Photos, Nov 20, 2:05 PM')
+  expect(photoSetName(new Date(2027, 0, 3, 0, 0))).toBe('Photos, Jan 3, 12:00 AM')
+  expect(photoSetName(new Date(2027, 0, 3, 12, 0))).toBe('Photos, Jan 3, 12:00 PM')
+  // plain spaces only: the name becomes the lecture's filename
+  expect(photoSetName(new Date(2026, 10, 20, 9, 30))).toMatch(/^[\x20-\x7e]+$/)
+})
+
+test('a set is capped so the PDF extraction sends, base64-encoded, stays under the 32 MB API limit', () => {
+  expect(Math.ceil(MAX_PHOTOS_BYTES / 3) * 4).toBeLessThanOrEqual(31_000_000)
 })
 
 test('the pages follow the photos’ names, with numbers in number order', () => {

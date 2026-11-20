@@ -1,18 +1,22 @@
 /* Photos of slides or a whiteboard, made ready to send. A phone photo is often HEIC, which the
    server cannot read, and often 12 megapixels, which is far more than a page needs: a set of
-   them would not fit the server's 32 MB request. So every photo is turned into a JPEG no longer
-   than PHOTO_EDGE on its long side before it leaves the browser. */
+   them would not fit one lecture. So every photo is turned into a JPEG no longer than
+   PHOTO_EDGE on its long side before it leaves the browser. */
 
 /* the long edge a photo is shrunk to; a slide photographed at this size still reads clearly */
 export const PHOTO_EDGE = 2400
 export const PHOTO_QUALITY = 0.85
 
-/* the combined endpoint's limits: 2 to 50 photos, a name of at most 120 characters, and
-   a request of at most 33 MB, of which a megabyte is left for the form's own bytes */
+/* the combined endpoint's limits: 2 to 50 photos, a name of at most 120 characters, and photos
+   of at most 22 MB together. The server makes them a PDF of about that size, and extraction
+   sends that PDF base64-encoded (4/3 larger) in a request the model's API caps at 32 MB, so
+   22 MB is the most a set can be and still be read. The server checks the PDF against the same
+   22 MB (LectureFile.MAX_PHOTOS_PDF_BYTES). */
 export const MIN_PHOTOS = 2
 export const MAX_PHOTOS = 50
 export const MAX_PHOTO_NAME = 120
-export const MAX_PHOTOS_BYTES = 32 * 1024 * 1024
+export const MAX_PHOTOS_MB = 22
+export const MAX_PHOTOS_BYTES = MAX_PHOTOS_MB * 1024 * 1024
 
 const PICTURE = /\.(jpe?g|png|gif|bmp|tiff?|webp|heic|heif)$/i
 const PICTURE_TYPES = new Set([
@@ -61,9 +65,16 @@ export function photoNameOk(name: string): boolean {
   return trimmed.length > 0 && [...trimmed].length <= MAX_PHOTO_NAME
 }
 
-/* the name a set of photos is offered under: "Photos, Nov 20" */
-export function photoSetName(today: Date): string {
-  return `Photos, ${new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(today)}`
+/* the name a set of photos is offered under: "Photos, Nov 20, 9:30 AM". The time is in it
+   because the server refuses a set whose name another lecture in the course already has, and a
+   student who photographs two boards in one day should not have to rename the second. The time
+   is built by hand: Intl puts a narrow no-break space before AM/PM, which would end up in the
+   lecture's filename. */
+export function photoSetName(now: Date): string {
+  const day = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(now)
+  const hour = now.getHours() % 12 || 12
+  const minute = String(now.getMinutes()).padStart(2, '0')
+  return `Photos, ${day}, ${hour}:${minute} ${now.getHours() < 12 ? 'AM' : 'PM'}`
 }
 
 /* phone cameras number their photos in the order they were taken (IMG_0041, IMG_0042), and a

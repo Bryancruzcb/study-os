@@ -313,6 +313,30 @@ final class LectureFile {
      * @param names    each photo's filename as sent, at the same index; a name may be null
      */
     static Conversion picturesPdf(List<byte[]> pictures, List<String> names) {
+        return picturesPdf(pictures, names, MAX_PHOTOS_PDF_BYTES);
+    }
+
+    /**
+     * The largest PDF a photo set may become. Extraction sends the PDF base64-encoded, which is
+     * 4/3 its size, in a request the Messages API caps at 32 MB; 22 MiB comes to about 30.8 MB,
+     * which leaves room for the prompt. The browser holds a set to the same size before sending.
+     */
+    static final int MAX_PHOTOS_PDF_BYTES = 22 * 1024 * 1024;
+
+    // the cap is a parameter so a test can reach it without building a 22 MB PDF
+    static Conversion picturesPdf(List<byte[]> pictures, List<String> names, int maxPdfBytes) {
+        Conversion pdf = photosAsPdf(pictures, names);
+        if (pdf instanceof Converted converted && converted.pdf().length > maxPdfBytes) {
+            return new Rejected(String.format(Locale.ROOT, "These photos make a PDF of %.1f MB, over the "
+                + "%d MB Study OS can read as one lecture. Send them as two smaller sets.",
+                converted.pdf().length / MEGABYTE, maxPdfBytes / (1024 * 1024)));
+        }
+        return pdf;
+    }
+
+    private static final double MEGABYTE = 1024.0 * 1024.0;
+
+    private static Conversion photosAsPdf(List<byte[]> pictures, List<String> names) {
         try (PDDocument doc = new PDDocument()) {
             for (int i = 0; i < pictures.size(); i++) {
                 byte[] bytes = pictures.get(i);

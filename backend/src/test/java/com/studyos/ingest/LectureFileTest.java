@@ -310,6 +310,24 @@ class LectureFileTest {
     }
 
     @Test
+    void aSetWhosePdfIsTooBigForExtractionIsRefusedBeforeAnyProviderCall() throws IOException {
+        List<byte[]> set = List.of(png(400, 200), png(200, 400));
+        List<String> names = List.of("a.png", "b.png");
+        int size = assertInstanceOf(Converted.class, LectureFile.picturesPdf(set, names, Integer.MAX_VALUE)).pdf().length;
+
+        assertInstanceOf(Converted.class, LectureFile.picturesPdf(set, names, size));
+        Rejected rejected = assertInstanceOf(Rejected.class, LectureFile.picturesPdf(set, names, size - 1));
+        assertTrue(rejected.message().contains("Send them as two smaller sets"), rejected.message());
+    }
+
+    @Test
+    void thePhotoSetCapKeepsTheBase64RequestUnderTheMessagesApiLimit() {
+        // base64 is 4/3 the size; the API takes a request of at most 32 MB, and the prompt needs room
+        long encoded = (LectureFile.MAX_PHOTOS_PDF_BYTES + 2L) / 3 * 4;
+        assertTrue(encoded <= 31_000_000L, "base64 of the cap is " + encoded + " bytes");
+    }
+
+    @Test
     void aDamagedPhotoInTheSetIsNamedByPositionWhenItHasNoName() {
         byte[] cutShort = {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 13};
         Rejected rejected = assertInstanceOf(Rejected.class, LectureFile.picturesPdf(

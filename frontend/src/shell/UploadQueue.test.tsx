@@ -86,7 +86,7 @@ test('two photos and nothing else ask first, in the page, with a name from today
   expect(ask).toBeInTheDocument()
   // asked in the page, not a dialog, with the caret on the name
   expect(screen.queryByRole('dialog')).toBeNull()
-  expect(screen.getByLabelText('Lecture name')).toHaveValue('Photos, Nov 20')
+  expect(screen.getByLabelText('Lecture name')).toHaveValue('Photos, Nov 20, 9:30 AM')
   expect(screen.getByLabelText('Lecture name')).toHaveFocus()
   expect(api.upload).not.toHaveBeenCalled()
   expect(api.uploadPhotos).not.toHaveBeenCalled()
@@ -157,6 +157,28 @@ test('photos dropped while the question is open join it', async () => {
   expect(await screen.findByRole('region', { name: '5 photos: make them one lecture, or 5 separate lectures?' })).toBeInTheDocument()
 })
 
+test('a single photo dropped while the question is open joins it instead of going alone', async () => {
+  renderInCourse(<p>Study stub</p>, 'study')
+  await screen.findByText('Study stub')
+  drop([photo('a.jpg'), photo('b.jpg')])
+  await screen.findByRole('region', { name: /^2 photos/ })
+  drop([photo('c.jpg')])
+  expect(await screen.findByRole('region', { name: '3 photos: make them one lecture, or 3 separate lectures?' })).toBeInTheDocument()
+  expect(api.upload).not.toHaveBeenCalled()
+})
+
+test('a set over what one lecture can be read at is stopped in the browser', async () => {
+  // jsdom cannot draw, so the photos go at the size they arrive: two of 12 MB come to 24 MB
+  const big = (name: string) => new File([new Uint8Array(12 * 1024 * 1024)], name, { type: 'image/jpeg' })
+  renderInCourse(<p>Study stub</p>, 'study')
+  await screen.findByText('Study stub')
+  drop([big('a.jpg'), big('b.jpg')])
+  await userEvent.click(await screen.findByRole('button', { name: 'One lecture' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'the photos come to 24.0 MB even after shrinking, over the 22 MB one lecture can take. Send them as two smaller sets.')
+  expect(api.uploadPhotos).not.toHaveBeenCalled()
+})
+
 test('a drop with anything but photos never asks: each file goes on its own as before', async () => {
   vi.mocked(api.upload)
     .mockResolvedValueOnce(ingested(2, 'board.jpg'))
@@ -182,7 +204,7 @@ test('more photos than one lecture takes can only go separately', async () => {
 
 test('a set the server turns down says which photo and why', async () => {
   vi.mocked(api.uploadPhotos).mockResolvedValueOnce({
-    id: 8, filename: 'Photos, Nov 20.pdf', status: 'FAILED',
+    id: 8, filename: 'Photos, Nov 20, 9:30 AM.pdf', status: 'FAILED',
     errorMessage: 'Photo 2 ("handout.jpg") is not a picture. Take it out and send the photos again.',
   })
   renderInCourse(<p>Study stub</p>, 'study')
@@ -190,7 +212,21 @@ test('a set the server turns down says which photo and why', async () => {
   drop([photo('a.jpg'), photo('handout.jpg')])
   await userEvent.click(await screen.findByRole('button', { name: 'One lecture' }))
   expect(await screen.findByRole('alert')).toHaveTextContent(
-    'Photos, Nov 20 (2 photos): Photo 2 ("handout.jpg") is not a picture.')
+    'Photos, Nov 20, 9:30 AM (2 photos): Photo 2 ("handout.jpg") is not a picture.')
+})
+
+test('a name another lecture already has comes back as the server’s sentence', async () => {
+  vi.mocked(api.uploadPhotos).mockRejectedValueOnce(
+    new Error('This course already has a lecture called "Week 4". Give these photos another name and send them again.'))
+  renderInCourse(<p>Study stub</p>, 'study')
+  await screen.findByText('Study stub')
+  drop([photo('a.jpg'), photo('b.jpg')])
+  const name = await screen.findByLabelText('Lecture name')
+  await userEvent.clear(name)
+  await userEvent.type(name, 'Week 4')
+  await userEvent.click(screen.getByRole('button', { name: 'One lecture' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'Week 4 (2 photos): This course already has a lecture called "Week 4". Give these photos another name')
 })
 
 test('an iPhone photo is converted to JPEG in the browser before it is sent', async () => {

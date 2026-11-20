@@ -69,8 +69,9 @@ public class IngestController {
         return ingestService.accept(courseId, file.getOriginalFilename(), file.getBytes());
     }
 
-    // a set of photos makes one lecture. The client downscales them, so even fifty fit the
-    // 33 MB request limit in application.yml
+    // a set of photos makes one lecture. The client downscales them and holds a set to 22 MB,
+    // the most extraction can send (LectureFile.MAX_PHOTOS_PDF_BYTES checks the PDF again), so a
+    // set fits the 33 MB request limit in application.yml with room to spare
     static final int MIN_PHOTOS = 2;
     static final int MAX_PHOTOS = 50;
     static final int MAX_LECTURE_NAME = 120;

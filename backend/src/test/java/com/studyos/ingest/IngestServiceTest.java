@@ -456,6 +456,61 @@ class IngestServiceTest {
     }
 
     @Test
+    void aPhotoSetNeverReplacesALectureThatSharesItsName() throws IOException {
+        // two whiteboard sets on one day both offered "Photos, Nov 20": the second must not delete
+        // the first lecture and its study history, whether it is finished or still being read
+        for (MaterialStatus status : List.of(MaterialStatus.INGESTED, MaterialStatus.PENDING)) {
+            Material first = new Material();
+            first.id = 5L;
+            first.course = course;
+            first.filename = "Photos, Nov 20.pdf";
+            first.fileHash = "the first set's hash";
+            first.status = status;
+            when(materialRepo.findByCourseIdAndFilename(1L, "Photos, Nov 20.pdf")).thenReturn(List.of(first));
+
+            var refused = assertThrows(org.springframework.web.server.ResponseStatusException.class,
+                () -> service.acceptPhotos(1L, "Photos, Nov 20",
+                    List.of(LectureFileTest.png(40, 20), LectureFileTest.png(20, 40)), List.of("a.png", "b.png")));
+            assertEquals(400, refused.getStatusCode().value());
+            assertTrue(refused.getReason().contains("already has a lecture called \"Photos, Nov 20\""),
+                refused.getReason());
+        }
+        verify(materialRepo, never()).delete(any());
+        verify(conceptRepo, never()).deleteByMaterialId(any());
+        verify(materialRepo, never()).save(any());
+        verify(events, never()).publishEvent(any());
+    }
+
+    @Test
+    void aTypedNameMatchingAnUploadedFileIsRefusedToo() throws IOException {
+        Material deck = new Material();
+        deck.id = 6L;
+        deck.filename = "Week 4.pdf";
+        deck.fileHash = "the deck's hash";
+        deck.status = MaterialStatus.INGESTED;
+        when(materialRepo.findByCourseIdAndFilename(1L, "Week 4.pdf")).thenReturn(List.of(deck));
+        assertThrows(org.springframework.web.server.ResponseStatusException.class,
+            () -> service.acceptPhotos(1L, "Week 4", List.of(LectureFileTest.png(40, 20), LectureFileTest.png(20, 40)),
+                List.of("a.png", "b.png")));
+        verify(materialRepo, never()).delete(any());
+    }
+
+    @Test
+    void aFailedLectureOfTheSameNameIsReplacedByTheCorrectedSet() throws IOException {
+        Material failed = new Material();
+        failed.id = 9L;
+        failed.course = course;
+        failed.filename = "Week 4.pdf";
+        failed.fileHash = "the failed set's hash";
+        failed.status = MaterialStatus.FAILED;
+        when(materialRepo.findByCourseIdAndFilename(1L, "Week 4.pdf")).thenReturn(List.of(failed));
+        Material accepted = service.acceptPhotos(1L, "Week 4",
+            List.of(LectureFileTest.png(40, 20), LectureFileTest.png(20, 40)), List.of("a.png", "b.png"));
+        assertEquals(MaterialStatus.PENDING, accepted.status);
+        verify(materialRepo).delete(failed);
+    }
+
+    @Test
     void aFileInThePhotoSetThatIsNotAPictureFailsTheLectureAndNamesTheFile() throws IOException {
         Material m = service.acceptPhotos(1L, "Week 4", List.of(LectureFileTest.png(40, 20),
             "Typed notes, not a photo.".getBytes(StandardCharsets.UTF_8)), List.of("IMG_1.png", "notes.txt"));

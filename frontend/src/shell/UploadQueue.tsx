@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react'
 import { api, type Material } from '../api'
 import { messageOf } from '../errors'
-import { byName, isPhotoSet, isPicture, MAX_PHOTOS, MAX_PHOTOS_BYTES, MIN_PHOTOS, photoNameOk, preparePhoto } from '../photos'
+import { byName, isPhotoSet, isPicture, MAX_PHOTOS, MAX_PHOTOS_BYTES, MAX_PHOTOS_MB, MIN_PHOTOS, photoNameOk, preparePhoto } from '../photos'
 import { plural } from '../plural'
 import { megabytes, photoTooBig, uploadProblem } from '../uploads'
 import { NOTHING_YET, QueueContext, type Active, type Job, type Outcome, type PhotoAnswer, type Queue } from './uploadState'
@@ -44,7 +44,7 @@ async function sendJob(job: Job): Promise<Sent> {
   if (bytes > MAX_PHOTOS_BYTES) {
     return {
       ok: false,
-      problems: [`${job.name}: the photos come to ${megabytes(bytes)} even after shrinking, over the 32 MB one lecture can take. Send them as two smaller sets.`],
+      problems: [`${job.name}: the photos come to ${megabytes(bytes)} even after shrinking, over the ${MAX_PHOTOS_MB} MB one lecture can take. Send them as two smaller sets.`],
     }
   }
   return { ok: true, material: await api.uploadPhotos(job.courseId, job.name.trim(), ready) }
@@ -139,9 +139,13 @@ export function UploadQueueProvider({ children }: { children: ReactNode }) {
       return { ...all, [to]: { ...own, error: withFailures(fresh ? null : own.error, refused) } }
     })
     // photos and nothing else could be pages of one lecture, so they wait for the student's
-    // answer; more photos dropped while the question is open join it
-    if (isPhotoSet(files) && accepted.length + (asked.current[to]?.length ?? 0) >= MIN_PHOTOS) {
-      ask(to, [...(asked.current[to] ?? []), ...accepted])
+    // answer; more photos dropped while the question is open join it, even a single one
+    const open = asked.current[to]
+    const joins = open
+      ? files.length > 0 && files.every(isPicture)
+      : isPhotoSet(files) && accepted.length >= MIN_PHOTOS
+    if (joins) {
+      ask(to, [...(open ?? []), ...accepted])
       return
     }
     push(accepted.map(file => ({ kind: 'file', courseId: to, file })))

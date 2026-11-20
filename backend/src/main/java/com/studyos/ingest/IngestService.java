@@ -114,12 +114,26 @@ public class IngestService {
      * that is not a readable picture becomes a FAILED row naming that file. The controller has
      * checked the name (trimmed, not blank) and that there are at least two photos.
      *
+     * <p>A name another lecture in the course already has answers 400 and changes nothing. An
+     * uploaded file of the same name replaces the old copy because it is usually the updated deck,
+     * but two photo sets that share a name ("Photos, Nov 20") are two different lectures, and
+     * replacing would delete the first one's questions, attempts and review history. The one
+     * exception is a FAILED lecture of that name: it holds no study history, so a corrected set
+     * sent under the same name takes its place.
+     *
      * @param names each photo's filename as sent, at the same index as its bytes
      */
     @Transactional
     public Material acceptPhotos(Long courseId, String name, List<byte[]> photos, List<String> names) {
-        return queue(prepare(courseId, photosFilename(name), sha256(photos),
-            () -> LectureFile.picturesPdf(photos, names)));
+        String filename = photosFilename(name);
+        String hash = sha256(photos);
+        for (Material same : materialRepo.findByCourseIdAndFilename(courseId, filename)) {
+            if (same.status != MaterialStatus.FAILED && !hash.equals(same.fileHash)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "This course already has a lecture called \""
+                    + name.strip() + "\". Give these photos another name and send them again.");
+            }
+        }
+        return queue(prepare(courseId, filename, hash, () -> LectureFile.picturesPdf(photos, names)));
     }
 
     // a lecture made of photos is served and listed as the PDF it becomes
