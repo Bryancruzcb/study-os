@@ -31,33 +31,46 @@
   margin-top: 18px;
 }
 
-/* a course: a tinted top with its code, then what is due. The whole tile is the link. */
+.section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* a course: a tinted top with its code, then what is due. The link covers the tile's body;
+   Study sits under it as its own link, so one link is never nested in another. */
 .tile {
   display: flex;
   flex-direction: column;
-  min-height: 268px;
-  padding: 0;
-  border: 0;
   border-radius: var(--radius);
   background: var(--card);
   box-shadow: var(--shadow-card);
   overflow: hidden;
   color: var(--ink);
-  font: inherit;
-  text-align: left;
-  text-decoration: none;
-  cursor: pointer;
   transition:
     box-shadow var(--motion) var(--ease),
     transform var(--motion) var(--ease);
 }
 
 .tile:hover,
-.tile:focus-visible {
+.tile:focus-within {
   box-shadow: var(--shadow-lift);
+  transform: translateY(-2px);
+}
+
+.tile-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
   color: var(--ink);
   text-decoration: none;
-  transform: translateY(-2px);
+}
+
+.tile-main:hover {
+  color: var(--ink);
+  text-decoration: none;
 }
 
 .tile-wash {
@@ -65,7 +78,7 @@
   flex-direction: column;
   justify-content: flex-end;
   gap: 6px;
-  height: 124px;
+  height: 108px;
   padding: 20px 22px 18px;
 }
 
@@ -92,7 +105,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 20px 22px 22px;
+  padding: 20px 22px;
 }
 
 .tile-counts {
@@ -100,40 +113,36 @@
   color: var(--ink-dim);
 }
 
-.tile--new {
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border: 2px dashed var(--line-dashed);
-  background: transparent;
-  box-shadow: none;
-  color: var(--ink-soft);
+/* nothing due: the same tile, said quietly and with no button to press */
+.tile-idle {
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 500;
+  color: var(--ink-dim);
 }
 
-.tile--new:hover,
-.tile--new:focus-visible {
-  border-style: solid;
-  background: var(--card);
-  transform: none;
+.tile--quiet {
   box-shadow: none;
+  border: 1px solid var(--line);
 }
 
-.tile--form {
-  justify-content: center;
-  gap: 14px;
-  padding: 22px;
-  cursor: default;
+.tile-study {
+  margin: 0 22px 22px;
 }
 
-.tile--form:hover {
-  box-shadow: var(--shadow-card);
-  transform: none;
+/* New course: a small button beside the heading, and its form opens as one row above the grid */
+.new-course {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 16px;
+  margin-top: 16px;
 }
 
-.tile-form-actions {
+.new-course .field {
+  flex: 1 1 200px;
+}
+
+.new-course-actions {
   display: flex;
   gap: 8px;
 }

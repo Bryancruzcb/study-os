@@ -127,3 +127,23 @@ test('removes the small-sample warning at thirty graded answers', async () => {
   const calibration = (await screen.findByText('90% match')).closest('.calibration')!
   expect(calibration).not.toHaveClass('calibration--small')
 })
+
+test('the grader-quality figures sit at the top of the page, where the nav used to show them', async () => {
+  vi.mocked(api.evalReport).mockResolvedValueOnce(sampleOfThirtyOne)
+  renderPage()
+  const group = await screen.findByLabelText('Evaluation figures')
+  expect(group).toHaveTextContent('Questions labeled31')
+  expect(group).toHaveTextContent('Short answers graded1')
+  expect(group).toHaveTextContent('Grader agreement100%')
+})
+
+test('the figures leave out the agreement while nothing has been graded', async () => {
+  vi.mocked(api.evalReport).mockResolvedValueOnce({
+    labeled: 12, pctAnswerable: 1, pctCorrectAnswer: 1, pctUnambiguous: 1,
+    gradedShortAnswers: 0, graderAgreement: 0, needsReview: [],
+  })
+  renderPage()
+  const group = await screen.findByLabelText('Evaluation figures')
+  expect(group).toHaveTextContent('Questions labeled12')
+  expect(group).not.toHaveTextContent('Grader agreement')
+})

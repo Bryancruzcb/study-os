@@ -1,6 +1,6 @@
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useLayoutEffect, useRef, useSyncExternalStore } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
-import { api, type EvalReport } from '../api'
+import { api } from '../api'
 import { getUser, onAuthChange, setUser } from '../auth'
 import ThemeToggle from './ThemeToggle'
 
@@ -9,20 +9,15 @@ import ThemeToggle from './ThemeToggle'
    its pill under this segment and slides from there, instead of appearing already moved. */
 let lastSegment: number | null = null
 
-/* The top bar: the wordmark, the two places, then the readout, who is signed in and the
-   theme. The readout is chrome: a failed load leaves the bar without it rather than
-   raising an alert over whichever page the user actually came for. */
+/* The top bar: the wordmark, the two places, then who is signed in and the theme. The
+   grader-quality figures live on the Evaluation page, not here: a student has no use for
+   them on every page, and on a phone they cost a whole row. */
 export default function Nav() {
   const { pathname } = useLocation()
   const user = useSyncExternalStore(onAuthChange, getUser)
-  const [report, setReport] = useState<EvalReport | null>(null)
   const segments = useRef<HTMLSpanElement>(null)
   const pill = useRef<HTMLSpanElement>(null)
   const drawn = useRef(false)
-
-  useEffect(() => {
-    api.evalReport().then(setReport).catch(() => setReport(null))
-  }, [])
 
   // "Courses" covers the grid and everything inside a course. A NavLink to "/" would be
   // current at "/" alone and would write its own aria-current over ours, so this one is
@@ -79,13 +74,6 @@ export default function Nav() {
         <NavLink to="/eval" className={({ isActive }) => (isActive ? 'is-current' : undefined)}>Evaluation</NavLink>
       </span>
       <span className="nav-end">
-        {report && (
-          <span className="readout">
-            <span>{report.labeled} labeled</span>
-            <span>{report.gradedShortAnswers} graded</span>
-            {report.gradedShortAnswers > 0 && <span>{Math.round(report.graderAgreement * 100)}% agreement</span>}
-          </span>
-        )}
         {user && (
           <span className="nav-account">
             <span className="nav-user">{user}</span>

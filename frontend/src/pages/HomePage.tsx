@@ -4,6 +4,7 @@ import { api } from '../api'
 import Icon from '../icons'
 import { TINTS } from '../lectures'
 import { plural } from '../plural'
+import { commonTerm } from './commonTerm'
 import CourseActions from '../shell/CourseActions'
 import Nav from '../shell/Nav'
 import { dueSplit, useCourses } from '../shell/courses'
@@ -41,6 +42,7 @@ export default function HomePage() {
   const list = courses ?? []
   const due = list.reduce((n, c) => n + c.dueToday, 0)
   const newest = list[list.length - 1]
+  const shared = commonTerm(list)
 
   function openForm() {
     // term seeded from the newest course rather than a literal that goes stale in a year
@@ -86,7 +88,7 @@ export default function HomePage() {
         <header className="hero">
           {courses && courses.length > 0 && (
             <>
-              <p className="eyebrow">{newest?.term} · {plural(courses.length, 'course')}</p>
+              <p className="eyebrow">{shared} · {plural(courses.length, 'course')}</p>
               <h1>{due} due today.</h1>
               <p className="lede">{dueSplit(courses)}.</p>
             </>
@@ -104,47 +106,57 @@ export default function HomePage() {
         {!courses && !error && <p className="empty">Loading…</p>}
         {courses && (
           <section className="courses">
-            <h2>Courses</h2>
-            <div className="grid">
-              {courses.map(c => (
-                <Link key={c.id} className="tile" to={`/courses/${c.id}/study`}>
-                  <span className={`tile-wash ${tint(c.id)}`}>
-                    <span className="tile-code">{c.name}</span>
-                    <span className="tile-term">{c.term}</span>
-                  </span>
-                  <span className="tile-body">
-                    <span className="figure"><b>{c.dueToday}</b><span>due today</span></span>
-                    <span className="tile-counts">{plural(c.concepts, 'concept')} · {plural(c.questions, 'question')}</span>
-                  </span>
-                </Link>
-              ))}
-              {creating ? (
-                /* in flight, Escape would tear down the form the create is about to land on */
-                <form className="tile tile--form" onSubmit={onCreate}
-                  onKeyDown={e => { if (e.key === 'Escape' && !saving) closeForm() }}>
-                  <label className="field">
-                    <span className="field-label">Name</span>
-                    <input className="input" ref={nameField} value={name} disabled={saving}
-                      onChange={e => setName(e.target.value)} />
-                  </label>
-                  <label className="field">
-                    <span className="field-label">Term</span>
-                    <input className="input" value={term} disabled={saving}
-                      onChange={e => setTerm(e.target.value)} />
-                  </label>
-                  <span className="tile-form-actions">
-                    <button className="btn btn--micro" type="submit"
-                      disabled={saving || !name.trim() || !term.trim()}>Create</button>
-                    <button className="btn btn--secondary btn--micro" type="button" disabled={saving}
-                      onClick={closeForm}>Cancel</button>
-                  </span>
-                </form>
-              ) : (
-                <button ref={newTile} className="tile tile--new" type="button" onClick={openForm}>
-                  <Icon name="plus" size={20} />
+            <div className="section-head">
+              <h2>Courses</h2>
+              {!creating && (
+                <button ref={newTile} className="btn btn--secondary btn--micro" type="button" onClick={openForm}>
+                  <Icon name="plus" size={16} />
                   New course
                 </button>
               )}
+            </div>
+            {creating && (
+              /* in flight, Escape would tear down the form the create is about to land on */
+              <form className="new-course" onSubmit={onCreate}
+                onKeyDown={e => { if (e.key === 'Escape' && !saving) closeForm() }}>
+                <label className="field">
+                  <span className="field-label">Name</span>
+                  <input className="input" ref={nameField} value={name} disabled={saving}
+                    onChange={e => setName(e.target.value)} />
+                </label>
+                <label className="field">
+                  <span className="field-label">Term</span>
+                  <input className="input" value={term} disabled={saving}
+                    onChange={e => setTerm(e.target.value)} />
+                </label>
+                <span className="new-course-actions">
+                  <button className="btn btn--micro" type="submit"
+                    disabled={saving || !name.trim() || !term.trim()}>Create</button>
+                  <button className="btn btn--secondary btn--micro" type="button" disabled={saving}
+                    onClick={closeForm}>Cancel</button>
+                </span>
+              </form>
+            )}
+            <div className="grid">
+              {courses.map(c => (
+                <div key={c.id} className={`tile${c.dueToday > 0 ? ' tile--due' : ' tile--quiet'}`}>
+                  <Link className="tile-main" to={`/courses/${c.id}/study`}>
+                    <span className={`tile-wash ${tint(c.id)}`}>
+                      <span className="tile-code">{c.name}</span>
+                      {c.term !== shared && <span className="tile-term">{c.term}</span>}
+                    </span>
+                    <span className="tile-body">
+                      {c.dueToday > 0
+                        ? <span className="figure"><b>{c.dueToday}</b><span>due today</span></span>
+                        : <span className="tile-idle">Nothing due</span>}
+                      <span className="tile-counts">{plural(c.concepts, 'concept')} · {plural(c.questions, 'question')}</span>
+                    </span>
+                  </Link>
+                  {c.dueToday > 0 && (
+                    <Link className="btn tile-study" to={`/courses/${c.id}/study`}>Study {c.dueToday}</Link>
+                  )}
+                </div>
+              ))}
             </div>
           </section>
         )}

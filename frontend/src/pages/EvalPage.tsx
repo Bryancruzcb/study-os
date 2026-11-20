@@ -27,6 +27,13 @@ export default function EvalPage() {
       {error && <p className="alert" role="alert">{error}</p>}
       {!report && !error && <p className="empty">Loading…</p>}
       {report && (
+        <dl className="eval-figures" aria-label="Evaluation figures">
+          <div><dt>Questions labeled</dt><dd>{report.labeled}</dd></div>
+          <div><dt>Short answers graded</dt><dd>{report.gradedShortAnswers}</dd></div>
+          {report.gradedShortAnswers > 0 && <div><dt>Grader agreement</dt><dd>{pct(report.graderAgreement)}</dd></div>}
+        </dl>
+      )}
+      {report && (
         <div className="eval-panel">
           <section className="eval-section" aria-labelledby="question-checks-title">
             <div className="eval-section-head">

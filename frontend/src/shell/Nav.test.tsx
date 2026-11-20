@@ -8,10 +8,6 @@ import Nav from './Nav'
 
 vi.mock('../api', () => ({
   api: {
-    evalReport: vi.fn().mockResolvedValue({
-      labeled: 31, pctAnswerable: 1, pctCorrectAnswer: 0.97, pctUnambiguous: 0.94,
-      gradedShortAnswers: 1, graderAgreement: 1,
-    }),
     auth: { logout: vi.fn().mockResolvedValue(undefined) },
   },
 }))
@@ -24,7 +20,6 @@ test('inside a course, Courses is the current page and says so to assistive tech
   expect(courses).toHaveClass('is-current')
   expect(courses).toHaveAttribute('aria-current', 'page')
   expect(screen.getByRole('link', { name: 'Evaluation' })).not.toHaveAttribute('aria-current')
-  await screen.findByText('31 labeled')
 })
 
 test('on the evaluation page it is the other way round', async () => {
@@ -34,7 +29,6 @@ test('on the evaluation page it is the other way round', async () => {
   expect(evaluation).toHaveAttribute('aria-current', 'page')
   expect(screen.getByRole('link', { name: 'Courses' })).not.toHaveClass('is-current')
   expect(screen.getByRole('link', { name: 'Courses' })).not.toHaveAttribute('aria-current')
-  await screen.findByText('31 labeled')
 })
 
 /* jsdom lays nothing out, so each link reports the box it would have: Courses first,
@@ -66,13 +60,11 @@ test('the pill sits under the current link', async () => {
   layOutLinks()
   at('/eval')
   expect(pillAt()).toEqual({ x: '87px', w: '96px' })
-  await screen.findByText('31 labeled')
 })
 
 test('switching segments in one nav moves its pill to the new link', async () => {
   layOutLinks()
   at('/courses/2/study')
-  await screen.findByText('31 labeled')
   expect(pillAt()).toEqual({ x: '3px', w: '80px' })
   await userEvent.click(screen.getByRole('link', { name: 'Evaluation' }))
   expect(pillAt()).toEqual({ x: '87px', w: '96px' })
@@ -83,7 +75,6 @@ test('switching segments in one nav moves its pill to the new link', async () =>
 test('a nav mounted after a switch draws its pill under the old segment first, then slides', async () => {
   layOutLinks()
   const home = at('/')
-  await screen.findByText('31 labeled')
   home.unmount()
 
   const drawnAt: string[] = []
@@ -95,13 +86,11 @@ test('a nav mounted after a switch draws its pill under the old segment first, t
     }))
   at('/eval')
   expect(drawnAt).toEqual(['3px', '87px'])
-  await screen.findByText('31 labeled')
 })
 
 test('a nav mounted on the segment that was already current does not slide', async () => {
   layOutLinks()
   const first = at('/courses/2/study')
-  await screen.findByText('31 labeled')
   first.unmount()
 
   const drawnAt: string[] = []
@@ -114,7 +103,6 @@ test('a nav mounted on the segment that was already current does not slide', asy
   at('/')
   // drawn under Courses and left there: the pill never moves, so nothing slides
   expect([...new Set(drawnAt)]).toEqual(['3px'])
-  await screen.findByText('31 labeled')
 })
 
 test('the signed-in account is named in the pill and can sign out from it', async () => {
@@ -126,12 +114,15 @@ test('the signed-in account is named in the pill and can sign out from it', asyn
   expect(api.auth.logout).toHaveBeenCalled()
   await waitFor(() => expect(getUser()).toBeNull())
   expect(screen.queryByText('bryan')).not.toBeInTheDocument()
-  await screen.findByText('31 labeled')
 })
 
 test('signed out, the pill names nobody', async () => {
   setUser(null)
   at('/')
   expect(screen.queryByRole('button', { name: 'Sign out' })).not.toBeInTheDocument()
-  await screen.findByText('31 labeled')
+})
+
+test('the bar carries no evaluation figures', () => {
+  at('/')
+  expect(screen.queryByText(/labeled|graded|agreement/)).not.toBeInTheDocument()
 })
