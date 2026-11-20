@@ -5,9 +5,11 @@ import BankConceptPage from '../pages/BankConceptPage'
 import BankPage from '../pages/BankPage'
 import BankRoute from '../pages/BankRoute'
 import CourseLayout from '../shell/CourseLayout'
+import { UploadQueueProvider } from '../shell/UploadQueue'
 
 /* a page under the course shell at /courses/<id>/<tab>: the layout fetches api.overview,
-   which every test file mocks, and hands the course to the page */
+   which every test file mocks, and hands the course to the page. The upload queue sits above
+   the routes, as App puts it */
 export function renderInCourse(page: ReactElement, tab: string, courseId = 1) {
   return render(
     <MemoryRouter initialEntries={[`/courses/${courseId}/${tab}`]}>
@@ -17,6 +19,7 @@ export function renderInCourse(page: ReactElement, tab: string, courseId = 1) {
         </Route>
       </Routes>
     </MemoryRouter>,
+    { wrapper: UploadQueueProvider },
   )
 }
 
@@ -37,11 +40,11 @@ function bankRoutes(otherTabs?: ReactNode) {
 /* the bank's split view under the course shell, at the given path; otherTabs adds sibling
    routes for a test that leaves the bank and comes back */
 export function renderBank(path: string, otherTabs?: ReactNode) {
-  return render(<MemoryRouter initialEntries={[path]}>{bankRoutes(otherTabs)}</MemoryRouter>)
+  return render(<MemoryRouter initialEntries={[path]}>{bankRoutes(otherTabs)}</MemoryRouter>, { wrapper: UploadQueueProvider })
 }
 
 /* the same split view under the real history, for a test that counts its entries */
 export function renderBankInBrowser(path: string) {
   window.history.replaceState(null, '', path)
-  return render(<BrowserRouter>{bankRoutes()}</BrowserRouter>)
+  return render(<BrowserRouter>{bankRoutes()}</BrowserRouter>, { wrapper: UploadQueueProvider })
 }

@@ -1,13 +1,17 @@
-import { useLayoutEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type DragEvent, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import Icon from '../icons'
 import { TINTS } from '../lectures'
 import { plural } from '../plural'
+import { ingestStatus } from '../uploads'
 import { commonTerm } from './commonTerm'
 import CourseActions from '../shell/CourseActions'
+import { carriesFiles, useFileDragging } from '../shell/fileDrop'
 import Loading, { SkBlock, SkLine } from '../shell/Loading'
 import Nav from '../shell/Nav'
+import PhotoChoice from '../shell/PhotoChoice'
+import { usePhotoQuestions, useUploads } from '../shell/uploadState'
 import { dueSplit, useCourses } from '../shell/courses'
 
 /* the six tints cycle by id, so courses made one after the other never share one */
@@ -23,6 +27,44 @@ export default function HomePage() {
   const [createError, setCreateError] = useState<string | null>(null)
   const nameField = useRef<HTMLInputElement>(null)
   const newTile = useRef<HTMLButtonElement>(null)
+  const uploads = useUploads()
+  const asking = usePhotoQuestions()
+  // a file drag over the page, and the tile it is over: each tile is a drop target, and the
+  // page around them says where to drop
+  const dragging = useFileDragging()
+  const [over, setOver] = useState<number | null>(null)
+
+  // a lecture that lands moves its course's counts on the tile
+  const { landed } = uploads
+  useEffect(() => {
+    // refresh sets state only after its await; the rule cannot see through the callback
+    // oxlint-disable-next-line react/set-state-in-effect
+    if (landed > 0) void refresh()
+  }, [landed, refresh])
+
+  // the tile takes the drop itself and marks it handled, so the app-wide guard leaves it be
+  function dropTarget(courseId: number) {
+    return {
+      onDragOver: (e: DragEvent<HTMLDivElement>) => {
+        if (!carriesFiles(e)) return
+        e.preventDefault()
+        e.dataTransfer.dropEffect = 'copy'
+        setOver(courseId)
+      },
+      // leaving for one of the tile's own children is still over the tile
+      onDragLeave: (e: DragEvent<HTMLDivElement>) => {
+        if (e.relatedTarget instanceof Node && e.currentTarget.contains(e.relatedTarget)) return
+        setOver(current => (current === courseId ? null : current))
+      },
+      onDrop: (e: DragEvent<HTMLDivElement>) => {
+        if (!carriesFiles(e)) return
+        e.preventDefault()
+        setOver(null)
+        const files = Array.from(e.dataTransfer.files)
+        if (files.length > 0) uploads.upload(courseId, files)
+      },
+    }
+  }
 
   // the form is only reachable from the keyboard if opening it moves the caret inside,
   // and closing it has to hand the caret back rather than drop it on document.body
@@ -147,26 +189,53 @@ export default function HomePage() {
                 </span>
               </form>
             )}
-            <div className="grid">
-              {courses.map(c => (
-                <div key={c.id} className={`tile${c.dueToday > 0 ? ' tile--due' : ' tile--quiet'}`}>
-                  <Link className="tile-main" to={`/courses/${c.id}/study`}>
-                    <span className={`tile-wash ${tint(c.id)}`}>
-                      <span className="tile-code">{c.name}</span>
-                      {c.term !== shared && <span className="tile-term">{c.term}</span>}
-                    </span>
-                    <span className="tile-body">
-                      {c.dueToday > 0
-                        ? <span className="figure"><b>{c.dueToday}</b><span>due today</span></span>
-                        : <span className="tile-idle">Nothing due</span>}
-                      <span className="tile-counts">{plural(c.concepts, 'concept')} · {plural(c.questions, 'question')}</span>
-                    </span>
-                  </Link>
-                  {c.dueToday > 0 && (
-                    <Link className="btn tile-study" to={`/courses/${c.id}/study`}>Study {c.dueToday}</Link>
-                  )}
+            {/* photos dropped on a tile ask here whether they are one lecture, naming the course */}
+            {(all ?? []).filter(c => asking.includes(c.id)).map(c => (
+              <PhotoChoice key={c.id} courseId={c.id} course={c.name} />
+            ))}
+            {(all ?? []).map(c => {
+              const failed = uploads.standing(c.id).error
+              return failed ? (
+                <div key={c.id} className="alert ingest-alert" role="alert">
+                  <p><strong>{c.name}</strong>{`\n${failed}`}</p>
+                  <button type="button" className="btn btn--ghost btn--micro"
+                    onClick={() => uploads.clearError(c.id)}>Dismiss</button>
                 </div>
-              ))}
+              ) : null
+            })}
+            <div className="grid">
+              {courses.map(c => {
+                const now = uploads.standing(c.id)
+                const target = dragging && over === c.id
+                return (
+                  <div key={c.id} {...dropTarget(c.id)}
+                    className={`tile${c.dueToday > 0 ? ' tile--due' : ' tile--quiet'}${target ? ' is-drop' : ''}`}>
+                    <Link className="tile-main" to={`/courses/${c.id}/study`}>
+                      <span className={`tile-wash ${tint(c.id)}`}>
+                        <span className="tile-code">{c.name}</span>
+                        {c.term !== shared && <span className="tile-term">{c.term}</span>}
+                      </span>
+                      <span className="tile-body">
+                        {c.dueToday > 0
+                          ? <span className="figure"><b>{c.dueToday}</b><span>due today</span></span>
+                          : <span className="tile-idle">Nothing due</span>}
+                        <span className="tile-counts">{plural(c.concepts, 'concept')} · {plural(c.questions, 'question')}</span>
+                      </span>
+                    </Link>
+                    {/* always there, so the first update is read out; empty and hidden while idle */}
+                    <p className="tile-ingest" role="status">{ingestStatus(now.phase, now.current, now.waiting)}</p>
+                    {c.dueToday > 0 && (
+                      <Link className="btn tile-study" to={`/courses/${c.id}/study`}>Study {c.dueToday}</Link>
+                    )}
+                    {target && (
+                      <span className="tile-drop" aria-hidden="true">
+                        <Icon name="upload" size={24} />
+                        Drop to add to {c.name}
+                      </span>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           </section>
         )}
@@ -185,6 +254,13 @@ export default function HomePage() {
           </section>
         )}
       </main>
+      {/* a file drag anywhere but a tile says where it can go; the tile under the drag says the rest */}
+      {dragging && over === null && list.length > 0 && (
+        <p className="home-drop-hint" aria-hidden="true">
+          <Icon name="upload" size={18} />
+          Drop on a course to add a lecture
+        </p>
+      )}
     </>
   )
 }

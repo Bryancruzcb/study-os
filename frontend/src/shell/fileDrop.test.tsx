@@ -56,8 +56,8 @@ test('files dropped on any course page upload one after another, and the page sa
   await waitFor(() => expect(api.upload).toHaveBeenCalledTimes(2))
   expect(api.upload).toHaveBeenLastCalledWith(1, second)
   await waitFor(() => expect(screen.getByRole('status')).toBeEmptyDOMElement())
-  // the head's counts are refetched after each file
-  expect(vi.mocked(api.overview).mock.calls.length).toBeGreaterThanOrEqual(3)
+  // the head's counts are refetched once files land; two landing together can share one refetch
+  await waitFor(() => expect(vi.mocked(api.overview).mock.calls.length).toBeGreaterThanOrEqual(2))
 })
 
 test('a file that is plainly not a lecture is refused before it is sent, and the note can be dismissed', async () => {

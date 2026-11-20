@@ -5,6 +5,7 @@ import { Link, MemoryRouter, Navigate, Route, Routes, useOutletContext } from 'r
 import { vi } from 'vitest'
 import { api } from '../api'
 import CourseLayout, { type CourseContext } from './CourseLayout'
+import { UploadQueueProvider } from './UploadQueue'
 
 vi.mock('../api', () => ({
   api: {
@@ -28,6 +29,7 @@ function renderAt(path: string, study: ReactNode = <p>study page</p>) {
         <Route path="/" element={<p>home page</p>} />
       </Routes>
     </MemoryRouter>,
+    { wrapper: UploadQueueProvider },
   )
 }
 
