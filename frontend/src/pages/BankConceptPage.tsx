@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useLocation, useOutletContext, useParams } from 'react-router-dom'
 import { api, type ConceptWithQuestions, type Question } from '../api'
 import Icon from '../icons'
+import { letter } from '../letter'
 import { plural } from '../plural'
 import type { BankContext } from './BankRoute'
 import { citation, slides } from '../source'
@@ -9,9 +10,6 @@ import { citation, slides } from '../source'
 interface LabelBody { answerable: boolean; correctAnswer: boolean; unambiguous: boolean }
 /* the labels as stored: null where nobody has judged that check yet */
 type SavedLabels = { [K in keyof LabelBody]: boolean | null }
-
-const LETTERS = 'ABCDEFGH'
-const letter = (i: number) => LETTERS[i] ?? String(i + 1)
 
 const storedLabels = (q: Question): SavedLabels =>
   ({ answerable: q.labelAnswerable, correctAnswer: q.labelCorrectAnswer, unambiguous: q.labelUnambiguous })
