@@ -86,6 +86,10 @@ export default function CourseLayout() {
 
   // the bank draws its own progress and failures beside the upload control
   const onBank = pathname.startsWith(`/courses/${course.id}/bank`)
+  // Study and Quiz are the two modes of one Practice tab, which is current in either; a click
+  // on it while practising stays in the open mode instead of switching it
+  const inQuiz = pathname.startsWith(`/courses/${course.id}/quiz`)
+  const practising = inQuiz || pathname.startsWith(`/courses/${course.id}/study`)
 
   return (
     <div className="page">
@@ -99,13 +103,13 @@ export default function CourseLayout() {
             <h1>{course.name}</h1>
             <CourseMenu course={course}
               onArchived={archived => (archived ? navigate('/') : refresh())}
-              onDeleted={() => navigate('/')} />
+              onDeleted={() => navigate('/')} onEdited={refresh} />
           </div>
           <p className="course-meta">{course.archived && 'Archived · '}{course.term} · {plural(course.concepts, 'concept')} · {plural(course.questions, 'question')}</p>
         </div>
         <nav className="tabs" aria-label="Course">
-          <NavLink to="study" className={tab}>Study</NavLink>
-          <NavLink to="quiz" className={tab}>Quiz</NavLink>
+          <Link to={inQuiz ? 'quiz' : 'study'} className={tab({ isActive: practising })}
+            aria-current={practising ? 'page' : undefined}>Practice</Link>
           {/* the bank's index redirects to its first concept, so a push from inside the bank
               would leave a second entry with the same URL and one dead Back: replace instead */}
           <NavLink to="bank" replace={pathname.startsWith(`/courses/${course.id}/bank`)} className={tab}>Bank</NavLink>

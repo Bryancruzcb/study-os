@@ -27,7 +27,6 @@ vi.mock('../api', () => ({
     deleteLecture: vi.fn(),
     retire: vi.fn(),
     restore: vi.fn(),
-    label: vi.fn(),
   },
 }))
 
@@ -39,7 +38,6 @@ beforeEach(() => {
   vi.mocked(api.deleteLecture).mockResolvedValue(undefined)
   vi.mocked(api.retire).mockResolvedValue(undefined)
   vi.mocked(api.restore).mockResolvedValue(undefined)
-  vi.mocked(api.label).mockResolvedValue(undefined)
 })
 
 const at = () => renderBank('/courses/1/bank/5')
@@ -165,7 +163,6 @@ test('a retired question is struck, marked, and offers Restore, which reloads th
   const restore = await screen.findByRole('button', { name: 'Restore' })
   expect(screen.getByText('Retired')).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Retire' })).not.toBeInTheDocument()
-  expect(screen.queryByRole('button', { name: 'Label' })).not.toBeInTheDocument()
   expect(screen.getByText('Steps?')).toHaveClass('qcard-prompt')
   expect(screen.getByText('Steps?').closest('li')).toHaveClass('qcard--retired')
   const bankCalls = vi.mocked(api.bank).mock.calls.length
@@ -201,86 +198,6 @@ test('shows a failed retire in the alert', async () => {
   expect(await screen.findByRole('alert')).toHaveTextContent(SERVER_PROBLEM)
 })
 
-// the labels sit closed behind one quiet button on each card
-const openLabels = async () => userEvent.click(await screen.findByRole('button', { name: 'Label' }))
-
-test('the labels stay closed behind a Label button until asked for', async () => {
-  at()
-  const label = await screen.findByRole('button', { name: 'Label' })
-  expect(label).toHaveAttribute('aria-expanded', 'false')
-  expect(screen.queryByLabelText('Answerable')).not.toBeInTheDocument()
-  expect(screen.queryByRole('button', { name: 'Save labels' })).not.toBeInTheDocument()
-  // an unlabelled question has no line to summarise
-  expect(screen.queryByText(/Labeled/)).not.toBeInTheDocument()
-  await userEvent.click(label)
-  expect(label).toHaveAttribute('aria-expanded', 'true')
-  const checks = screen.getByRole('group', { name: 'Labels for this question' })
-  expect(within(checks).getByLabelText('Answerable')).toBeChecked()
-  expect(within(checks).getByLabelText('Correct')).toBeChecked()
-  expect(within(checks).getByLabelText('Unambiguous')).toBeChecked()
-  expect(within(checks).getByRole('button', { name: 'Save labels' })).toBeInTheDocument()
-})
-
-test('labels a question with the toggles as set, then closes and sums them up in one line', async () => {
-  at()
-  await openLabels()
-  await userEvent.click(screen.getByLabelText('Unambiguous'))
-  await userEvent.click(screen.getByRole('button', { name: 'Save labels' }))
-  await waitFor(() =>
-    expect(api.label).toHaveBeenCalledWith(9, { answerable: true, correctAnswer: true, unambiguous: false }))
-  expect(await screen.findByText('Labeled: answerable · correct · ambiguous')).toBeInTheDocument()
-  expect(screen.queryByLabelText('Answerable')).not.toBeInTheDocument()
-  // opening again shows what was saved, not the defaults
-  await openLabels()
-  expect(screen.getByLabelText('Unambiguous')).not.toBeChecked()
-})
-
-test('closing the labels without saving drops the change', async () => {
-  at()
-  await openLabels()
-  await userEvent.click(screen.getByLabelText('Correct'))
-  await openLabels()
-  expect(screen.queryByLabelText('Correct')).not.toBeInTheDocument()
-  await openLabels()
-  expect(screen.getByLabelText('Correct')).toBeChecked()
-  expect(api.label).not.toHaveBeenCalled()
-})
-
-test('shows a failed label in the alert and leaves the question unlabelled', async () => {
-  vi.mocked(api.label).mockRejectedValueOnce(new Error(SERVER_PROBLEM))
-  at()
-  await openLabels()
-  await userEvent.click(screen.getByRole('button', { name: 'Save labels' }))
-  expect(await screen.findByRole('alert')).toHaveTextContent(SERVER_PROBLEM)
-  expect(screen.getByRole('button', { name: 'Save labels' })).toBeInTheDocument()
-  expect(screen.queryByText(/Labeled/)).not.toBeInTheDocument()
-})
-
-test('seeds the toggles from the labels the question arrives with', async () => {
-  vi.mocked(api.bank).mockResolvedValueOnce(concept([
-    question({ labelAnswerable: true, labelCorrectAnswer: false, labelUnambiguous: true }),
-  ]))
-  at()
-  expect(await screen.findByText('Labeled: answerable · not correct · unambiguous')).toBeInTheDocument()
-  expect(screen.queryByRole('button', { name: 'Save labels' })).not.toBeInTheDocument()
-  await openLabels()
-  expect(screen.getByLabelText('Answerable')).toBeChecked()
-  expect(screen.getByLabelText('Correct')).not.toBeChecked()
-  expect(screen.getByLabelText('Unambiguous')).toBeChecked()
-})
-
-test('re-saving a labelled question posts the stored labels with the one change, not the defaults', async () => {
-  vi.mocked(api.bank).mockResolvedValueOnce(concept([
-    question({ labelAnswerable: true, labelCorrectAnswer: false, labelUnambiguous: true }),
-  ]))
-  at()
-  await openLabels()
-  await userEvent.click(screen.getByLabelText('Unambiguous'))
-  await userEvent.click(screen.getByRole('button', { name: 'Save labels' }))
-  await waitFor(() =>
-    expect(api.label).toHaveBeenCalledWith(9, { answerable: true, correctAnswer: false, unambiguous: false }))
-})
-
 test('cancelling puts the caret back on the card it was working', async () => {
   at()
   await userEvent.click(await screen.findByRole('button', { name: 'Retire' }))
@@ -296,7 +213,7 @@ test('confirming leaves the caret on the struck card, one Tab from Restore', asy
   await userEvent.click(screen.getByRole('button', { name: 'Confirm retire' }))
   const restore = await screen.findByRole('button', { name: 'Restore' })
   // not on Restore itself: a held Enter on Confirm would run on into it and undo the retire
-  await waitFor(() => expect(screen.getByText('Not labeled')).toHaveFocus())
+  await waitFor(() => expect(screen.getByText('Won’t come up in study or quizzes')).toHaveFocus())
   await userEvent.tab()
   expect(restore).toHaveFocus()
 })
@@ -315,49 +232,4 @@ test('Restore refetches the overview too', async () => {
   await userEvent.click(await screen.findByRole('button', { name: 'Restore' }))
   await waitFor(() => expect(api.restore).toHaveBeenLastCalledWith(9))
   await waitFor(() => expect(api.overview).toHaveBeenCalledTimes(2))
-})
-
-test('saving labels keeps the caret on the card: the line takes it, one Tab from Retire', async () => {
-  at()
-  await openLabels()
-  await userEvent.click(screen.getByRole('button', { name: 'Save labels' }))
-  const mark = await screen.findByText('Labeled: answerable · correct · unambiguous')
-  await waitFor(() => expect(mark).toHaveFocus())
-  await userEvent.tab()
-  expect(screen.getByRole('button', { name: 'Retire' })).toHaveFocus()
-})
-
-test('a card that arrives labelled leaves the caret alone', async () => {
-  vi.mocked(api.bank).mockResolvedValueOnce(
-    concept([question({ labelAnswerable: true, labelCorrectAnswer: true, labelUnambiguous: true })]))
-  at()
-  await screen.findByText(/^Labeled:/)
-  expect(document.body).toHaveFocus()
-})
-
-test('a retired card that was labelled says so in the same line', async () => {
-  vi.mocked(api.bank).mockResolvedValueOnce(concept([
-    question({ status: 'RETIRED', labelAnswerable: false, labelCorrectAnswer: true, labelUnambiguous: true }),
-  ]))
-  at()
-  expect(await screen.findByText('Labeled: not answerable · correct · unambiguous')).toBeInTheDocument()
-  expect(screen.queryByRole('button', { name: 'Label' })).not.toBeInTheDocument()
-})
-
-test('a link to one question brings its card into view and marks it', async () => {
-  // jsdom has no layout and no scrollIntoView, so the call, and what it was called on, is the assertion
-  const scroll = vi.fn()
-  const proto = HTMLElement.prototype as unknown as { scrollIntoView?: (arg?: unknown) => void }
-  const before = proto.scrollIntoView
-  proto.scrollIntoView = scroll
-  try {
-    vi.mocked(api.bank).mockResolvedValueOnce(concept([question({}), question({ id: 12, prompt: 'Why three?' })]))
-    renderBank('/courses/1/bank/5#question-12')
-    const card = (await screen.findByText('Why three?')).closest('li')!
-    expect(card).toHaveClass('is-target')
-    expect(screen.getByText('Steps?').closest('li')).not.toHaveClass('is-target')
-    await waitFor(() => expect(scroll.mock.contexts).toContain(card))
-  } finally {
-    proto.scrollIntoView = before
-  }
 })

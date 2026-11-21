@@ -169,7 +169,7 @@ test('an ingest in flight survives leaving the bank tab, and the list follows wh
   const file = () => container.querySelector<HTMLInputElement>('input[type="file"]')!
   await userEvent.upload(file(), new File(['%PDF-1.4'], 'week1.pdf', { type: 'application/pdf' }))
   expect(file().closest('label')).toHaveTextContent('Uploading…')
-  await userEvent.click(screen.getByRole('link', { name: 'Study' }))
+  await userEvent.click(screen.getByRole('link', { name: 'Practice' }))
   await screen.findByText('Study stub')
   await userEvent.click(screen.getByRole('link', { name: 'Bank' }))
   await screen.findByRole('link', { name: /TCP handshake/ })
@@ -202,7 +202,7 @@ test('opening a row from the keyboard puts the caret on the open concept, its ca
   await screen.findByRole('heading', { level: 2, name: 'Sockets' })
   expect(document.getElementById('concept')).toHaveFocus()
   await userEvent.tab()
-  expect(screen.getByRole('button', { name: 'Label' })).toHaveFocus()
+  expect(screen.getByRole('button', { name: 'Retire' })).toHaveFocus()
 })
 
 test('polls until a pending ingest finishes', async () => {

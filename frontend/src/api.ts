@@ -72,9 +72,6 @@ export interface Attempt { id: number; verdict: 'CORRECT' | 'INCORRECT' | 'PENDI
 export interface AnsweredAttempt extends Attempt { answerKey: string | null }
 export interface ConceptStats { conceptId: number; name: string; lecture: string | null; lectureTitle?: string | null; sourcePages: string | null; streak: number; attempts: number; correct: number; dueDate: string; neverAttempted: boolean }
 export interface Dashboard { dueToday: number; concepts: ConceptStats[] }
-/* a labeled question that failed at least one check, with where it lives so the page can link to its card */
-export interface ReviewItem { questionId: number; courseId: number; course: string; conceptId: number; concept: string; prompt: string; answerable: boolean; correctAnswer: boolean; unambiguous: boolean }
-export interface EvalReport { labeled: number; pctAnswerable: number; pctCorrectAnswer: number; pctUnambiguous: number; gradedShortAnswers: number; graderAgreement: number; needsReview: ReviewItem[] }
 /* a lecture the course has ingested, for picking what an exam covers: its subject when extraction
    named it, and its concepts' names in order, which name it when neither title nor filename can */
 export interface Lecture { id: number; filename: string; lectureTitle: string | null; concepts: number; topics: string[] }
@@ -234,6 +231,8 @@ export const api = {
   overview: () => get<CourseOverview[]>('/api/courses/overview'),
   createCourse: (name: string, term: string) => post<Course>('/api/courses', { name, term }),
   setArchived: (courseId: number, archived: boolean) => putEmpty(`/api/courses/${courseId}/archived`, { archived }),
+  /* a new name and term; the server trims both and turns down a blank one */
+  updateCourse: (courseId: number, name: string, term: string) => putEmpty(`/api/courses/${courseId}`, { name, term }),
   /* the course and everything in it: lectures, questions, attempts, exams, the saved quiz */
   deleteCourse: (courseId: number) => remove(`/api/courses/${courseId}`),
   bank: (courseId: number) => get<ConceptWithQuestions[]>(`/api/courses/${courseId}/bank`),
@@ -244,8 +243,6 @@ export const api = {
   material: (id: number) => get<Material>(`/api/materials/${id}`),
   retire: (questionId: number) => post(`/api/questions/${questionId}/retire`, {}),
   restore: (questionId: number) => post(`/api/questions/${questionId}/restore`, {}),
-  label: (questionId: number, body: { answerable: boolean; correctAnswer: boolean; unambiguous: boolean }) =>
-    post(`/api/questions/${questionId}/label`, body),
   next: async (courseId: number): Promise<StudyQuestion | null> => {
     const res = await send(`/api/study/next?courseId=${courseId}`)
     if (res.status === 204) return null
@@ -270,7 +267,6 @@ export const api = {
   clearQuizProgress: (courseId: number) => remove(`/api/courses/${courseId}/quiz/progress`),
   review: (questionId: number) => get<QuestionReview>(`/api/questions/${questionId}/review`),
   dashboard: (courseId: number) => get<Dashboard>(`/api/dashboard?courseId=${courseId}`),
-  evalReport: () => get<EvalReport>('/api/eval/report'),
   lectures: (courseId: number) => get<Lecture[]>(`/api/courses/${courseId}/lectures`),
   exams: (courseId: number) => get<Exam[]>(`/api/courses/${courseId}/exams`),
   createExam: (courseId: number, body: ExamInput) => post<Exam>(`/api/courses/${courseId}/exams`, body),

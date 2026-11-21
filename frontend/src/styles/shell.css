@@ -39,25 +39,6 @@
   font-size: 15px;
 }
 
-/* the current page's pill: one element that slides between the links, where Nav places
-   it under whichever link is current. Before Nav has measured, it has no size */
-.nav-pill {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: var(--pill-w, 0);
-  height: var(--pill-h, 0);
-  border-radius: var(--radius-pill);
-  background: var(--card);
-  box-shadow: var(--shadow-card);
-  transform: translate(var(--pill-x, 0), var(--pill-y, 0));
-  transition:
-    transform var(--motion-slide) var(--ease),
-    width var(--motion-slide) var(--ease);
-  pointer-events: none;
-}
-
-/* the links ride above the pill */
 .nav-links a {
   position: relative;
   z-index: 1;
@@ -76,6 +57,8 @@
 }
 
 .nav-links a.is-current {
+  background: var(--card);
+  box-shadow: var(--shadow-card);
   color: var(--ink);
   font-weight: 600;
 }
@@ -205,6 +188,24 @@
   display: none;
 }
 
+/* Practice: the Study / Quiz switch above both modes, and a line on what the open one is for */
+.mode-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  /* lined up with the study card and the quiz setup below it */
+  width: 100%;
+  max-width: 820px;
+  margin: 0 auto;
+}
+
+.mode-hint {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 15px;
+}
+
 /* Course options: one small round button beside the name, so the actions never take a row
    of the head or sit beside the tabs */
 .course-menu-button {
@@ -290,6 +291,21 @@
 
 .course-menu-panel .alert {
   margin: 4px 8px;
+}
+
+/* Edit course: the name and term, in place of the list */
+.course-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  /* a set width, not a percentage: the panel takes its width from what it holds */
+  width: 280px;
+  max-width: 100%;
+  padding: 6px 6px 0;
+}
+
+.course-edit .course-menu-confirm {
+  padding: 0 0 6px;
 }
 
 /* Archive / Restore / Delete in a row, on each archived course on the home page */

@@ -1,4 +1,5 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import { api } from './api'
 import App from './App'
@@ -25,10 +26,6 @@ vi.mock('./api', () => ({
     clearQuizProgress: vi.fn().mockResolvedValue(undefined),
     exams: vi.fn().mockResolvedValue([]),
     createCourse: vi.fn(),
-    evalReport: vi.fn().mockResolvedValue({
-      labeled: 31, pctAnswerable: 1, pctCorrectAnswer: 0.97, pctUnambiguous: 0.94,
-      gradedShortAnswers: 1, graderAgreement: 1, needsReview: [],
-    }),
   },
 }))
 
@@ -60,19 +57,47 @@ test('the old top-level study route lands on the course grid too', async () => {
   await waitFor(() => expect(window.location.pathname).toBe('/'))
 })
 
-test('a bare course path opens that course on its study tab', async () => {
+test('a bare course path opens that course on Practice, in study mode', async () => {
   window.history.pushState({}, '', '/courses/2')
   render(<App />)
   await waitFor(() => expect(window.location.pathname).toBe('/courses/2/study'))
   expect(await screen.findByRole('heading', { level: 1, name: 'CS 149' })).toBeInTheDocument()
   expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  const modes = await screen.findByRole('navigation', { name: 'Practice mode' })
+  expect(within(modes).getByRole('link', { name: 'Study' })).toHaveClass('is-current')
+  expect(within(modes).getByRole('link', { name: 'Quiz' })).not.toHaveClass('is-current')
 })
 
-test('a course has a quiz tab of its own', async () => {
-  window.history.pushState({}, '', '/courses/2/quiz')
+test('study and quiz are one Practice tab, and the switch moves between them', async () => {
+  window.history.pushState({}, '', '/courses/2/study')
   render(<App />)
+  const tabs = await screen.findByRole('navigation', { name: 'Course' })
+  expect(within(tabs).queryByRole('link', { name: 'Study' })).not.toBeInTheDocument()
+  expect(within(tabs).queryByRole('link', { name: 'Quiz' })).not.toBeInTheDocument()
+  expect(within(tabs).getByRole('link', { name: 'Practice' })).toHaveAttribute('aria-current', 'page')
+
+  const modes = await screen.findByRole('navigation', { name: 'Practice mode' })
+  await userEvent.click(within(modes).getByRole('link', { name: 'Quiz' }))
+  await waitFor(() => expect(window.location.pathname).toBe('/courses/2/quiz'))
   expect(await screen.findByRole('heading', { level: 2, name: 'Quiz' })).toBeInTheDocument()
-  expect(screen.getByRole('link', { name: 'Quiz' })).toHaveClass('is-current')
+  expect(within(modes).getByRole('link', { name: 'Quiz' })).toHaveClass('is-current')
+  // Practice stays current in quiz mode, and a click on it keeps the mode that is open
+  const practice = within(tabs).getByRole('link', { name: 'Practice' })
+  expect(practice).toHaveAttribute('aria-current', 'page')
+  expect(practice).toHaveAttribute('href', '/courses/2/quiz')
+
+  // and back again from quiz mode
+  await userEvent.click(within(modes).getByRole('link', { name: 'Study' }))
+  await waitFor(() => expect(window.location.pathname).toBe('/courses/2/study'))
+  expect(within(modes).getByRole('link', { name: 'Study' })).toHaveClass('is-current')
+  expect(practice).toHaveAttribute('href', '/courses/2/study')
+})
+
+test('the old evaluation page is gone, so its address lands on the course grid', async () => {
+  window.history.pushState({}, '', '/eval')
+  render(<App />)
+  await waitFor(() => expect(window.location.pathname).toBe('/'))
+  expect(screen.queryByRole('link', { name: 'Evaluation' })).not.toBeInTheDocument()
 })
 
 test('a course page renders inside one main landmark, with the nav outside it', async () => {
@@ -81,13 +106,6 @@ test('a course page renders inside one main landmark, with the nav outside it', 
   const main = await screen.findByRole('main')
   expect(main).toContainElement(await screen.findByRole('heading', { level: 1, name: 'CS 149' }))
   expect(main).not.toContainElement(screen.getByRole('navigation', { name: 'Primary' }))
-})
-
-test('the evaluation page renders inside one main landmark', async () => {
-  window.history.pushState({}, '', '/eval')
-  render(<App />)
-  const main = await screen.findByRole('main')
-  expect(main).toContainElement(await screen.findByRole('heading', { level: 1, name: 'Question quality' }))
 })
 
 test('home keeps its own single main landmark', async () => {

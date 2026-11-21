@@ -23,14 +23,14 @@ afterEach(() => {
 test('a 200 that is not JSON names the proxy in the console and shows the page a plain sentence', async () => {
   answer('<!doctype html><html></html>', 200, 'text/html')
 
-  await expect(api.evalReport()).rejects.toThrow(SERVER_PROBLEM)
+  await expect(api.dashboard(1)).rejects.toThrow(SERVER_PROBLEM)
   expect(String(debug.mock.calls[0][0])).toMatch(/not JSON.*proxied/)
 })
 
 test('a JSON body still parses', async () => {
-  answer(JSON.stringify({ labeled: 3 }), 200)
+  answer(JSON.stringify({ dueToday: 3, concepts: [] }), 200)
 
-  await expect(api.evalReport()).resolves.toMatchObject({ labeled: 3 })
+  await expect(api.dashboard(1)).resolves.toMatchObject({ dueToday: 3 })
 })
 
 test('a refusal carries the server\'s own sentence', async () => {

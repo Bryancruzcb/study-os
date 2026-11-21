@@ -297,50 +297,9 @@
   color: var(--ink);
 }
 
-/* ---- the owner's labels, kept quiet ----------------------------------------------- */
-
-.qcard-labels {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  min-width: 0;
-}
-
-.qcard-labels-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 14px;
-}
-
-.qcard-label-line {
+/* the line a retired card shows, where the caret lands after a retire */
+.qcard-note {
   font-size: 13px;
-  color: var(--ink-dim);
-}
-
-.qcard-label-set {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-/* light outline toggles here, not the filled pills used elsewhere: on is a darker outline
-   and a check, off is the plain line and no check, so the state never rests on colour */
-.qcard-label-set .toggle {
-  min-height: 32px;
-  padding: 4px 12px;
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.qcard-label-set .toggle:has(input:checked) {
-  border-color: var(--ink-soft);
-  background: var(--card);
-  color: var(--ink);
-}
-
-.qcard-label-set .toggle:has(input:checked):has(input:disabled) {
   color: var(--ink-dim);
 }
 
@@ -393,12 +352,6 @@
     position: static;
     max-height: none;
   }
-}
-
-/* the question a link from the evaluation page named: ringed in the accent */
-.qcard.is-target {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent), var(--shadow-card);
 }
 
 /* generate-more, opened from the list's head: count and types here, the concepts checked in

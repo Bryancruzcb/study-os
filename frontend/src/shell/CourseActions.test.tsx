@@ -9,6 +9,7 @@ vi.mock('../api', () => ({
   api: {
     setArchived: vi.fn(),
     deleteCourse: vi.fn(),
+    updateCourse: vi.fn(),
   },
 }))
 
@@ -18,18 +19,20 @@ beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(api.setArchived).mockResolvedValue(undefined)
   vi.mocked(api.deleteCourse).mockResolvedValue(undefined)
+  vi.mocked(api.updateCourse).mockResolvedValue(undefined)
 })
 
 function renderMenu(over: Partial<typeof course> = {}) {
   const onArchived = vi.fn()
   const onDeleted = vi.fn()
+  const onEdited = vi.fn()
   render(
     <>
-      <CourseMenu course={{ ...course, ...over }} onArchived={onArchived} onDeleted={onDeleted} />
+      <CourseMenu course={{ ...course, ...over }} onArchived={onArchived} onDeleted={onDeleted} onEdited={onEdited} />
       <button type="button">after the menu</button>
     </>,
   )
-  return { onArchived, onDeleted, options: screen.getByRole('button', { name: 'Course options' }) }
+  return { onArchived, onDeleted, onEdited, options: screen.getByRole('button', { name: 'Course options' }) }
 }
 
 test('the menu starts closed and says so', () => {
@@ -44,6 +47,8 @@ test('Enter opens it with the caret on the first action, and Tab reaches the nex
   await userEvent.keyboard('{Enter}')
   expect(options).toHaveAttribute('aria-expanded', 'true')
   expect(options).toHaveAttribute('aria-controls', document.querySelector('.course-menu-panel')!.id)
+  expect(screen.getByRole('button', { name: 'Edit course' })).toHaveFocus()
+  await userEvent.tab()
   expect(screen.getByRole('button', { name: 'Archive' })).toHaveFocus()
   await userEvent.tab()
   expect(screen.getByRole('button', { name: 'Delete course' })).toHaveFocus()
@@ -69,6 +74,7 @@ test('a click outside closes it', async () => {
 test('a Tab past the last action closes it', async () => {
   const { options } = renderMenu()
   await userEvent.click(options)
+  await userEvent.tab()
   await userEvent.tab()
   await userEvent.tab()
   expect(screen.getByRole('button', { name: 'after the menu' })).toHaveFocus()
@@ -133,4 +139,100 @@ test('the row form, on the home page, keeps its actions in view and arms Delete 
   await userEvent.click(screen.getByRole('button', { name: 'Delete forever' }))
   expect(api.deleteCourse).toHaveBeenCalledWith(2)
   expect(onDeleted).toHaveBeenCalled()
+})
+
+test('Edit course swaps the list for the name and term, filled in, with the caret on the name', async () => {
+  const { options } = renderMenu()
+  await userEvent.click(options)
+  await userEvent.click(screen.getByRole('button', { name: 'Edit course' }))
+  expect(screen.getByRole('form', { name: 'Edit course' })).toBeInTheDocument()
+  expect(screen.getByLabelText('Name')).toHaveValue('CS 149')
+  expect(screen.getByLabelText('Name')).toHaveFocus()
+  expect(screen.getByLabelText('Term')).toHaveValue('Fall 2026')
+  expect(screen.queryByRole('button', { name: 'Archive' })).not.toBeInTheDocument()
+})
+
+test('Save sends the new name and term trimmed, hands it on and closes', async () => {
+  const { onEdited, options } = renderMenu()
+  await userEvent.click(options)
+  await userEvent.click(screen.getByRole('button', { name: 'Edit course' }))
+  await userEvent.clear(screen.getByLabelText('Name'))
+  await userEvent.type(screen.getByLabelText('Name'), '  Operating Systems ')
+  await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+  expect(api.updateCourse).toHaveBeenCalledWith(2, 'Operating Systems', 'Fall 2026')
+  expect(onEdited).toHaveBeenCalled()
+  await waitFor(() => expect(options).toHaveAttribute('aria-expanded', 'false'))
+  expect(options).toHaveFocus()
+})
+
+test('a blank name or term cannot be saved', async () => {
+  const { options } = renderMenu()
+  await userEvent.click(options)
+  await userEvent.click(screen.getByRole('button', { name: 'Edit course' }))
+  await userEvent.clear(screen.getByLabelText('Term'))
+  await userEvent.type(screen.getByLabelText('Term'), '   ')
+  expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
+  await userEvent.keyboard('{Enter}')
+  expect(api.updateCourse).not.toHaveBeenCalled()
+})
+
+test('saving with nothing changed closes without a call', async () => {
+  const { onEdited, options } = renderMenu()
+  await userEvent.click(options)
+  await userEvent.click(screen.getByRole('button', { name: 'Edit course' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+  expect(api.updateCourse).not.toHaveBeenCalled()
+  expect(onEdited).not.toHaveBeenCalled()
+  expect(options).toHaveAttribute('aria-expanded', 'false')
+})
+
+test('Cancel drops the edit and puts the caret back on Edit course', async () => {
+  const { options } = renderMenu()
+  await userEvent.click(options)
+  await userEvent.click(screen.getByRole('button', { name: 'Edit course' }))
+  await userEvent.type(screen.getByLabelText('Name'), ' draft')
+  await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+  expect(screen.getByRole('button', { name: 'Edit course' })).toHaveFocus()
+  // opening the fields again starts from the course, not from the dropped draft
+  await userEvent.click(screen.getByRole('button', { name: 'Edit course' }))
+  expect(screen.getByLabelText('Name')).toHaveValue('CS 149')
+  expect(api.updateCourse).not.toHaveBeenCalled()
+})
+
+test('a failed save stays open with the alert and keeps what was typed', async () => {
+  vi.mocked(api.updateCourse).mockRejectedValueOnce(new Error('A course needs a name and a term.'))
+  const { onEdited, options } = renderMenu()
+  await userEvent.click(options)
+  await userEvent.click(screen.getByRole('button', { name: 'Edit course' }))
+  await userEvent.type(screen.getByLabelText('Name'), ' A')
+  await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('A course needs a name and a term.')
+  expect(screen.getByLabelText('Name')).toHaveValue('CS 149 A')
+  expect(onEdited).not.toHaveBeenCalled()
+  // the field that held the caret was disabled for the call; the caret comes back to the name
+  await waitFor(() => expect(screen.getByLabelText('Name')).toHaveFocus())
+})
+
+test('the alert from a failed save goes with the edit when it is cancelled', async () => {
+  vi.mocked(api.updateCourse).mockRejectedValueOnce(new Error('A course needs a name and a term.'))
+  const { options } = renderMenu()
+  await userEvent.click(options)
+  await userEvent.click(screen.getByRole('button', { name: 'Edit course' }))
+  await userEvent.type(screen.getByLabelText('Name'), ' A')
+  await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+  await screen.findByRole('alert')
+  await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+})
+
+test('Escape while editing closes the menu, drops the edit and hands the caret back', async () => {
+  const { options } = renderMenu()
+  await userEvent.click(options)
+  await userEvent.click(screen.getByRole('button', { name: 'Edit course' }))
+  await userEvent.type(screen.getByLabelText('Name'), ' draft')
+  await userEvent.keyboard('{Escape}')
+  expect(screen.queryByLabelText('Name')).not.toBeInTheDocument()
+  expect(options).toHaveAttribute('aria-expanded', 'false')
+  expect(options).toHaveFocus()
+  expect(api.updateCourse).not.toHaveBeenCalled()
 })

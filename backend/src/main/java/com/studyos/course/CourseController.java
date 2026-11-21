@@ -57,6 +57,7 @@ public class CourseController {
     public record CourseOverview(Long id, String name, String term, long concepts, long questions,
                                  long dueToday, boolean archived) {}
     public record ArchivedRequest(boolean archived) {}
+    public record CourseDetails(String name, String term) {}
 
     @GetMapping("/api/courses/overview")
     public List<CourseOverview> overview(@AuthenticationPrincipal SignedIn me) {
@@ -72,6 +73,13 @@ public class CourseController {
                 c.archived));
         }
         return rows;
+    }
+
+    @PutMapping("/api/courses/{id}")
+    public ResponseEntity<Void> rename(@AuthenticationPrincipal SignedIn me, @PathVariable Long id,
+                                       @RequestBody CourseDetails req) {
+        courseService.rename(owned.course(me.id(), id), req.name(), req.term());
+        return ResponseEntity.noContent().build();
     }
 
     @PutMapping("/api/courses/{id}/archived")
