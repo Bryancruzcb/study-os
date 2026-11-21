@@ -47,5 +47,7 @@ app:
     # TITLE_BACKFILL=false skips it
     backfill-on-start: ${TITLE_BACKFILL:true}
   model:
-    generation: claude-opus-5
-    grading: claude-opus-5
+    # generation reads the slides and writes the questions, so it gets the stronger model;
+    # grading also names lectures. APP_MODEL_GENERATION and APP_MODEL_GRADING override these
+    generation: claude-opus-5-5
+    grading: claude-sonnet-5-5

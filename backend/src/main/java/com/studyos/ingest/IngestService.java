@@ -2,6 +2,7 @@ package com.studyos.ingest;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.studyos.ai.AiAnswerException;
 import com.studyos.ai.AiClient;
 import com.studyos.ai.AiException;
 import com.studyos.ai.ConceptFocus;
@@ -32,12 +33,15 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class IngestService {
+    private static final Logger log = LoggerFactory.getLogger(IngestService.class);
     private final CourseRepo courseRepo;
     private final MaterialRepo materialRepo;
     private final ConceptRepo conceptRepo;
@@ -275,6 +279,13 @@ public class IngestService {
         }
         material.pageCount = pages;
         material.title = usableTitle(payload.title());
+        // A short concept is kept, not failed: losing the whole lecture over it is worse. The log
+        // line is how to tell whether the model keeps to the count the prompt asks for.
+        long thin = thinConcepts(payload);
+        if (thin > 0) {
+            log.warn("lecture {}: {} of {} concepts came back with fewer than {} questions",
+                material.id, thin, payload.concepts().size(), AiClient.MIN_QUESTIONS_PER_CONCEPT);
+        }
 
         LocalDate today = LocalDate.now(clock);
         Map<LocalDate, Long> scheduled = scheduledPerDayFrom(courseId, today);
@@ -378,6 +389,9 @@ public class IngestService {
     private IngestPayload extractWithOneRetry(byte[] pdfBytes, String courseName, int pageCount) {
         try {
             return validate(ai.extract(pdfBytes, courseName), pageCount);
+        } catch (AiAnswerException refusedOrCutOff) {
+            // the same deck would most likely be declined or cut off again, and paid for twice
+            throw refusedOrCutOff;
         } catch (AiException first) {
             return validate(ai.extract(pdfBytes, courseName), pageCount);
         }
@@ -430,6 +444,13 @@ public class IngestService {
             }
         }
         return payload;
+    }
+
+    /** How many of a validated payload's concepts have fewer questions than extraction asks for. */
+    static long thinConcepts(IngestPayload payload) {
+        return payload.concepts().stream()
+            .filter(cp -> cp.questions().size() < AiClient.MIN_QUESTIONS_PER_CONCEPT)
+            .count();
     }
 
     private static boolean isQuestionType(String type) {
@@ -615,6 +636,9 @@ public class IngestService {
         try {
             return validateGenerate(ai.generateMore(pdfBytes, courseName, concepts, count, types),
                 concepts, pageCount);
+        } catch (AiAnswerException refusedOrCutOff) {
+            // the same request would most likely be declined or cut off again, and paid for twice
+            throw refusedOrCutOff;
         } catch (AiException first) {
             return validateGenerate(ai.generateMore(pdfBytes, courseName, concepts, count, types),
                 concepts, pageCount);

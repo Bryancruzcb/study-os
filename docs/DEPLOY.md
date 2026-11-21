@@ -35,9 +35,17 @@ without breaking your local copy.
    limit is reached, API calls fail with a 429 error and stop costing money.
 3. Create an API key inside that workspace. Copy it now, because the Console shows it once.
 
-As a guide, ingesting a 50-page deck costs about $0.80 and grading one short answer costs
-about $0.04. Both models are `claude-opus-5`. Every account spends from this one key, so the
-spend limit covers all of them together.
+Ingesting a lecture and generating more questions use `claude-opus-5-5`. Grading short
+answers and naming lectures use `claude-sonnet-5-5`, which costs half as much per token.
+On the older `claude-opus-5`, with 2 to 4 questions per concept, ingesting a 50-page deck
+cost about $0.80 and grading one short answer about $0.04. Ingesting now asks for 4 to 6
+questions per concept, so it writes more at a 20% lower price per token: expect about $0.85
+to $1.10 a deck. Grading should drop to about $0.02. Those figures are estimates from list
+prices, not measurements. Every account spends from this one key, so the spend limit covers
+all of them together.
+
+To change a model without a code change, set `APP_MODEL_GENERATION` or `APP_MODEL_GRADING`
+on the Render service.
 
 ## 3. Web service (Render)
 

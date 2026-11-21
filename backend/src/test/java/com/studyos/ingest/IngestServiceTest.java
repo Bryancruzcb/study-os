@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+import com.studyos.ai.AiAnswerException;
 import com.studyos.ai.AiException;
 import com.studyos.ai.ConceptPayload;
 import com.studyos.ai.FakeAiClient;
@@ -191,6 +192,16 @@ class IngestServiceTest {
         assertEquals(MaterialStatus.FAILED, m.status);
         assertTrue(m.errorMessage.contains("boom"));
         assertEquals(2, ai.extractCalls);
+        verify(conceptRepo, never()).save(any());
+    }
+
+    @Test
+    void aDeclinedOrCutOffDeckIsNotPaidForTwice() {
+        ai.nextError = new AiAnswerException("Claude declined to extract questions from this lecture");
+        Material m = service.ingest(1L, "week1.pdf", PDF);
+        assertEquals(MaterialStatus.FAILED, m.status);
+        assertTrue(m.errorMessage.contains("declined"));
+        assertEquals(1, ai.extractCalls);
         verify(conceptRepo, never()).save(any());
     }
 
@@ -845,6 +856,29 @@ class IngestServiceTest {
     }
 
     @Test
+    void generateMoreDoesNotRetryADeclinedRequest() {
+        Material lecture = new Material();
+        lecture.id = 11L;
+        lecture.filename = "Lecture 3.pdf";
+        lecture.course = course;
+        Concept concept = new Concept();
+        concept.id = 5L;
+        concept.course = course;
+        concept.material = lecture;
+        concept.name = "TCP handshake";
+        when(conceptRepo.findAllById(List.of(5L))).thenReturn(List.of(concept));
+        MaterialPdf pdf = new MaterialPdf();
+        pdf.materialId = 11L;
+        pdf.bytes = PDF;
+        when(materialPdfRepo.findById(11L)).thenReturn(Optional.of(pdf));
+        ai.nextError = new AiAnswerException("Claude declined to extract questions from this lecture");
+
+        assertThrows(AiAnswerException.class, () -> service.generateMore(1L, List.of(5L), 1, "MC"));
+        assertEquals(1, ai.generateCalls);
+        verify(questionRepo, never()).save(any());
+    }
+
+    @Test
     void generateMoreRejectsACitedSlidePastTheDeck() {
         Material lecture = new Material();
         lecture.id = 11L;
@@ -887,6 +921,21 @@ class IngestServiceTest {
             .toList();
         return new IngestPayload(null, List.of(
             new ConceptPayload(sample.name(), sample.summary(), List.of(1), questions)));
+    }
+
+    @Test
+    void countsConceptsWithFewerQuestionsThanExtractionAsksFor() {
+        ConceptPayload sample = FakeAiClient.samplePayload().concepts().get(0);
+        List<QuestionPayload> three = new ArrayList<>(sample.questions());
+        three.add(sample.questions().get(0));
+        List<QuestionPayload> four = new ArrayList<>(sample.questions());
+        four.addAll(sample.questions());
+        IngestPayload payload = new IngestPayload(null, List.of(
+            new ConceptPayload("two", sample.summary(), sample.sourcePages(), sample.questions()),
+            new ConceptPayload("three", sample.summary(), sample.sourcePages(), three),
+            new ConceptPayload("four", sample.summary(), sample.sourcePages(), four)));
+
+        assertEquals(2, IngestService.thinConcepts(payload));
     }
 
     private static byte[] pdfWithPages(int pages) {

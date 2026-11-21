@@ -47,7 +47,11 @@ public class AnthropicAiClient implements AiClient {
             radiation". Never use the file name, course code, week, lecture number or term.
 
             Then extract the distinct concepts a student must master. For each concept: a short name, a one-line summary, the 1-indexed page
-            numbers it comes from, and 2-4 questions. Mix types: "MC" (4 options, correctIndex
+            numbers it comes from, and %d to %d questions. A student reviews each concept many
+            times, so every question must test a different point or angle: what it is, why or how
+            it works, applying it to a new case, or telling it apart from a related idea. If the
+            slides do not support %d distinct questions for a concept, fold it into the closest
+            related concept instead of padding it. Mix types: "MC" (4 options, correctIndex
             0-3, modelAnswer/rubric null) and "SHORT_ANSWER" (options/correctIndex null, a model
             answer, and a 2-3 bullet grading rubric). Every question must be answerable from the
             slides alone, and its sourcePages must point at the pages that answer it.
@@ -66,7 +70,8 @@ public class AnthropicAiClient implements AiClient {
               "flowchart TD", "flowchart LR", "sequenceDiagram" or "stateDiagram-v2"; at most about
               12 nodes; quote any label with punctuation, like A["fork()"]; no styling, click
               handlers or init directives.
-            """.formatted(courseName);
+            """.formatted(courseName, MIN_QUESTIONS_PER_CONCEPT, MAX_QUESTIONS_PER_CONCEPT,
+                MIN_QUESTIONS_PER_CONCEPT);
         try {
             DocumentBlockParam doc = DocumentBlockParam.builder()
                 .source(Base64PdfSource.builder()
@@ -207,7 +212,13 @@ public class AnthropicAiClient implements AiClient {
                 .outputConfig(GradePayload.class)
                 .addUserMessage(prompt)
                 .build();
-            return client.messages().create(params).content().stream()
+            // A decline can arrive after a complete-looking JSON object, which would otherwise be
+            // stored as a real verdict. GradingService turns this exception into PENDING.
+            StructuredMessage<GradePayload> response = client.messages().create(params);
+            requireFinished(response.rawMessage(),
+                "grading ran past the output limit",
+                "Claude declined to grade this answer");
+            return response.content().stream()
                 .flatMap(cb -> cb.text().stream())
                 .findFirst()
                 .map(t -> t.text())

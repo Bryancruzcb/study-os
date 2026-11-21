@@ -3,6 +3,13 @@ package com.studyos.ai;
 import java.util.List;
 
 public interface AiClient {
+    /**
+     * Extraction asks for this many questions per concept. A student reviews a concept many
+     * times, so it needs enough different questions that the reviews do not repeat.
+     */
+    int MIN_QUESTIONS_PER_CONCEPT = 4;
+    int MAX_QUESTIONS_PER_CONCEPT = 6;
+
     IngestPayload extract(byte[] pdfBytes, String courseName);
 
     /**
