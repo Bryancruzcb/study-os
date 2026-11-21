@@ -56,7 +56,7 @@ Dark mode: the page follows `prefers-color-scheme` until the toggle in the top b
 
 ## Motion
 - CSS transitions only, 200–260 ms, ease-out.
-- At most two moving things per screen: the top bar's pill sliding to the current page, and the "Pick up here" bubble rising in once.
+- At most two moving things per screen. Today there is one: the "Pick up here" bubble rising in once.
 - Everything is switched off under `prefers-reduced-motion`.
 
 ## Icons and art
