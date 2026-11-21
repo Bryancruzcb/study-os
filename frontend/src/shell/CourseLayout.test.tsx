@@ -14,6 +14,7 @@ vi.mock('../api', () => ({
     ]),
     setArchived: vi.fn().mockResolvedValue(undefined),
     deleteCourse: vi.fn().mockResolvedValue(undefined),
+    updateCourse: vi.fn().mockResolvedValue(undefined),
   },
 }))
 
@@ -37,19 +38,24 @@ test('a known course gets its head and tabs, and the index route lands on study'
   renderAt('/courses/2')
   expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('CS 149')
   expect(screen.getByText('Fall 2026 · 248 concepts · 844 questions')).toBeInTheDocument()
-  expect(screen.getByRole('link', { name: 'Study' })).toHaveAttribute('href', '/courses/2/study')
-  expect(screen.getByRole('link', { name: 'Quiz' })).toHaveAttribute('href', '/courses/2/quiz')
+  // study and quiz are the two modes of one Practice tab, which opens in study mode
+  expect(screen.getByRole('link', { name: 'Practice' })).toHaveAttribute('href', '/courses/2/study')
+  expect(screen.queryByRole('link', { name: 'Study' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('link', { name: 'Quiz' })).not.toBeInTheDocument()
   expect(screen.getByRole('link', { name: 'Bank' })).toHaveAttribute('href', '/courses/2/bank')
   expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('href', '/courses/2/dashboard')
   expect(screen.getByRole('link', { name: 'All courses' })).toHaveAttribute('href', '/')
   expect(await screen.findByText('study page')).toBeInTheDocument()
+  // current once the index route has landed on study
+  expect(screen.getByRole('link', { name: 'Practice' })).toHaveAttribute('aria-current', 'page')
 })
 
 test('the current tab is marked', async () => {
   renderAt('/courses/2/bank')
   await screen.findByText('bank page')
   expect(screen.getByRole('link', { name: 'Bank' })).toHaveClass('is-current')
-  expect(screen.getByRole('link', { name: 'Study' })).not.toHaveClass('is-current')
+  expect(screen.getByRole('link', { name: 'Practice' })).not.toHaveClass('is-current')
+  expect(screen.getByRole('link', { name: 'Practice' })).not.toHaveAttribute('aria-current')
 })
 
 test('an unknown id is a not-found state with a way back', async () => {
@@ -68,7 +74,7 @@ test('a failed overview shows the alert instead of the tabs', async () => {
   vi.mocked(api.overview).mockRejectedValueOnce(new Error('500 /api/courses/overview'))
   renderAt('/courses/2/study')
   expect(await screen.findByRole('alert')).toHaveTextContent('500 /api/courses/overview')
-  expect(screen.queryByRole('link', { name: 'Study' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('link', { name: 'Practice' })).not.toBeInTheDocument()
 })
 
 /* Keeps the course it mounted with, the way the Study page keeps its start-of-visit
@@ -142,4 +148,24 @@ test('the course actions fold behind one button beside the name, not a row of th
   expect(screen.queryByRole('button', { name: 'Archive' })).not.toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Delete course' })).not.toBeInTheDocument()
   expect(document.querySelector('.course-head > .course-actions')).toBeNull()
+})
+
+test('Edit course renames the course, and the head shows the new name and term', async () => {
+  renderAt('/courses/2/study')
+  await screen.findByRole('heading', { level: 1, name: 'CS 149' })
+  vi.mocked(api.overview).mockResolvedValueOnce([
+    { id: 2, name: 'Operating Systems', term: 'Spring 2027', concepts: 248, questions: 844, dueToday: 16, archived: false },
+  ])
+  await userEvent.click(screen.getByRole('button', { name: 'Course options' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Edit course' }))
+  const name = screen.getByLabelText('Name')
+  await userEvent.clear(name)
+  await userEvent.type(name, 'Operating Systems')
+  const term = screen.getByLabelText('Term')
+  await userEvent.clear(term)
+  await userEvent.type(term, 'Spring 2027')
+  await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+  expect(api.updateCourse).toHaveBeenCalledWith(2, 'Operating Systems', 'Spring 2027')
+  expect(await screen.findByRole('heading', { level: 1, name: 'Operating Systems' })).toBeInTheDocument()
+  expect(screen.getByText('Spring 2027 · 248 concepts · 844 questions')).toBeInTheDocument()
 })

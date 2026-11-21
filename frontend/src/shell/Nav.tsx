@@ -1,77 +1,25 @@
-import { useLayoutEffect, useRef, useSyncExternalStore } from 'react'
-import { Link, NavLink, useLocation } from 'react-router-dom'
+import { useSyncExternalStore } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../api'
 import { getUser, onAuthChange, setUser } from '../auth'
 import ThemeToggle from './ThemeToggle'
 
-/* The segment that was current in the last nav drawn. Home renders its own nav and every
-   other page renders the frame's, so moving between them mounts a fresh nav; it starts
-   its pill under this segment and slides from there, instead of appearing already moved. */
-let lastSegment: number | null = null
-
-/* The top bar: the wordmark, the two places, then who is signed in and the theme. The
-   grader-quality figures live on the Evaluation page, not here: a student has no use for
-   them on every page, and on a phone they cost a whole row. */
+/* The top bar: the wordmark, the one place, then who is signed in and the theme. Courses
+   covers the grid and everything inside a course, so it is the current page everywhere. A
+   NavLink to "/" would be current at "/" alone, so this is a plain Link that says so itself. */
 export default function Nav() {
-  const { pathname } = useLocation()
   const user = useSyncExternalStore(onAuthChange, getUser)
-  const segments = useRef<HTMLSpanElement>(null)
-  const pill = useRef<HTMLSpanElement>(null)
-  const drawn = useRef(false)
-
-  // "Courses" covers the grid and everything inside a course. A NavLink to "/" would be
-  // current at "/" alone and would write its own aria-current over ours, so this one is
-  // a plain Link that says where it is current itself
-  const inCourses = !pathname.startsWith('/eval')
-  const current = inCourses ? 0 : 1
 
   function signOut() {
     // whatever the server answers, this page stops acting signed in
     api.auth.logout().catch(() => undefined).finally(() => setUser(null))
   }
 
-  // one pill slides under the links, so a switch reads as the selection moving across
-  // rather than one background vanishing and another appearing
-  useLayoutEffect(() => {
-    const track = segments.current
-    const slider = pill.current
-    if (!track || !slider) return
-    const links = track.querySelectorAll('a')
-    const place = (i: number) => {
-      slider.style.setProperty('--pill-x', `${links[i].offsetLeft}px`)
-      slider.style.setProperty('--pill-y', `${links[i].offsetTop}px`)
-      slider.style.setProperty('--pill-w', `${links[i].offsetWidth}px`)
-      slider.style.setProperty('--pill-h', `${links[i].offsetHeight}px`)
-    }
-    if (!drawn.current) {
-      // a new nav's pill goes down without a transition, under the segment the last nav
-      // had current, and the read commits it: the page loading never slides the pill,
-      // only a switch does
-      slider.style.transition = 'none'
-      place(lastSegment ?? current)
-      void slider.offsetWidth
-      slider.style.transition = ''
-      drawn.current = true
-    }
-    place(current)
-    lastSegment = current
-
-    // the links change width when the web font lands, and the pill has to follow them.
-    // jsdom has no ResizeObserver, and lays nothing out for one to watch anyway
-    if (typeof ResizeObserver === 'undefined') return
-    const follow = new ResizeObserver(() => place(current))
-    follow.observe(track)
-    return () => follow.disconnect()
-  }, [current])
-
   return (
     <nav className="nav" aria-label="Primary">
       <span className="wordmark">Study OS</span>
-      <span className="nav-links" ref={segments}>
-        <span className="nav-pill" ref={pill} aria-hidden="true" />
-        <Link to="/" className={inCourses ? 'is-current' : undefined}
-          aria-current={inCourses ? 'page' : undefined}>Courses</Link>
-        <NavLink to="/eval" className={({ isActive }) => (isActive ? 'is-current' : undefined)}>Evaluation</NavLink>
+      <span className="nav-links">
+        <Link to="/" className="is-current" aria-current="page">Courses</Link>
       </span>
       <span className="nav-end">
         {user && (

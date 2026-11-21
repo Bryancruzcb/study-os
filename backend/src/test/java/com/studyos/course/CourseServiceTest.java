@@ -1,9 +1,13 @@
 package com.studyos.course;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -18,6 +22,8 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 class CourseServiceTest {
     CourseRepo courseRepo = mock(CourseRepo.class);
@@ -41,6 +47,45 @@ class CourseServiceTest {
         service.setArchived(c, false);
         assertFalse(c.archived);
         verify(courseRepo, org.mockito.Mockito.times(2)).save(c);
+    }
+
+    @Test
+    void renameTrimsTheNameAndTermAndSaves() {
+        Course c = course();
+        service.rename(c, "  Operating Systems ", " Spring 2027 ");
+        assertEquals("Operating Systems", c.name);
+        assertEquals("Spring 2027", c.term);
+        verify(courseRepo).save(c);
+    }
+
+    @Test
+    void aBlankNameOrTermIsTurnedDownAndNothingChanges() {
+        for (String[] bad : new String[][] {{"  ", "Fall 2026"}, {"CS 149", ""}, {null, "Fall 2026"}, {"CS 149", null}}) {
+            Course c = course();
+            ResponseStatusException err = assertThrows(ResponseStatusException.class,
+                () -> service.rename(c, bad[0], bad[1]));
+            assertEquals(HttpStatus.BAD_REQUEST, err.getStatusCode());
+            assertEquals("A course needs a name and a term.", err.getReason());
+            assertEquals("CS 149", c.name);
+        }
+        verify(courseRepo, never()).save(any());
+    }
+
+    @Test
+    void aNameOrTermLongerThanTheColumnIsTurnedDown() {
+        String tooLong = "x".repeat(CourseService.FIELD_MAX + 1);
+        for (String[] bad : new String[][] {{tooLong, "Fall 2026"}, {"CS 149", tooLong}}) {
+            Course c = course();
+            ResponseStatusException err = assertThrows(ResponseStatusException.class,
+                () -> service.rename(c, bad[0], bad[1]));
+            assertEquals(HttpStatus.BAD_REQUEST, err.getStatusCode());
+            assertEquals("CS 149", c.name);
+        }
+        // exactly at the limit is fine
+        Course c = course();
+        service.rename(c, "x".repeat(CourseService.FIELD_MAX), "Fall 2026");
+        assertEquals(CourseService.FIELD_MAX, c.name.length());
+        verify(courseRepo).save(c);
     }
 
     @Test

@@ -27,7 +27,7 @@ test('a write carries the CSRF token from the cookie, and a read does not', asyn
   const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(json({})))
   vi.stubGlobal('fetch', fetchMock)
 
-  await api.evalReport()
+  await api.dashboard(1)
   await api.retire(9)
   await api.upload(1, new File(['%PDF-'], 'deck.pdf'))
 

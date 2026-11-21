@@ -1,5 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { useLocation, useOutletContext, useParams } from 'react-router-dom'
+import { useLayoutEffect, useRef, useState } from 'react'
+import { useOutletContext, useParams } from 'react-router-dom'
 import { api, type ConceptWithQuestions, type Question } from '../api'
 import { messageOf } from '../errors'
 import Icon from '../icons'
@@ -9,24 +9,6 @@ import { plural } from '../plural'
 import type { BankContext } from './BankRoute'
 import Loading, { SkBlock, SkLine } from '../shell/Loading'
 import { citation, slides } from '../source'
-
-interface LabelBody { answerable: boolean; correctAnswer: boolean; unambiguous: boolean }
-/* the labels as stored: null where nobody has judged that check yet */
-type SavedLabels = { [K in keyof LabelBody]: boolean | null }
-
-const storedLabels = (q: Question): SavedLabels =>
-  ({ answerable: q.labelAnswerable, correctAnswer: q.labelCorrectAnswer, unambiguous: q.labelUnambiguous })
-
-/* the saved labels in one short line, or null when none is set: "Labeled: answerable · not
-   correct · unambiguous". Each check is named either way, so the line never leans on colour */
-function labelLine(labels: SavedLabels): string | null {
-  const parts = [
-    labels.answerable == null ? null : labels.answerable ? 'answerable' : 'not answerable',
-    labels.correctAnswer == null ? null : labels.correctAnswer ? 'correct' : 'not correct',
-    labels.unambiguous == null ? null : labels.unambiguous ? 'unambiguous' : 'ambiguous',
-  ].filter((part): part is string => part != null)
-  return parts.length > 0 ? `Labeled: ${parts.join(' · ')}` : null
-}
 
 /* an MC question's options, in order. A value that is not a string is shown as written
    rather than dropped, so every option keeps its letter and the key still points at it */
@@ -80,16 +62,6 @@ function ConceptCards({ concept, lecture, reload, refresh, setError }: {
   refresh: () => Promise<void>
   setError: (e: string | null) => void
 }) {
-  // a link from the evaluation page names one question: its card comes into view, marked, so the
-  // question that failed a check is the one the eye lands on
-  const { hash } = useLocation()
-  const target = hash.startsWith('#question-') ? Number(hash.slice('#question-'.length)) : null
-  useEffect(() => {
-    if (target == null) return
-    // jsdom has no scrollIntoView
-    document.getElementById(`question-${target}`)?.scrollIntoView?.({ block: 'center' })
-  }, [target])
-
   // the question whose retire is armed, or null. one at a time, so arming a card takes
   // the arming away from whichever card held it and only one confirm is ever on screen
   const [armed, setArmed] = useState<number | null>(null)
@@ -148,17 +120,6 @@ function ConceptCards({ concept, lecture, reload, refresh, setError }: {
     }
   }
 
-  async function onLabel(qid: number, body: LabelBody) {
-    setError(null)
-    try {
-      await api.label(qid, body)
-      return true
-    } catch (e) {
-      setError(messageOf(e))
-      return false
-    }
-  }
-
   const active = concept.questions.filter(q => q.status === 'ACTIVE').length
   const retired = concept.questions.length - active
   const source = citation(lecture, concept.sourcePages)
@@ -176,7 +137,7 @@ function ConceptCards({ concept, lecture, reload, refresh, setError }: {
       <ul className="qcards">
         {concept.questions.map(q => (
           <li id={`question-${q.id}`} key={q.id}
-            className={`qcard${q.status === 'RETIRED' ? ' qcard--retired' : ''}${target === q.id ? ' is-target' : ''}`}>
+            className={`qcard${q.status === 'RETIRED' ? ' qcard--retired' : ''}`}>
             <div className="chips">
               <span className="chip">{q.type === 'MC' ? 'Multiple choice' : 'Short answer'}</span>
               {q.sourcePages && <span className="chip chip--mono">{slides(q.sourcePages)}</span>}
@@ -187,17 +148,14 @@ function ConceptCards({ concept, lecture, reload, refresh, setError }: {
             <div className="qcard-foot">
               {q.status === 'RETIRED' ? (
                 <>
-                  <span className="qcard-label-line mark" tabIndex={-1} ref={el => { marks.current.set(q.id, el) }}>
-                    {labelLine(storedLabels(q)) ?? 'Not labeled'}
+                  <span className="qcard-note mark" tabIndex={-1} ref={el => { marks.current.set(q.id, el) }}>
+                    Won’t come up in study or quizzes
                   </span>
                   <button key="restore" ref={el => { dangerButtons.current.set(q.id, el) }}
                     className="btn btn--secondary btn--micro" onClick={() => onRestore(q.id)}>Restore</button>
                 </>
               ) : (
                 <>
-                  {/* keyed on the saved labels so a refreshed bank re-seeds the toggles */}
-                  <LabelControl key={`${q.labelAnswerable}/${q.labelCorrectAnswer}/${q.labelUnambiguous}`}
-                    question={q} onSave={onLabel} />
                   <div className="qcard-danger">
                     {armed === q.id ? (
                       <>
@@ -222,92 +180,6 @@ function ConceptCards({ concept, lecture, reload, refresh, setError }: {
           </li>
         ))}
       </ul>
-    </div>
-  )
-}
-
-function Toggle({ label, checked, disabled, onChange }: {
-  label: string
-  checked: boolean
-  disabled: boolean
-  onChange: (checked: boolean) => void
-}) {
-  return (
-    <label className="toggle">
-      <input className="visually-hidden" type="checkbox" checked={checked} disabled={disabled}
-        onChange={e => onChange(e.target.checked)} />
-      <svg className="toggle-check" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor"
-        strokeWidth="2" aria-hidden="true"><path d="m2.5 7.5 3 3 6-6.5" /></svg>
-      {label}
-    </label>
-  )
-}
-
-/* an unlabelled check defaults to checked, but never over a stored false, or re-saving would
-   overwrite the label the eval report counts */
-const draftFrom = (labels: SavedLabels): LabelBody => ({
-  answerable: labels.answerable ?? true,
-  correctAnswer: labels.correctAnswer ?? true,
-  unambiguous: labels.unambiguous ?? true,
-})
-
-/* The owner's evaluation tool, kept quiet: a Label button that opens the three checks and a
-   save, and, once labels are saved, one line saying what they are. The labels feed the
-   evaluation page; a student studying from the bank never needs them open. */
-function LabelControl({ question, onSave }: {
-  question: Question
-  onSave: (qid: number, body: LabelBody) => Promise<boolean>
-}) {
-  const [saved, setSaved] = useState<SavedLabels>(() => storedLabels(question))
-  const [draft, setDraft] = useState<LabelBody>(() => draftFrom(storedLabels(question)))
-  const [open, setOpen] = useState(false)
-  const [saving, setSaving] = useState(false)
-  // a save closes the checks, which takes the button under the caret away; hand the caret to
-  // the line that now says what was saved, so it stays on the card, one Tab from Retire.
-  // Only after a save: a card that arrives already labelled must not take the caret on mount
-  const mark = useRef<HTMLSpanElement>(null)
-  const justSaved = useRef(false)
-  useLayoutEffect(() => {
-    if (!justSaved.current) return
-    justSaved.current = false
-    mark.current?.focus()
-  }, [saved])
-
-  const line = labelLine(saved)
-  const panel = `labels-${question.id}`
-
-  return (
-    <div className="qcard-labels">
-      <div className="qcard-labels-head">
-        <button type="button" className="disclose" aria-expanded={open} aria-controls={panel}
-          onClick={() => {
-            // closing without a save drops the unsaved changes, so the line and the checks agree
-            if (open) setDraft(draftFrom(saved))
-            setOpen(!open)
-          }}>
-          Label<Icon name="chevron-right" size={16} />
-        </button>
-        {line && <span className="qcard-label-line mark" tabIndex={-1} ref={mark}>{line}</span>}
-      </div>
-      {open && (
-        <div id={panel} className="qcard-label-set" role="group" aria-label="Labels for this question">
-          <Toggle label="Answerable" checked={draft.answerable} disabled={saving}
-            onChange={v => setDraft(d => ({ ...d, answerable: v }))} />
-          <Toggle label="Correct" checked={draft.correctAnswer} disabled={saving}
-            onChange={v => setDraft(d => ({ ...d, correctAnswer: v }))} />
-          <Toggle label="Unambiguous" checked={draft.unambiguous} disabled={saving}
-            onChange={v => setDraft(d => ({ ...d, unambiguous: v }))} />
-          <button type="button" className="btn btn--secondary btn--micro" disabled={saving} onClick={async () => {
-            setSaving(true)
-            const ok = await onSave(question.id, draft)
-            setSaving(false)
-            if (!ok) return
-            justSaved.current = true
-            setOpen(false)
-            setSaved(draft)
-          }}>Save labels</button>
-        </div>
-      )}
     </div>
   )
 }

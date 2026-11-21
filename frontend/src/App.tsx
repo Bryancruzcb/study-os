@@ -6,8 +6,8 @@ import BankConceptPage from './pages/BankConceptPage'
 import BankPage from './pages/BankPage'
 import BankRoute from './pages/BankRoute'
 import DashboardPage from './pages/DashboardPage'
-import EvalPage from './pages/EvalPage'
 import HomePage from './pages/HomePage'
+import Practice from './pages/Practice'
 import QuizPage from './pages/QuizPage'
 import StudyPage from './pages/StudyPage'
 import { useFileDropGuard } from './shell/fileDrop'
@@ -26,15 +26,17 @@ export default function App() {
             <Route element={<Frame />}>
               <Route path="/courses/:courseId" element={<CourseLayout />}>
                 <Route index element={<Navigate to="study" replace />} />
-                <Route path="study" element={<StudyPage />} />
-                <Route path="quiz" element={<QuizPage />} />
+                {/* one Practice tab, two modes, each at its own address */}
+                <Route element={<Practice />}>
+                  <Route path="study" element={<StudyPage />} />
+                  <Route path="quiz" element={<QuizPage />} />
+                </Route>
                 <Route path="bank" element={<BankRoute />}>
                   <Route index element={<BankPage />} />
                   <Route path=":conceptId" element={<BankConceptPage />} />
                 </Route>
                 <Route path="dashboard" element={<DashboardPage />} />
               </Route>
-              <Route path="/eval" element={<EvalPage />} />
             </Route>
             {/* the old top-level /study, /bank and /dashboard, and anything else, land on the grid */}
             <Route path="*" element={<Navigate to="/" replace />} />

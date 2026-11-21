@@ -150,18 +150,18 @@ right".*
   mermaid loads only when a question has a diagram.
 - Home is a grid of course tiles, one per class, each showing what is due today and how
   much is in the bank, and a New course tile that makes a course and opens its bank for
-  the first upload. Inside a course there are four tabs: Study (answer, override a
-  verdict, self-grade a PENDING one, and step back through the questions already
-  answered in this visit to override or self-grade them there), Quiz (above), Bank
-  (upload a PDF, open a concept, label its questions, retire bad ones behind a confirm
-  step and restore them when I misclick), and Dashboard (the course's exams, added,
-  edited and deleted there, the nearest one leading with what today holds for it and when
+  the first upload. Inside a course there are three tabs. Practice has a Study / Quiz
+  switch at the top: Study (answer, override a verdict, self-grade a PENDING one, and step
+  back through the questions already answered in this visit to override or self-grade
+  them there) and Quiz (above). The other two are Bank (upload a PDF, open a concept,
+  retire bad questions behind a confirm step and restore them when I misclick) and
+  Dashboard (the course's exams, added, edited and deleted there, the nearest one leading with what today holds for it and when
   new topics give way to review, how many concepts are due, the share of graded answers I
   got right, the five weakest concepts to work on next, and every lecture on one path with
   a bar of how its concepts stand that opens to the concepts themselves).
   Every question names its concept, the lecture file and the slides it came from, so I
-  can check it against the source. Eval (the report below) is global, and it grades the
-  app rather than me.
+  can check it against the source. The menu beside a course's name renames it (name and
+  term), archives it or deletes it.
 - Look: light by default with a matching dark theme. It follows the system setting until
   the moon or sun button in the top bar picks one, and the browser remembers the pick.
   The style rules (palette, type, components, motion) are in [DESIGN.md](DESIGN.md).

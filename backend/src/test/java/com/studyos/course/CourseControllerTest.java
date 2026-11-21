@@ -1,5 +1,6 @@
 package com.studyos.course;
 
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -123,9 +124,45 @@ class CourseControllerTest {
     }
 
     @Test
-    void anotherAccountsCourseCannotBeArchivedOrDeleted() throws Exception {
+    void renamingTheOwnCourseHandsTheNewNameAndTermOn() throws Exception {
+        Course c = course(2L, "CS 149", "Fall 2026");
+        when(owned.course(SignedInMvc.ME.id(), 2L)).thenReturn(c);
+
+        mvc.perform(put("/api/courses/2").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Operating Systems\",\"term\":\"Spring 2027\"}"))
+            .andExpect(status().isNoContent());
+        verify(courseService).rename(c, "Operating Systems", "Spring 2027");
+    }
+
+    @Test
+    void aRenameTheServiceTurnsDownAnswers400WithItsSentence() throws Exception {
+        Course c = course(2L, "CS 149", "Fall 2026");
+        when(owned.course(SignedInMvc.ME.id(), 2L)).thenReturn(c);
+        doThrow(new ResponseStatusException(HttpStatus.BAD_REQUEST, "A course needs a name and a term."))
+            .when(courseService).rename(c, null, null);
+
+        mvc.perform(put("/api/courses/2").contentType(MediaType.APPLICATION_JSON).content("{}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.error").value("A course needs a name and a term."));
+    }
+
+    @Test
+    void aRenameWithNoBodyIsA400AndChangesNothing() throws Exception {
+        when(owned.course(SignedInMvc.ME.id(), 2L)).thenReturn(course(2L, "CS 149", "Fall 2026"));
+
+        mvc.perform(put("/api/courses/2").contentType(MediaType.APPLICATION_JSON))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.error").exists());
+        verifyNoInteractions(courseService);
+    }
+
+    @Test
+    void anotherAccountsCourseCannotBeRenamedArchivedOrDeleted() throws Exception {
         when(owned.course(SignedInMvc.ME.id(), 9L)).thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND));
 
+        mvc.perform(put("/api/courses/9").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Mine now\",\"term\":\"Fall 2026\"}"))
+            .andExpect(status().isNotFound());
         mvc.perform(put("/api/courses/9/archived").contentType(MediaType.APPLICATION_JSON).content("{\"archived\":true}"))
             .andExpect(status().isNotFound());
         mvc.perform(delete("/api/courses/9")).andExpect(status().isNotFound());
