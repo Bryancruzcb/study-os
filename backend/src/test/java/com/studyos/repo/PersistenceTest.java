@@ -8,6 +8,7 @@ import com.studyos.domain.Attempt;
 import com.studyos.domain.Concept;
 import com.studyos.domain.Course;
 import com.studyos.domain.Material;
+import com.studyos.domain.MaterialPdf;
 import com.studyos.domain.Question;
 import com.studyos.domain.QuestionStatus;
 import com.studyos.domain.QuestionType;
@@ -52,6 +53,7 @@ class PersistenceTest {
     @Autowired ExamRepo exams;
     @Autowired QuizProgressRepo quizProgress;
     @Autowired AppUserRepo users;
+    @Autowired MaterialPdfRepo pdfs;
     @Autowired TestEntityManager entityManager;
 
     private AppUser owner(String username) {
@@ -422,6 +424,36 @@ class PersistenceTest {
             assertThat(found.optionExplanationsJson).hasSize(8000);
             assertThat(found.diagram).hasSize(4000);
         });
+    }
+
+    // the bytes the bank generates from and Open slide serves come back as they went in, a
+    // re-upload replaces them in place, and removing a lecture's PDF really deletes the row
+    @Test
+    void aLecturePdfIsStoredReplacedAndDeletedByteForByte() {
+        Material m = material(course("CS 152"), "hash-pdf");
+        byte[] pdf = new byte[70_000];
+        for (int i = 0; i < pdf.length; i++) {
+            pdf[i] = (byte) (i * 31);
+        }
+        MaterialPdf row = new MaterialPdf();
+        row.materialId = m.id;
+        row.bytes = pdf;
+        pdfs.saveAndFlush(row);
+        entityManager.clear();
+
+        assertThat(pdfs.findById(m.id)).get().satisfies(found -> assertThat(found.bytes).isEqualTo(pdf));
+
+        byte[] replacement = {4, 5, 6};
+        MaterialPdf kept = pdfs.findById(m.id).orElseThrow();
+        kept.bytes = replacement;
+        pdfs.saveAndFlush(kept);
+        entityManager.clear();
+        assertThat(pdfs.findById(m.id)).get().satisfies(found -> assertThat(found.bytes).isEqualTo(replacement));
+
+        pdfs.deleteByMaterialId(m.id);
+        entityManager.flush();
+        entityManager.clear();
+        assertThat(pdfs.findById(m.id)).isEmpty();
     }
 
     // the exam plan's own queries: the exams ahead of a lecture, nearest first, and the concepts it counts
