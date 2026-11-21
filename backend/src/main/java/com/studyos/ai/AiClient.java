@@ -13,4 +13,12 @@ public interface AiClient {
                                  int count, String types);
 
     GradePayload grade(String questionPrompt, String modelAnswer, String rubric, String givenAnswer);
+
+    /**
+     * A title for a lecture that was ingested before titles existed, from its concepts in
+     * extraction order. Text only, because an old lecture may have no stored PDF. Throws
+     * {@link AiAnswerException} when the model refuses, is cut off or answers with nothing, and
+     * {@link AiException} when the call itself fails.
+     */
+    TitlePayload nameLecture(String courseName, List<ConceptFocus> concepts);
 }

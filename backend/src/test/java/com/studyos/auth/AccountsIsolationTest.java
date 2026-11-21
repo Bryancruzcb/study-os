@@ -43,8 +43,11 @@ import org.springframework.transaction.annotation.Transactional;
  * id is tried with the other account's ids and has to answer 404 without changing anything, and the
  * lists and the eval report have to leave the other account's rows out. The controller tests mock
  * Owned, so this is where the queries behind it meet the endpoints.
+ *
+ * <p>The startup title job is off here: it would read and write lectures on another thread while
+ * the tests run.
  */
-@SpringBootTest
+@SpringBootTest(properties = "app.titles.backfill-on-start=false")
 @AutoConfigureMockMvc
 @Transactional
 @Tag("jpa")

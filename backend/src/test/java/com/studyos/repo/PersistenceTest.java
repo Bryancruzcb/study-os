@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.dao.DataIntegrityViolationException;
 import com.studyos.domain.Exam;
 import com.studyos.domain.MaterialStatus;
@@ -51,6 +52,7 @@ class PersistenceTest {
     @Autowired ExamRepo exams;
     @Autowired QuizProgressRepo quizProgress;
     @Autowired AppUserRepo users;
+    @Autowired TestEntityManager entityManager;
 
     private AppUser owner(String username) {
         AppUser u = new AppUser();
@@ -450,6 +452,57 @@ class PersistenceTest {
         assertThat(materials.findByCourseIdAndStatusOrderByIdAsc(c.id, MaterialStatus.INGESTED))
             .extracting(m -> m.fileHash).containsExactly("exam-plan-lecture");
         assertThat(reviewStates.findByConceptCourseIdOrderByConceptIdAsc(c.id)).isEmpty();
+    }
+
+    // --- the startup job that names lectures from before titles existed -------------
+
+    private Material lectureWith(Course c, String hash, MaterialStatus status, String title) {
+        Material m = material(c, hash);
+        m.status = status;
+        m.title = title;
+        return materials.save(m);
+    }
+
+    @Test
+    void theTitleJobFindsOnlyUntitledIngestedLecturesWithTheirConceptsInOrder() {
+        Course c = course("ATMS 101");
+        Material older = lectureWith(c, "titles-older", MaterialStatus.INGESTED, null);
+        Material named = lectureWith(c, "titles-named", MaterialStatus.INGESTED, "Albedo");
+        Material pending = lectureWith(c, "titles-pending", MaterialStatus.PENDING, null);
+        Material failed = lectureWith(c, "titles-failed", MaterialStatus.FAILED, null);
+        Material newer = lectureWith(c, "titles-newer", MaterialStatus.INGESTED, null);
+        Concept first = concept(c, older, "albedo");
+        Concept second = concept(c, older, "blackbody radiation");
+
+        // other suites may have left rows behind, so only this test's lectures are compared
+        List<Long> mine = List.of(older.id, named.id, pending.id, failed.id, newer.id);
+        assertThat(materials.findByStatusAndTitleIsNullOrderByIdAsc(MaterialStatus.INGESTED))
+                .extracting(m -> m.id)
+                .filteredOn(mine::contains)
+                .containsExactly(older.id, newer.id);
+        assertThat(concepts.findByMaterialIdOrderByIdAsc(older.id))
+                .extracting(x -> x.id)
+                .containsExactly(first.id, second.id);
+    }
+
+    @Test
+    void settingAMissingTitleNeverOverwritesOne() {
+        Course c = course("ATMS 101");
+        Material untitled = lectureWith(c, "titles-untitled", MaterialStatus.INGESTED, null);
+        Material named = lectureWith(c, "titles-already-named", MaterialStatus.INGESTED, "Albedo");
+
+        assertThat(materials.setTitleIfMissing(untitled.id, "Albedo and blackbody radiation")).isEqualTo(1);
+        // a second answer for the same lecture, a lecture extraction already named, and a deleted one
+        assertThat(materials.setTitleIfMissing(untitled.id, "A second answer")).isZero();
+        assertThat(materials.setTitleIfMissing(named.id, "Something else")).isZero();
+        assertThat(materials.setTitleIfMissing(-1L, "Gone")).isZero();
+
+        // the update bypasses the persistence context, so read the rows back from the database
+        entityManager.clear();
+        assertThat(materials.findById(untitled.id)).get()
+                .extracting(m -> m.title).isEqualTo("Albedo and blackbody radiation");
+        assertThat(materials.findById(named.id)).get()
+                .extracting(m -> m.title).isEqualTo("Albedo");
     }
 
     private static Attempt examPlanAttempt(Question q, Verdict verdict) {

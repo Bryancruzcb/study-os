@@ -208,6 +208,9 @@ Everything else is in `backend/src/main/resources/application.yml`: the two mode
 `app.model.generation` and `app.model.grading`, and the two study settings above under
 `app.study`.
 
+On start, the server names any lecture uploaded before lectures had titles, with one short
+Claude call each, in the background. Set `TITLE_BACKFILL=false` to skip it.
+
 ## Tests
 
     mvn -f backend/pom.xml test

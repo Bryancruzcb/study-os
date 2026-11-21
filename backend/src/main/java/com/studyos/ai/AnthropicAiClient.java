@@ -11,6 +11,7 @@ import com.anthropic.models.messages.Message;
 import com.anthropic.models.messages.MessageCreateParams;
 import com.anthropic.models.messages.RawMessageStreamEvent;
 import com.anthropic.models.messages.StopReason;
+import com.anthropic.models.messages.StructuredMessage;
 import com.anthropic.models.messages.StructuredMessageCreateParams;
 import com.anthropic.models.messages.TextBlockParam;
 import com.studyos.config.AppModelProps;
@@ -25,6 +26,10 @@ public class AnthropicAiClient implements AiClient {
     // shares the budget with thinking. The model's full output allowance is only safe streamed:
     // a single response that long would run into the HTTP timeout. Only generated tokens are billed.
     private static final long EXTRACT_MAX_TOKENS = 128_000L;
+    // A title is a few words, but the model thinks first by default and that thinking counts
+    // toward this cap. A cut-off title is retried, and paid for, on every start, so the cap
+    // matches grading's; only generated tokens are billed.
+    private static final long TITLE_MAX_TOKENS = 16_000L;
 
     private final AnthropicClient client;
     private final AppModelProps models;
@@ -94,15 +99,22 @@ public class AnthropicAiClient implements AiClient {
     }
 
     // A response cut off at the output limit is half a JSON document, and a refusal carries none;
-    // either would otherwise reach the FAILED material as an unreadable parse error.
+    // either would otherwise reach the FAILED material as an unreadable parse error. Both are
+    // AiAnswerException: the call went through, so they are not a sign the API is down.
     private static void requireFinished(Message message) {
+        requireFinished(message,
+            "this lecture's questions and explanations ran past the output limit; "
+                + "split the PDF into smaller decks and upload them one at a time",
+            "Claude declined to extract questions from this lecture");
+    }
+
+    private static void requireFinished(Message message, String cutOff, String refused) {
         StopReason reason = message.stopReason().orElse(null);
         if (StopReason.MAX_TOKENS.equals(reason)) {
-            throw new AiException("this lecture's questions and explanations ran past the output limit; "
-                + "split the PDF into smaller decks and upload them one at a time");
+            throw new AiAnswerException(cutOff);
         }
         if (StopReason.REFUSAL.equals(reason)) {
-            throw new AiException("Claude declined to extract questions from this lecture");
+            throw new AiAnswerException(refused);
         }
     }
 
@@ -204,6 +216,45 @@ public class AnthropicAiClient implements AiClient {
             throw e;
         } catch (Exception e) {
             throw new AiException("grading failed: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public TitlePayload nameLecture(String courseName, List<ConceptFocus> concepts) {
+        // The filename is left out on purpose: it is what the title replaces, and the model
+        // would copy its week and lecture numbers into the name.
+        String conceptLines = concepts.stream()
+            .map(c -> "- %s: %s".formatted(c.name(), c.summary() == null ? "" : c.summary()))
+            .collect(java.util.stream.Collectors.joining("\n"));
+        String prompt = """
+            A lecture in the course "%s" covers these concepts, in the order the slides teach them:
+
+            %s
+
+            Give the lecture a title: its subject in 2 to 6 words, as a student would name it, for
+            example "Albedo and blackbody radiation". Never use the file name, course code, week,
+            lecture number or term.
+            """.formatted(courseName, conceptLines);
+        try {
+            StructuredMessageCreateParams<TitlePayload> params = MessageCreateParams.builder()
+                .model(models.grading())
+                .maxTokens(TITLE_MAX_TOKENS)
+                .outputConfig(TitlePayload.class)
+                .addUserMessage(prompt)
+                .build();
+            StructuredMessage<TitlePayload> response = client.messages().create(params);
+            requireFinished(response.rawMessage(),
+                "the lecture title ran past the output limit",
+                "Claude declined to name this lecture");
+            return response.content().stream()
+                .flatMap(cb -> cb.text().stream())
+                .findFirst()
+                .map(t -> t.text())
+                .orElseThrow(() -> new AiAnswerException("empty title response"));
+        } catch (AiException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new AiException("naming the lecture failed: " + e.getMessage(), e);
         }
     }
 }

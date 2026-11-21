@@ -6,9 +6,14 @@ public class FakeAiClient implements AiClient {
     public IngestPayload nextExtract;
     public GeneratePayload nextGenerate;
     public GradePayload nextGrade;
+    public TitlePayload nextTitle;
     public RuntimeException nextError;
     public int extractCalls = 0;
     public int generateCalls = 0;
+    public int nameCalls = 0;
+    /* what the last naming call was handed, to check the course and the concepts' order */
+    public String lastNameCourse;
+    public List<ConceptFocus> lastNameConcepts;
     /* what the last extraction was handed, to check that a converted upload arrives as a PDF */
     public byte[] lastExtractPdf;
 
@@ -32,6 +37,15 @@ public class FakeAiClient implements AiClient {
     public GradePayload grade(String q, String m, String r, String a) {
         if (nextError != null) throw nextError;
         return nextGrade;
+    }
+
+    @Override
+    public TitlePayload nameLecture(String courseName, List<ConceptFocus> concepts) {
+        nameCalls++;
+        lastNameCourse = courseName;
+        lastNameConcepts = concepts;
+        if (nextError != null) throw nextError;
+        return nextTitle;
     }
 
     public static IngestPayload samplePayload() {
