@@ -101,6 +101,9 @@ that used to be created with `ddl-auto=update`.
 - A new empty database (local compose, a fresh Neon project) runs V1 and is done.
 - The existing demo database already has those tables. Flyway sees a non-empty schema
   with no history table, baselines it at version 1, and leaves the rows alone.
+- What Hibernate built there differs from V1 in a few places, so V4 and V5 match it to
+  V1. The stored lecture PDFs move out of Postgres large objects into the `material_pdf`
+  row, and Hibernate's enum CHECK constraints go. A database V1 built is left as it is.
 - Later schema changes are new `V2__...sql` files. Do not edit V1.
 
 ### Weekly dump

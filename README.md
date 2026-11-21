@@ -223,7 +223,7 @@ Postgres the backend expects: database, user and password all `studyos`, on port
 local Postgres set up the same way works too. Flyway owns the schema, and
 `spring.jpa.hibernate.ddl-auto` is `none`. On an empty database Flyway applies the scripts
 in `backend/src/main/resources/db/migration`. A database that already has tables is
-baselined at version 1 and left as it is.
+baselined at version 1, and V4 and V5 then match what Hibernate built there to V1.
 
 The API key is read from the environment at run time and is never stored in the repo.
 Everything else is in `backend/src/main/resources/application.yml`: the two models under
@@ -244,9 +244,9 @@ Claude call each, in the background. Set `TITLE_BACKFILL=false` to skip it.
 262 backend tests and 332 frontend tests. Neither suite calls the Claude API or needs a
 database, so no key is needed to run them.
 
-Two suites are deliberately not in that number. `PersistenceTest` (16 tests) and
-`AccountsIsolationTest` (4 tests) run against a real Postgres, because some things cannot
-be checked without one:
+Three suites are deliberately not in that number. `PersistenceTest` (17 tests),
+`AccountsIsolationTest` (4 tests) and `SchemaDriftMigrationTest` (4 tests) run against a
+real Postgres, because some things cannot be checked without one:
 
 - `Attempt.createdAt` is non-null.
 - The concept and question lookups really are ordered. The latest-attempt override guard
@@ -257,13 +257,16 @@ be checked without one:
 - The quiz reads one course's live questions in lecture order, into columns wide enough
   for a full explanation.
 - One account never sees another's courses, lists or report.
+- A lecture PDF reads back byte for byte.
+- The migrations match a database Hibernate built to V1, including one baselined without
+  the PDF table, and leave a database V1 built as it is.
 
-Both are tagged `jpa` and excluded by default, so run them with a database up:
+All three are tagged `jpa` and excluded by default, so run them with a database up:
 
     mvn -f backend/pom.xml test -Dtest.excludedGroups=none -Dgroups=jpa
 
-They use the database in `application.yml` unless `SPRING_DATASOURCE_URL` names another,
-and every test rolls back, so they leave no rows behind.
+They use the database in `application.yml` unless `SPRING_DATASOURCE_URL` names another.
+Every test rolls back or drops its own scratch schema, so they leave no rows behind.
 
 GitHub Actions runs four jobs on pushes to the main branches and on pull requests: the
 hermetic backend suite, the JPA suite against a Postgres service container, the frontend
