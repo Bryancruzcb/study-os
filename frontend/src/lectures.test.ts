@@ -1,5 +1,6 @@
 import {
-  isGenericName, lectureIcon, lectureLabel, lectureName, lectureNames, lectureTint, lectureTitle, TINTS,
+  conceptLectureNames, isGenericName, lectureIcon, lectureLabel, lectureName, lectureNames, lectureOf, lectureTint,
+  lectureTitle, listedLectureNames, TINTS,
 } from './lectures'
 
 test('a lecture with a stored title goes by that title, whatever its file is called', () => {
@@ -102,4 +103,36 @@ test('a lecture keeps one tint, and every tint is one of the six', () => {
   const tints = new Set(Array.from({ length: 60 }, (_, i) => lectureTint(`Lecture ${i}.pdf`)))
   expect([...tints].every(t => t >= 1 && t <= TINTS)).toBe(true)
   expect(tints.size).toBe(TINTS)
+})
+
+test('a course\'s concepts name each lecture by its title, or by its first two topics in extraction order', () => {
+  const names = conceptLectureNames([
+    { lecture: 'Lecture 2 Fall 2026.pptx', lectureTitle: null, name: 'Air pressure' },
+    { lecture: 'Lecture 2 Fall 2026.pptx', lectureTitle: null, name: 'Wind' },
+    { lecture: 'Lecture 2 Fall 2026.pptx', lectureTitle: null, name: 'Fronts' },
+    { lecture: 'Lecture 5.pdf', lectureTitle: 'Clouds and precipitation', name: 'Cumulus' },
+    { lecture: null, name: 'Loose concept' },
+  ], 'METR 112')
+  expect([...names]).toEqual([
+    ['Lecture 2 Fall 2026.pptx', 'Air pressure and Wind'],
+    ['Lecture 5.pdf', 'Clouds and precipitation'],
+  ])
+})
+
+test('the course\'s lecture list names each lecture the way its concepts do', () => {
+  const names = listedLectureNames([
+    { filename: 'Lecture 2 Fall 2026.pptx', lectureTitle: null, topics: ['Air pressure', 'Wind', 'Fronts'] },
+    { filename: 'METR112_Radiation.pdf', lectureTitle: null, topics: ['Albedo'] },
+  ], 'METR 112')
+  expect(names.get('Lecture 2 Fall 2026.pptx')).toBe('Air pressure and Wind')
+  expect(names.get('METR112_Radiation.pdf')).toBe('Radiation')
+})
+
+test('a row\'s lecture goes by the page\'s name for it, else its own title or cleaned file, never the raw file', () => {
+  const names = new Map([['Lecture 2 Fall 2026.pptx', 'Air pressure and Wind']])
+  expect(lectureOf({ lecture: 'Lecture 2 Fall 2026.pptx' }, names, 'METR 112')).toBe('Air pressure and Wind')
+  // a lecture the page has not named yet, as while the list loads
+  expect(lectureOf({ lecture: 'Lecture 7.pptx', lectureTitle: 'Thunderstorms' }, names, 'METR 112')).toBe('Thunderstorms')
+  expect(lectureOf({ lecture: 'Lecture 7.pptx', lectureTitle: null }, names, 'METR 112')).toBe('Lecture 7')
+  expect(lectureOf({ lecture: null }, names, 'METR 112')).toBeNull()
 })

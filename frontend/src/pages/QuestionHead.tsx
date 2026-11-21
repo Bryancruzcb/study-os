@@ -5,11 +5,13 @@ import { citation } from '../source'
    and its kind, then the prompt, which takes the caret when a new question arrives. The line
    is the quiz's, so a question reads the same in both, and it costs one line where three
    chips cost a phone's first screen. */
-export default function QuestionHead({ question, landing }: {
+export default function QuestionHead({ question, lecture, landing }: {
   question: StudyQuestion
+  /* the question's lecture by its name, not its file */
+  lecture: string | null
   landing: (el: HTMLElement | null) => void
 }) {
-  const source = citation(question.lecture, question.sourcePages)
+  const source = citation(lecture, question.sourcePages)
   return (
     <>
       <p className="quiz-meta">

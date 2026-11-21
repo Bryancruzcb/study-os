@@ -22,8 +22,10 @@ export function Verdict({ correct, band }: { correct: boolean; band?: Ref<HTMLDi
 /* An answered multiple-choice question: the verdict first, where the caret lands, then every
    option marked, each with why the slides make it right or wrong, then the explanation. The
    marks say which was picked, so the verdict needs no "you picked" line of its own. */
-export function McReview({ question, picked, correct, review, band }: {
+export function McReview({ question, lecture, picked, correct, review, band }: {
   question: StudyQuestion
+  /* the question's lecture by its name, for the source line under why */
+  lecture: string | null
   picked: number | null
   correct: boolean
   review: QuestionReview
@@ -50,15 +52,20 @@ export function McReview({ question, picked, correct, review, band }: {
           )
         })}
       </ol>
-      <Why question={question} review={review} />
+      <Why question={question} lecture={lecture} review={review} />
     </>
   )
 }
 
 /* why the answer is what it is, from the slides: the explanation, a diagram where one helps, and
    the lecture and slides to check it against, with the slide itself a click away */
-export function Why({ question, review }: { question: StudyQuestion; review: QuestionReview }) {
-  const source = citation(question.lecture, question.sourcePages)
+export function Why({ question, lecture, review }: {
+  question: StudyQuestion
+  /* the question's lecture by its name, not its file */
+  lecture: string | null
+  review: QuestionReview
+}) {
+  const source = citation(lecture, question.sourcePages)
   const first = firstSlide(question.sourcePages)
   const href = question.lectureId === null ? null : slideHref(question.lectureId, question.sourcePages)
   return (

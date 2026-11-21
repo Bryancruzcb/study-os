@@ -72,6 +72,15 @@ test('lectures come back weakest first', () => {
   ])
 })
 
+test('questions with no lecture are scored together, as no lecture rather than a made-up file', () => {
+  const loose = { ...bank[0], id: 99, lecture: null }
+  const withLoose: QuizRun = { ...run, answers: { ...run.answers, 99: { picked: 0, text: '', correct: false } } }
+  expect(byLecture(withLoose, [bank[0], loose])).toEqual([
+    { lecture: null, right: 0, answered: 1 },
+    { lecture: 'L1.pdf', right: 1, answered: 1 },
+  ])
+})
+
 describe('a leftover local run', () => {
   beforeEach(() => localStorage.clear())
 

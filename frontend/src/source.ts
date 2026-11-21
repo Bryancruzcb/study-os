@@ -1,5 +1,6 @@
 /* Where a concept or a question comes from, cited the same way on the study page, in the
-   bank and on the dashboard: the lecture file it was drawn from, then its slides. Pages are
+   bank and on the dashboard: the lecture it was drawn from, by the name the page gives it
+   (lectureOf), then its slides. Pages are
    stored as the PDF's page numbers joined with commas, and a lecture PDF has one slide to a
    page. Three or more pages in a row read as a range: "slides 20–24, 26, 27". */
 export function slides(pages: string): string {

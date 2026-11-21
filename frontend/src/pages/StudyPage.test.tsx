@@ -16,6 +16,7 @@ vi.mock('../api', () => ({
     override: vi.fn(),
     selfGrade: vi.fn(),
     review: vi.fn(),
+    lectures: vi.fn(),
   },
 }))
 
@@ -40,6 +41,10 @@ beforeEach(() => {
   })
   vi.mocked(api.answer).mockResolvedValue({ id: 1, verdict: 'CORRECT', score: 1, feedback: null, answerKey: '3' })
   vi.mocked(api.review).mockImplementation(async id => reviews[id])
+  // the file is only numbered and has no title, so the lecture goes by its first two topics
+  vi.mocked(api.lectures).mockResolvedValue([
+    { id: 4, filename: 'Lecture 3.pdf', lectureTitle: null, concepts: 2, topics: ['TCP handshake', 'Connection setup'] },
+  ])
 })
 
 const shortAnswer: StudyQuestion = {
@@ -68,7 +73,8 @@ test('shows the question under one meta line with its concept, lecture and slide
   await renderWithQuestion()
   expect(meta()).toHaveTextContent('TCP handshake')
   expect(meta()).toHaveTextContent('Multiple choice')
-  expect(within(meta()).getByText('Lecture 3.pdf · slide 3')).toBeInTheDocument()
+  // the lecture by the name the dashboard and the bank give it, never its file
+  expect(await within(meta()).findByText('TCP handshake and Connection setup · slide 3')).toBeInTheDocument()
   // the meta line comes before the prompt it describes
   expect(meta().compareDocumentPosition(screen.getByText('Steps in the TCP handshake?')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   expect(document.querySelector('.chip')).toBeNull()
@@ -320,6 +326,13 @@ test('will not send a blank or whitespace-only short answer to the grader', asyn
   await waitFor(() => expect(screen.getByText(/Correct/)).toBeInTheDocument())
   // the padding is gated on the trim, so it is not part of what gets billed and stored
   expect(api.answer).toHaveBeenCalledWith({ questionId: 10, answerText: 'SYN then SYN-ACK' })
+})
+
+test('without the lecture list the citation still names the lecture, never its file', async () => {
+  vi.mocked(api.lectures).mockRejectedValueOnce(new Error(SERVER_PROBLEM))
+  await renderWithQuestion()
+  expect(within(meta()).getByText('Lecture 3 · slide 3')).toBeInTheDocument()
+  expect(screen.queryByText(/\.pdf/)).not.toBeInTheDocument()
 })
 
 test('shows no citation for a question with no lecture and no source pages', async () => {

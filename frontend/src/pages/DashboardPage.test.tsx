@@ -87,7 +87,7 @@ test('the concepts to work on lead the page, weakest first, each with its lectur
   const links = within(focus).getAllByRole('link')
   expect(links.map(a => a.textContent)).toEqual(['Congestion', 'Routing'])
   expect(links[1]).toHaveAttribute('href', '/courses/1/bank/7')
-  expect(within(focus).getByText('Lecture 4.pdf · slide 12')).toBeInTheDocument()
+  expect(within(focus).getByText('Routing and Congestion · slide 12')).toBeInTheDocument()
   expect(within(focus).getByText('0 of 1 right')).toBeInTheDocument()
   // right last time, or never tried, is not something to work on
   expect(within(focus).queryByText('TCP')).not.toBeInTheDocument()

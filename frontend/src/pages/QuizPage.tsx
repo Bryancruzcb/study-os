@@ -4,14 +4,14 @@ import { api, type Exam, type QuestionReview, type QuizQuestion } from '../api'
 import { messageOf } from '../errors'
 import { dayLabel } from '../dates'
 import Icon from '../icons'
-import { lectureNames } from '../lectures'
+import { lectureNames, lectureOf } from '../lectures'
 import { letter } from '../letter'
 import { leadExam, when } from '../plan'
 import { plural } from '../plural'
 import { asked, buildQuiz, byLecture, clearLocalRun, shuffle, takeLocalRun, tally, topicRows, type QuizAnswer, type QuizRun, type TopicRow } from '../quiz'
 import type { CourseContext } from '../shell/CourseLayout'
 import Loading, { SkBlock, SkLine } from '../shell/Loading'
-import { citation, slideHref, slides } from '../source'
+import { citation, slideHref } from '../source'
 import { McReview, Why } from './AnswerReview'
 
 // the shorter quizzes on offer, each shown only when the chosen lectures hold more questions than it asks
@@ -22,6 +22,9 @@ interface Lecture {
   name: string
   questions: number
 }
+
+/* a row's lecture by the name the quiz gives it, from the row's file; null when it has none */
+type LectureFor = (row: { lecture: string | null; lectureTitle?: string | null }) => string | null
 
 /* the course's lectures as the quiz sees them, from its questions, in lecture order */
 function lecturesOf(questions: readonly QuizQuestion[], courseName: string): Lecture[] {
@@ -113,9 +116,14 @@ export default function QuizPage() {
   })
 
   const byId = useMemo(() => new Map((questions ?? []).map(q => [q.id, q])), [questions])
+  // every lecture by its name, from every question in the course, so the setup, the side panel,
+  // each question's source and the results all call a lecture the same thing
+  const names = useMemo(() => lectureNames(questions ?? [], course.name), [questions, course.name])
+  const lectureFor = (row: { lecture: string | null; lectureTitle?: string | null }) => lectureOf(row, names, course.name)
   const quiz = run && questions ? asked(run, byId) : []
   const current = run ? quiz.find(q => !run.answers[q.id]) ?? null : null
   const onScreen = showing !== null ? byId.get(showing) ?? null : current
+  const source = onScreen && citation(lectureFor(onScreen), onScreen.sourcePages)
 
   async function keep(next: QuizRun | null) {
     setRun(next)
@@ -309,7 +317,7 @@ export default function QuizPage() {
 
       {running && run && onScreen && (
         <div className="quiz-desk">
-          <Rail courseName={course.name} questions={questions ?? []} exam={leadExam(exams)} rows={topicRows(run, quiz, onScreen.id)}
+          <Rail lectureFor={lectureFor} exam={leadExam(exams)} rows={topicRows(run, quiz, onScreen.id)}
             right={right} missed={count - right} left={quiz.length - count} canOpenSlide={slide !== null} />
 
           <div className="quiz-main">
@@ -325,13 +333,13 @@ export default function QuizPage() {
             <article className="quiz-question">
               <p className="quiz-meta">
                 {onScreen.topic && <span>{onScreen.topic}</span>}
-                {citation(onScreen.lecture, onScreen.sourcePages) && <span>{citation(onScreen.lecture, onScreen.sourcePages)}</span>}
+                {source && <span>{source}</span>}
                 <span>{onScreen.type === 'MC' ? 'Multiple choice' : 'Short answer'}</span>
               </p>
               <p className="prompt" tabIndex={-1} ref={takeLanding}>{onScreen.prompt}</p>
               {onScreen.type === 'MC' ? (
                 mcAnswered ? (
-                  <McReview question={onScreen} picked={run.answers[onScreen.id].picked} correct={run.answers[onScreen.id].correct}
+                  <McReview question={onScreen} lecture={lectureFor(onScreen)} picked={run.answers[onScreen.id].picked} correct={run.answers[onScreen.id].correct}
                     review={reviews[onScreen.id]} band={band} />
                 ) : (
                   <div className="opts">
@@ -353,7 +361,7 @@ export default function QuizPage() {
                         <p className="quiz-rubric">{reviews[onScreen.id].rubric}</p>
                       </div>
                     )}
-                    <Why question={onScreen} review={reviews[onScreen.id]} />
+                    <Why question={onScreen} lecture={lectureFor(onScreen)} review={reviews[onScreen.id]} />
                     <div className="actions">
                       <button className="btn btn--secondary" onClick={() => mark(onScreen, true)}>I got it right</button>
                       <button className="btn btn--secondary" onClick={() => mark(onScreen, false)}>I got it wrong</button>
@@ -382,7 +390,7 @@ export default function QuizPage() {
       )}
 
       {results && run && (
-        <Summary run={run} quiz={quiz} reviews={reviews} loadReview={loadReview} landing={takeLanding}
+        <Summary run={run} quiz={quiz} lectureFor={lectureFor} reviews={reviews} loadReview={loadReview} landing={takeLanding}
           onRetake={ids => start(shuffle(ids))} onNew={newQuiz} />
       )}
     </div>
@@ -391,10 +399,9 @@ export default function QuizPage() {
 
 /* The quiz at a glance, beside the question: the nearest exam, the score so far, and every topic
    the quiz covers with its lecture, its slides and how it has gone. */
-function Rail({ courseName, questions, exam, rows, right, missed, left, canOpenSlide }: {
-  courseName: string
-  // every question in the course, so a lecture is named here as it is on the quiz's setup
-  questions: readonly QuizQuestion[]
+function Rail({ lectureFor, exam, rows, right, missed, left, canOpenSlide }: {
+  // a lecture by the name the quiz gives it everywhere
+  lectureFor: LectureFor
   exam: Exam | null
   rows: TopicRow[]
   right: number
@@ -403,7 +410,6 @@ function Rail({ courseName, questions, exam, rows, right, missed, left, canOpenS
   canOpenSlide: boolean
 }) {
   const total = right + missed + left
-  const names = useMemo(() => lectureNames(questions, courseName), [questions, courseName])
   return (
     <aside className="quiz-rail" aria-label="This quiz">
       {exam && (
@@ -426,8 +432,7 @@ function Rail({ courseName, questions, exam, rows, right, missed, left, canOpenS
       <ol className="quiz-topics" aria-label="Topics in this quiz">
         {rows.map(row => {
           const state = row.answered === 0 ? 'todo' : row.right < row.answered ? 'missed' : 'right'
-          const where = [row.lecture ? names.get(row.lecture) ?? null : null, row.pages ? slides(row.pages) : null]
-            .filter(Boolean).join(' · ')
+          const where = citation(lectureFor(row), row.pages)
           return (
             <li key={row.conceptId} className={`quiz-topic is-${state}${row.current ? ' is-current' : ''}`}
               aria-current={row.current ? 'step' : undefined}>
@@ -552,9 +557,10 @@ function conceptIdsFor(questions: readonly QuizQuestion[], picked: Set<number>):
 
 /* How the quiz went: the score, each lecture weakest first, and the missed questions to look back
    on, with a way to retake just those. */
-function Summary({ run, quiz, reviews, loadReview, landing, onRetake, onNew }: {
+function Summary({ run, quiz, lectureFor, reviews, loadReview, landing, onRetake, onNew }: {
   run: QuizRun
   quiz: QuizQuestion[]
+  lectureFor: LectureFor
   reviews: Record<number, QuestionReview>
   loadReview: (id: number) => void
   landing: (el: HTMLElement | null) => void
@@ -582,8 +588,8 @@ function Summary({ run, quiz, reviews, loadReview, landing, onRetake, onNew }: {
           <h3>By lecture, weakest first</h3>
           <ul className="quiz-scores">
             {lectures.map(score => (
-              <li key={score.lecture}>
-                <span className="quiz-score-name">{score.lecture}</span>
+              <li key={score.lecture ?? ''}>
+                <span className="quiz-score-name">{lectureFor(score) ?? 'Unknown lecture'}</span>
                 <span className="count">{score.right} / {score.answered}</span>
                 <div className="bar" aria-hidden="true">
                   <span style={{ width: `${Math.round((score.right / score.answered) * 100)}%` }} />
@@ -598,7 +604,8 @@ function Summary({ run, quiz, reviews, loadReview, landing, onRetake, onNew }: {
           <h3>Missed questions</h3>
           <ul className="quiz-missed">
             {missed.map(q => (
-              <Missed key={q.id} question={q} answer={run.answers[q.id]} review={reviews[q.id]} loadReview={loadReview} />
+              <Missed key={q.id} question={q} lecture={lectureFor(q)} answer={run.answers[q.id]} review={reviews[q.id]}
+                loadReview={loadReview} />
             ))}
           </ul>
         </>
@@ -616,8 +623,9 @@ function Summary({ run, quiz, reviews, loadReview, landing, onRetake, onNew }: {
 }
 
 /* a missed question, closed until opened; its explanation loads the first time it opens */
-function Missed({ question, answer, review, loadReview }: {
+function Missed({ question, lecture, answer, review, loadReview }: {
   question: QuizQuestion
+  lecture: string | null
   answer: QuizAnswer
   review: QuestionReview | undefined
   loadReview: (id: number) => void
@@ -641,7 +649,7 @@ function Missed({ question, answer, review, loadReview }: {
           {review ? (
             <>
               <p className="answer-key"><span>{question.type === 'MC' ? 'Right answer' : 'Model answer'}</span>{keyText(question, review)}</p>
-              <Why question={question} review={review} />
+              <Why question={question} lecture={lecture} review={review} />
             </>
           ) : (
             open && <p className="empty">Loading why…</p>

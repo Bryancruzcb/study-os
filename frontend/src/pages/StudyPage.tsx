@@ -4,6 +4,7 @@ import { Link, useOutletContext } from 'react-router-dom'
 import { api, type AnsweredAttempt, type Attempt, type QuestionReview, type StudyQuestion } from '../api'
 import { messageOf } from '../errors'
 import Icon from '../icons'
+import { lectureOf, listedLectureNames } from '../lectures'
 import { letter } from '../letter'
 import type { CourseContext } from '../shell/CourseLayout'
 import Loading, { SkBlock, SkLine } from '../shell/Loading'
@@ -66,6 +67,18 @@ export default function StudyPage() {
   const [reviews, setReviews] = useState<Readonly<Record<number, QuestionReview>>>({})
   // a ref, not the state: two clicks in one tick both read the pre-render value of `submitting`
   const inFlight = useRef(false)
+  // the course's lectures by name, so a question cites its lecture as the dashboard and the bank
+  // name it. Until they load, or if they fail to, a question names its lecture from its own title
+  // or its cleaned filename, which is good enough not to stop the visit over
+  const [names, setNames] = useState<ReadonlyMap<string, string>>(new Map())
+  useEffect(() => {
+    let current = true
+    api.lectures(course.id)
+      .then(lectures => { if (current) setNames(listedLectureNames(lectures, course.name)) })
+      .catch(() => {})
+    return () => { current = false }
+  }, [course.id, course.name])
+  const lectureFor = (q: StudyQuestion) => lectureOf(q, names, course.name)
   // what was due when the visit started, so the bar has a whole to fill against
   const [startOfVisit] = useState(course.dueToday)
   // grading unmounts the control the caret sat on; the verdict line takes it, so the next Tab
@@ -250,14 +263,14 @@ export default function StudyPage() {
       )}
       {past && (
         <article className="qcard-big" key={past.index}>
-          <QuestionHead question={past.card.question} landing={takeLanding} />
+          <QuestionHead question={past.card.question} lecture={lectureFor(past.card.question)} landing={takeLanding} />
           {stillOpen(visit, past.index) ? (
-            <Outcome card={past.card} review={reviews[past.card.question.id]} band={band} actions={
+            <Outcome card={past.card} lecture={lectureFor(past.card.question)} review={reviews[past.card.question.id]} band={band} actions={
               <Changes attempt={past.card.attempt} submitting={submitting}
                 save={call => saveAttempt(call, past.index)} />
             } />
           ) : (
-            <Outcome card={past.card} review={reviews[past.card.question.id]} band={band} final actions={
+            <Outcome card={past.card} lecture={lectureFor(past.card.question)} review={reviews[past.card.question.id]} band={band} final actions={
               <p className="verdict-note">You answered this concept again later in the visit, so this verdict is final.</p>
             } />
           )}
@@ -282,7 +295,7 @@ export default function StudyPage() {
       )}
       {back === null && live && (
         <article className="qcard-big">
-          <QuestionHead question={live.question} landing={takeLanding} />
+          <QuestionHead question={live.question} lecture={lectureFor(live.question)} landing={takeLanding} />
           {live.question.type === 'MC' && !attempt && (
             <div className="opts">
               {live.question.options.map((o, i) => (
@@ -301,7 +314,7 @@ export default function StudyPage() {
             </div>
           )}
           {attempt && (
-            <Outcome card={{ ...live, attempt }} review={reviews[live.question.id]} band={band} actions={
+            <Outcome card={{ ...live, attempt }} lecture={lectureFor(live.question)} review={reviews[live.question.id]} band={band} actions={
               <Changes attempt={attempt} submitting={submitting} save={call => saveAttempt(call)}>
                 <button className="btn" disabled={submitting} onClick={next}>Next question</button>
               </Changes>
@@ -319,8 +332,10 @@ export default function StudyPage() {
    answer needs, then why. Without the review, which failed to load, the key the answer came
    back with stands in for the marks. The controls that can still change the verdict come last;
    a final verdict, whose concept was answered again later in the visit, carries a note there. */
-function Outcome({ card, review, band, actions, final = false }: {
+function Outcome({ card, lecture, review, band, actions, final = false }: {
   card: AnsweredCard
+  /* the question's lecture by its name, for the source line under why */
+  lecture: string | null
   review: QuestionReview | undefined
   band: Ref<HTMLDivElement>
   actions: ReactNode
@@ -331,7 +346,7 @@ function Outcome({ card, review, band, actions, final = false }: {
   if (mc && review && attempt.verdict !== 'PENDING') {
     return (
       <>
-        <McReview question={question} picked={picked} correct={attempt.verdict === 'CORRECT'} review={review} band={band} />
+        <McReview question={question} lecture={lecture} picked={picked} correct={attempt.verdict === 'CORRECT'} review={review} band={band} />
         {actions}
       </>
     )
@@ -357,7 +372,7 @@ function Outcome({ card, review, band, actions, final = false }: {
           <p className="quiz-rubric">{review.rubric}</p>
         </div>
       )}
-      {review && <Why question={question} review={review} />}
+      {review && <Why question={question} lecture={lecture} review={review} />}
       {actions}
     </>
   )

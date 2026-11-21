@@ -3,6 +3,7 @@ import { useLocation, useOutletContext, useParams } from 'react-router-dom'
 import { api, type ConceptWithQuestions, type Question } from '../api'
 import { messageOf } from '../errors'
 import Icon from '../icons'
+import { conceptLectureNames, lectureOf } from '../lectures'
 import { letter } from '../letter'
 import { plural } from '../plural'
 import type { BankContext } from './BankRoute'
@@ -61,17 +62,20 @@ export function ConceptSkeleton() {
 
 export default function BankConceptPage() {
   const { conceptId } = useParams()
-  const { bank, reload, refresh, setError } = useOutletContext<BankContext>()
+  const { course, bank, reload, refresh, setError } = useOutletContext<BankContext>()
   if (!bank) return <ConceptSkeleton />
   const concept = bank.find(c => c.id === Number(conceptId))
   // the list is right there, so a bad id needs no way back, only the word
   if (!concept) return <p className="alert" role="alert">No concept has id {conceptId}.</p>
+  // the lecture by the name the bank's lecture list gives it, from all of that lecture's concepts
+  const lecture = lectureOf(concept, conceptLectureNames(bank, course.name), course.name)
   // keyed, so the arming and the focus bookkeeping start over when the concept changes
-  return <ConceptCards key={concept.id} concept={concept} reload={reload} refresh={refresh} setError={setError} />
+  return <ConceptCards key={concept.id} concept={concept} lecture={lecture} reload={reload} refresh={refresh} setError={setError} />
 }
 
-function ConceptCards({ concept, reload, refresh, setError }: {
+function ConceptCards({ concept, lecture, reload, refresh, setError }: {
   concept: ConceptWithQuestions
+  lecture: string | null
   reload: () => Promise<void>
   refresh: () => Promise<void>
   setError: (e: string | null) => void
@@ -157,7 +161,7 @@ function ConceptCards({ concept, reload, refresh, setError }: {
 
   const active = concept.questions.filter(q => q.status === 'ACTIVE').length
   const retired = concept.questions.length - active
-  const source = citation(concept.lecture, concept.sourcePages)
+  const source = citation(lecture, concept.sourcePages)
 
   return (
     <div className="concept">

@@ -18,6 +18,7 @@ vi.mock('./api', () => ({
     ]),
     // the bare-course-path test renders the study tab, whose queue call must resolve, not throw
     next: vi.fn().mockResolvedValue(null),
+    lectures: vi.fn().mockResolvedValue([]),
     quiz: vi.fn().mockResolvedValue([]),
     quizProgress: vi.fn().mockResolvedValue(null),
     saveQuizProgress: vi.fn().mockImplementation(async (_id, run) => run),

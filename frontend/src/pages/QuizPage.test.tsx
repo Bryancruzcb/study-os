@@ -83,7 +83,7 @@ test('the setup covers every lecture and starts a quiz of every question in the 
   expect(await screen.findByText(mc.prompt)).toBeInTheDocument()
   expect(screen.getByText('Question 1 of 3')).toBeInTheDocument()
   expect(meta()).toHaveTextContent('TCP handshake')
-  expect(within(meta()).getByText('Lecture 3.pdf · slide 3')).toBeInTheDocument()
+  expect(within(meta()).getByText('TCP connections · slide 3')).toBeInTheDocument()
   expect(meta()).toHaveTextContent('Multiple choice')
   expect(answered()).toHaveAttribute('aria-valuenow', '0')
   expect(api.quiz).toHaveBeenCalledWith(1)
@@ -181,7 +181,7 @@ test('a short answer shows the model answer, what it needs and why, and the stud
   expect(screen.getByText('What a right answer needs').parentElement).toHaveTextContent('names all three segments')
   expect(screen.getByText('Slides 3 and 4 name the three segments in order.')).toBeInTheDocument()
   // the head's chip and the explanation's source line both cite the slides
-  expect(screen.getAllByText('Lecture 3.pdf · slides 3, 4')).toHaveLength(2)
+  expect(screen.getAllByText('TCP connections · slides 3, 4')).toHaveLength(2)
 
   await userEvent.click(screen.getByRole('button', { name: 'I got it wrong' }))
   expect(await screen.findByText(tlb.prompt)).toBeInTheDocument()
@@ -198,15 +198,15 @@ test('the last answer leads to the results: the score, lectures weakest first, a
 
   // nobody has explained this one yet: the key and the slides still show
   expect(await screen.findByText('No explanation has been written for this question yet.')).toBeInTheDocument()
-  expect(screen.getAllByText('Paging.pdf · slide 12')).toHaveLength(2)
+  expect(screen.getAllByText('Paging · slide 12')).toHaveLength(2)
 
   await userEvent.click(screen.getByRole('button', { name: 'See results' }))
   expect(await screen.findByRole('heading', { name: 'Quiz finished' })).toHaveFocus()
   expect(scoreTiles().getByText('2 / 3')).toBeInTheDocument()
   expect(scoreTiles().getByText('67%')).toBeInTheDocument()
   const lectures = document.querySelectorAll('.quiz-scores li')
-  expect(lectures[0]).toHaveTextContent('Lecture 3.pdf1 / 2')
-  expect(lectures[1]).toHaveTextContent('Paging.pdf1 / 1')
+  expect(lectures[0]).toHaveTextContent('TCP connections1 / 2')
+  expect(lectures[1]).toHaveTextContent('Paging1 / 1')
 
   await userEvent.click(screen.getByText(mc.prompt))
   expect(screen.getByText('You picked A: 1')).toBeInTheDocument()

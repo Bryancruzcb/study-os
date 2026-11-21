@@ -104,6 +104,27 @@ export function lectureNames(rows: readonly LectureSource[], courseName: string)
   return new Map([...found].map(([filename, l]) => [filename, lectureName(filename, courseName, l.title, l.topics)]))
 }
 
+/* the same from a course's concepts, each one a topic of its lecture, in the order extraction gave them */
+export function conceptLectureNames(concepts: readonly { lecture: string | null; lectureTitle?: string | null; name: string }[],
+                                    courseName: string): Map<string, string> {
+  return lectureNames(concepts.map(c => ({ lecture: c.lecture, lectureTitle: c.lectureTitle, topic: c.name })), courseName)
+}
+
+/* the same from the course's list of lectures, each with all its topics */
+export function listedLectureNames(lectures: readonly { filename: string; lectureTitle: string | null; topics: readonly string[] }[],
+                                   courseName: string): Map<string, string> {
+  return new Map(lectures.map(l => [l.filename, lectureName(l.filename, courseName, l.lectureTitle, l.topics)]))
+}
+
+/* A row's lecture as the page names it: from the page's names when they hold its file, else from
+   the row alone, by its title or its cleaned filename, so a citation never shows "Lecture 2.pptx".
+   Null when the row has no lecture. */
+export function lectureOf(row: { lecture: string | null; lectureTitle?: string | null },
+                          names: ReadonlyMap<string, string>, courseName: string): string | null {
+  if (!row.lecture) return null
+  return names.get(row.lecture) ?? lectureName(row.lecture, courseName, row.lectureTitle, [])
+}
+
 /* The first keyword the title contains picks the icon; a title that matches none gets the
    open book. Order matters where two could match: "Condition Variables and Semaphores" is
    about waiting, so it is a cone before it is a lock. */

@@ -48,7 +48,7 @@ test('renders the concept with its summary, pages, counts and question cards', a
   at()
   expect(await screen.findByRole('heading', { level: 2, name: 'TCP handshake' })).toBeInTheDocument()
   expect(screen.getByText('SYN/SYN-ACK/ACK')).toBeInTheDocument()
-  expect(screen.getByText('Lecture 3.pdf · slides 3, 4')).toBeInTheDocument()
+  expect(screen.getByText('TCP handshake · slides 3, 4')).toBeInTheDocument()
   expect(screen.getByText('1 question')).toBeInTheDocument()
   expect(screen.getByText('Steps?')).toBeInTheDocument()
   expect(screen.getByText('Multiple choice')).toBeInTheDocument()

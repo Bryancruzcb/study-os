@@ -52,23 +52,25 @@ export function tally(run: QuizRun, questions: readonly QuizQuestion[]): Tally {
 }
 
 export interface LectureScore extends Tally {
-  lecture: string
+  /* the lecture's file, which the page turns into its name; null for questions with no lecture */
+  lecture: string | null
 }
 
 /* how each lecture went, weakest first, so the end of a quiz says what to study next */
 export function byLecture(run: QuizRun, questions: readonly QuizQuestion[]): LectureScore[] {
-  const scores = new Map<string, LectureScore>()
+  const scores = new Map<string | null, LectureScore>()
   for (const q of questions) {
     const answer = run.answers[q.id]
     if (!answer) continue
-    const lecture = q.lecture ?? 'Unknown lecture'
+    const lecture = q.lecture ?? null
     const score = scores.get(lecture) ?? { lecture, right: 0, answered: 0 }
     score.answered++
     if (answer.correct) score.right++
     scores.set(lecture, score)
   }
   return [...scores.values()].sort((a, b) =>
-    a.right / a.answered - b.right / b.answered || b.answered - a.answered || a.lecture.localeCompare(b.lecture))
+    a.right / a.answered - b.right / b.answered || b.answered - a.answered
+      || (a.lecture ?? '').localeCompare(b.lecture ?? ''))
 }
 
 /* one topic in the quiz, as the side panel lists it */

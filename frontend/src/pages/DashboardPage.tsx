@@ -4,7 +4,7 @@ import { api, type ConceptStats, type Dashboard } from '../api'
 import { messageOf } from '../errors'
 import { dayLabel } from '../dates'
 import Icon from '../icons'
-import { lectureIcon, lectureLabel, lectureName, lectureTint } from '../lectures'
+import { conceptLectureNames, lectureIcon, lectureLabel, lectureName, lectureOf, lectureTint } from '../lectures'
 import { plural } from '../plural'
 import {
   byLecture, moreToWorkOn, NO_LECTURE, percent, pickUpHere, standing, weakestFirst, type LectureProgress,
@@ -69,7 +69,9 @@ export default function DashboardPage() {
             </ul>
           )}
         </Exams>
-        {dash && concepts.length > 0 && <FocusCard toWorkOn={toWorkOn} graded={graded} />}
+        {dash && concepts.length > 0 && (
+          <FocusCard toWorkOn={toWorkOn} graded={graded} names={conceptLectureNames(concepts, course.name)} courseName={course.name} />
+        )}
         {!dash && !error && <FocusSkeleton />}
       </div>
       {error && (
@@ -91,7 +93,13 @@ export default function DashboardPage() {
 }
 
 /* the friendly card: the weakest concepts, each a way to its questions in the bank */
-function FocusCard({ toWorkOn, graded }: { toWorkOn: ConceptStats[]; graded: number }) {
+function FocusCard({ toWorkOn, graded, names, courseName }: {
+  toWorkOn: ConceptStats[]
+  graded: number
+  // every lecture by the name the path below gives it, so a concept cites its lecture the same way
+  names: ReadonlyMap<string, string>
+  courseName: string
+}) {
   const more = moreToWorkOn(toWorkOn.slice(FOCUS))
   return (
     <section className="focus-panel" aria-labelledby="focus-title">
@@ -106,7 +114,9 @@ function FocusCard({ toWorkOn, graded }: { toWorkOn: ConceptStats[]; graded: num
         ) : (
           <>
             <ol className="focus-list">
-              {toWorkOn.slice(0, FOCUS).map((c, i) => <FocusItem key={c.conceptId} concept={c} n={i + 1} />)}
+              {toWorkOn.slice(0, FOCUS).map((c, i) => (
+                <FocusItem key={c.conceptId} concept={c} lecture={lectureOf(c, names, courseName)} n={i + 1} />
+              ))}
             </ol>
             {more && <p className="focus-more">{more}</p>}
           </>
@@ -116,8 +126,8 @@ function FocusCard({ toWorkOn, graded }: { toWorkOn: ConceptStats[]; graded: num
   )
 }
 
-function FocusItem({ concept: c, n }: { concept: ConceptStats; n: number }) {
-  const source = citation(c.lecture, c.sourcePages)
+function FocusItem({ concept: c, lecture, n }: { concept: ConceptStats; lecture: string | null; n: number }) {
+  const source = citation(lecture, c.sourcePages)
   return (
     <li className="focus-item">
       <span className="focus-n" aria-hidden="true">{n}</span>
