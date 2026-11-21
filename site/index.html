@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Study OS — an AI grader I can overrule, and count</title>
-<meta name="description" content="Study OS turns a lecture PDF into page-cited questions, grades short answers against a rubric, and counts every time I overrule the grader.">
+<title>Study OS — questions cited to their slides, a grader I can overrule</title>
+<meta name="description" content="Study OS turns a lecture into questions cited to its slides, paces review to exam dates, and grades short answers against a rubric, recording every time I overrule the grader.">
 <link rel="canonical" href="https://bryancruzcb.github.io/study-os/">
 
 <meta property="og:type" content="website">
-<meta property="og:title" content="Study OS — an AI grader I can overrule, and count">
-<meta property="og:description" content="A lecture PDF becomes page-cited questions. Short answers are graded against a rubric. Every time I overrule the grader is recorded, and that rate is the number the app publishes about itself.">
+<meta property="og:title" content="Study OS — questions cited to their slides, a grader I can overrule">
+<meta property="og:description" content="A lecture becomes questions cited to its slides, studied on a schedule paced to exam dates. Short answers are graded against a rubric, and every time I overrule the grader is recorded.">
 <meta property="og:url" content="https://bryancruzcb.github.io/study-os/">
 <meta property="og:image" content="https://bryancruzcb.github.io/study-os/screenshots/courses.jpg">
 <meta name="twitter:card" content="summary_large_image">
@@ -207,6 +207,8 @@
 
   .gallery { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-top: 34px; }
   .gallery .wide { grid-column: 1 / -1; }
+  /* the tall quiz shot takes two rows, so the dashboard and the path stack beside it */
+  .gallery .tall { grid-row: span 2; }
   figure { margin: 0; }
   figcaption { margin-top: 12px; font-size: 14px; color: var(--ink-dim); }
 
@@ -232,6 +234,7 @@
     .figures { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .split { grid-template-columns: minmax(0, 1fr); }
     .gallery { grid-template-columns: minmax(0, 1fr); }
+    .gallery .tall { grid-row: auto; }
     .nav-cta { margin-left: 0; }
   }
 
@@ -253,7 +256,7 @@
       <span class="wordmark">Study OS</span>
       <span class="nav-links">
         <a href="#how">How it works</a>
-        <a href="#evaluation">Evaluation</a>
+        <a href="#screens">Screens</a>
         <a href="#limits">Limits</a>
       </span>
       <span class="nav-cta"><a class="btn" href="https://github.com/Bryancruzcb/study-os">View on GitHub</a></span>
@@ -262,11 +265,11 @@
     <header class="hero">
       <div>
         <p class="eyebrow">Spring Boot &middot; React &middot; Postgres &middot; Claude</p>
-        <h1>I grade my own answers. Then I check the grader.</h1>
-        <p>Study OS turns a lecture PDF into questions cited to their source pages, grades my short answers against a rubric, and records every time I overrule the grader. That rate is the number it publishes about itself.</p>
+        <h1>Every question cites its slide. Every override is recorded.</h1>
+        <p>Study OS turns a lecture (a PDF, a slide deck, notes or a photo of the board) into questions cited to the slides they came from, and paces review to my exam dates. It grades my short answers against a rubric, and when the grader is wrong I overrule it. Every override is recorded, so how often we disagree is a number I can check.</p>
         <div class="hero-actions">
           <a class="btn" href="https://github.com/Bryancruzcb/study-os">View on GitHub</a>
-          <a class="btn btn--ghost" href="#evaluation">Read the evaluation
+          <a class="btn btn--ghost" href="#how">See how it works
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2.5 8h10M9 4.5 12.5 8 9 11.5"/></svg>
           </a>
         </div>
@@ -288,25 +291,25 @@
       <article class="card">
         <p class="step">01</p>
         <h3>Ingest</h3>
-        <p>A lecture PDF goes to Claude as a document block under a structured-output schema. Back come concepts and questions, asked to cite the pages they were drawn from. A file already ingested is recognised by its content hash and never paid for twice. A failed extraction is retried once, then marked failed, so there are no silent partial ingests.</p>
+        <p>Any lecture file becomes a PDF, which goes to Claude Opus 5.5 as a document block under a structured-output schema. Back come concepts, each asked for four to six questions, every one citing the slides it was drawn from, with a note on why each option is right or wrong and a diagram where a picture helps. A file already ingested is recognized by its content hash and never paid for twice. A failed extraction is retried once, then marked failed, so there are no silent partial ingests.</p>
       </article>
       <article class="card">
         <p class="step">02</p>
-        <h3>Study</h3>
-        <p>Concepts are scheduled with SM-2-lite spaced repetition. A correct answer multiplies the interval by the ease and always adds at least a day; a miss resets the interval to one day and drops the ease by 0.2, with a floor of 1.3. Give a course an exam date and the lectures it covers, and each day's new topics are paced to it, with the last stretch before the exam kept for review. When I want every question at once, a quiz shuffles them and shows, after each answer, why each option is right or wrong according to the slides. The dashboard shows what is due and how each concept is actually going.</p>
+        <h3>Practice</h3>
+        <p>One tab with a Study / Quiz switch. Study is SM-2-lite spaced repetition: a correct answer multiplies the interval by the ease and always adds at least a day; a miss resets the interval to one day and drops the ease by 0.2, with a floor of 1.3. Give a course an exam date and the lectures it covers, and each day's new topics are paced to it, with the last stretch before the exam kept for review. Quiz shuffles the questions from the lectures I pick and shows, after each answer, why each option is right or wrong according to the slides, without touching the schedule. The dashboard shows what is due and how each concept is actually going.</p>
       </article>
       <article class="card card--lead">
         <p class="step">03</p>
         <h3>Grade, and overrule</h3>
-        <p>A short answer gets one grader call against that question's rubric. I can overrule the grader on my most recent answer, and every one of those corrections is recorded. The eval page computes agreement from a live query. It loads this account's attempts whose grader verdict is set, leaves out PENDING rows, and reports one minus the share I overrode. If the grader call fails there is no verdict to overrule, so the attempt waits for me to grade it myself rather than blocking the session.</p>
+        <p>A short answer gets one call to Claude Sonnet 5.5 against that question's rubric. I can overrule the grader on my most recent answer, and every override is recorded on the attempt. Agreement is a live query: it loads this account's attempts whose grader verdict is set, leaves out PENDING rows, and takes one minus the share I overrode. If the grader call fails there is no verdict to overrule, so the attempt waits for me to grade it myself rather than blocking the session.</p>
       </article>
     </div>
   </section>
 
   <section id="evaluation">
     <div class="panel">
-      <h2>What it measures about itself</h2>
-      <p class="lede">I hand-label questions on three checks and the app reports the share that pass each one. It reports its own grader the same way.</p>
+      <h2>What it measured about itself</h2>
+      <p class="lede">Until November 2026 the app had an evaluation page. I hand-labeled questions on three checks, and it reported the share that passed each one beside the grader's agreement rate. This was its last reading.</p>
       <ul class="figures" role="list">
         <li class="figure"><b>100%</b><span>Answerable from source</span></li>
         <li class="figure"><b>97%</b><span>Correct answer</span></li>
@@ -316,7 +319,7 @@
           <span>Grader agreement</span>
         </li>
       </ul>
-      <p class="caveat">The three label rates cover 31 questions. The grader agreement covers one graded short answer, so it means &ldquo;no disagreement yet&rdquo; rather than &ldquo;the grader is right&rdquo;. The app reports the sample size beside it; the flag is on this page, and it stays until there is a real sample behind it.</p>
+      <p class="caveat">The three label rates cover 31 questions. The grader agreement covers one graded short answer, so it means &ldquo;no disagreement yet&rdquo; rather than &ldquo;the grader is right&rdquo;, which is why it carries a flag here. The page is gone from the app now. Overrides are still recorded, and the backend still serves the same report at <code>/api/eval/report</code>.</p>
     </div>
   </section>
 
@@ -326,37 +329,37 @@
       <figure class="wide">
         <div class="shot">
           <img src="screenshots/bank.jpg" width="1400" height="950" loading="lazy"
-               alt="The question bank: the course's concept list on the left with the open concept filled dark, and on the right that concept's lecture file and slides above its question cards, each tagged with its type and the slides it came from, with three pill-toggle labels, a save button and a retire link.">
+               alt="The question bank: the course's concept list on the left with fork() Semantics open, and on the right that concept's lecture and slides above its question cards, each tagged with its type and slides, with its options, the right one checked, and a retire link.">
         </div>
-        <figcaption>The bank. The concept list beside the open concept's question cards, each citing the lecture slides it came from, with three pill-toggle labels and a quiet retire link; a retired question is struck through, not deleted.</figcaption>
+        <figcaption>The bank. The concept list beside the open concept's question cards, each citing the lecture slides it came from and showing its options with the right one marked, with a quiet retire link; a retired question is struck through, not deleted.</figcaption>
       </figure>
-      <figure>
+      <figure class="tall">
         <div class="shot">
-          <img src="screenshots/quiz.jpg" width="1400" height="850" loading="lazy"
-               alt="A quiz question on fork() after a wrong pick: four options, the picked one red and the right one green, each with a sentence from the slides on why, then the Incorrect verdict with the explanation and a sequence diagram.">
+          <img src="screenshots/quiz.jpg" width="1400" height="1677" loading="lazy"
+               alt="The Practice tab in Quiz mode: a Study / Quiz switch at the top, a side panel with the midterm 14 days out and the topics in this quiz, and a question on two processes printing at once after a wrong pick: four options, the picked one red and the right one green, each with a note from the slides on why, then the explanation from slide 48 and a diagram of both processes writing to one terminal.">
         </div>
-        <figcaption>A quiz question after a miss. Every option says why the slides make it right or wrong, with the explanation and a diagram where a picture helps. Quiz progress stays in this browser.</figcaption>
+        <figcaption>Practice, in Quiz mode, after a miss. The switch at the top flips between Study and Quiz. Every option says why the slides make it right or wrong, with the explanation and a diagram where a picture helps. Quiz progress is saved on the account.</figcaption>
       </figure>
       <figure>
         <div class="shot">
           <img src="screenshots/dashboard.jpg" width="1400" height="850" loading="lazy"
-               alt="The dashboard: an exams card with a midterm two weeks out, the new topics and reviews it puts on today and the day new topics give way to review, then four figure tiles for due today, percent correct, concepts to work on and concepts not started, and a list of the concepts whose last answer was wrong with their lecture and slides.">
+               alt="The dashboard: a midterm 14 days out, the new topics and reviews it puts on today and the day new topics give way to review, then four figures for due today, percent correct, concepts to work on and concepts not started, and a list of the concepts whose last answer was wrong with their lecture and slides.">
         </div>
-        <figcaption>The schedule for one course: the exam that sets how many new topics today holds, where the course stands in tiles, and the concepts to work on next with the slides to reread.</figcaption>
+        <figcaption>The schedule for one course: the exam that sets how many new topics today holds, where the course stands in figures, and the concepts to work on next with the slides to reread.</figcaption>
       </figure>
       <figure>
         <div class="shot">
-          <img src="screenshots/eval.jpg" width="1400" height="850" loading="lazy"
-               alt="The evaluation page: three question checks over 31 labeled questions, passing 31, 30 and 29 of them, with the two questions that failed the clarity check listed under it, each naming its course and concept.">
+          <img src="screenshots/path.jpg" width="1400" height="850" loading="lazy"
+               alt="The lecture path on the dashboard: 10 of 248 topics started, then each lecture with its icon, its topic count, how its topics stand and a bar, with a Pick up here flag on the first.">
         </div>
-        <figcaption>The evaluation page in the app, reporting the same checks over the same 31 labeled questions and listing the ones each check failed, linked to their cards in the bank.</figcaption>
+        <figcaption>Every lecture on one path, each with a bar of how its topics stand and a link to the concepts themselves. &ldquo;Pick up here&rdquo; marks the first lecture with something to work on.</figcaption>
       </figure>
     </div>
   </section>
 
   <section id="built">
     <h2>How it is built</h2>
-    <p class="lede">A Spring Boot API over Postgres, a React and TypeScript frontend, and the Anthropic Claude API for both generation and grading.</p>
+    <p class="lede">A Spring Boot API over Postgres, a React and TypeScript frontend, and the Anthropic Claude API: Opus 5.5 writes the questions and Sonnet 5.5 grades the answers.</p>
     <ul class="stack-list" role="list">
       <li class="chip">Java 21</li>
       <li class="chip">Spring Boot</li>
@@ -368,7 +371,7 @@
       <li class="chip">Docker Compose</li>
       <li class="chip">GitHub Actions</li>
     </ul>
-    <p class="lede" style="margin-top: 26px;">Continuous integration runs three jobs on every pull request and on pushes to the main branches: the backend suite, a JPA suite against a real Postgres service container, and the frontend. The default backend and frontend suites are hermetic, needing neither a database nor an API key.</p>
+    <p class="lede" style="margin-top: 26px;">Continuous integration runs four jobs on every pull request and on pushes to the main branches: the backend suite, a JPA suite against a real Postgres service container, the frontend, and a Docker image build that starts the app against Postgres and checks the page, sign-in and invite-gated sign-up. The default backend and frontend suites are hermetic, needing neither a database nor an API key.</p>
   </section>
 
   <section id="limits">
@@ -377,8 +380,8 @@
       <ul role="list">
         <li>Accounts exist. Sign-up needs an invite code when the demo sets one, and each account owns only its own courses. A forgotten password is reset from the sign-in form (no email; the token stays in that browser visit).</li>
         <li>This page is published here from <code>site/</code>. A public live demo is at <a href="https://study-os-7o9j.onrender.com">study-os-7o9j.onrender.com</a> (invite code required). Steps to deploy your own copy on Render with Neon Postgres are in <a href="https://github.com/Bryancruzcb/study-os/blob/master/docs/DEPLOY.md">docs/DEPLOY.md</a>.</li>
-        <li>Upload returns once the file is stored; extraction runs in the background and the bank polls until the lecture is ready or failed. A lecture can be deleted, and uploading again under the same filename replaces it.</li>
-        <li>Uploads must be PDFs; anything else is refused on its first bytes. Files are capped at 32&nbsp;MB. Quiz progress is saved on the account for that course. Exam pacing counts topics, not how long they take.</li>
+        <li>Upload returns once the file is stored; extraction runs in the background and the app keeps checking until the lecture is ready or failed, even after leaving the page. A lecture can be deleted, and uploading again under the same filename replaces it.</li>
+        <li>Uploads can be PDF, PowerPoint, Word, images, web pages or plain text, and each becomes a PDF before Claude sees it. A format it cannot read is refused on its first bytes. Files are capped at 32&nbsp;MB. Quiz progress is saved on the account for that course. Exam pacing counts topics, not how long they take.</li>
       </ul>
     </div>
   </section>
