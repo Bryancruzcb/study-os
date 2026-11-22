@@ -241,7 +241,7 @@ Claude call each, in the background. Set `TITLE_BACKFILL=false` to skip it.
     mvn -f backend/pom.xml test
     cd frontend && npm install && npm test
 
-262 backend tests and 332 frontend tests. Neither suite calls the Claude API or needs a
+267 backend tests and 332 frontend tests. Neither suite calls the Claude API or needs a
 database, so no key is needed to run them.
 
 Three suites are deliberately not in that number. `PersistenceTest` (17 tests),

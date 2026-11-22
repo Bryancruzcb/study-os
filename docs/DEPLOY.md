@@ -36,13 +36,28 @@ without breaking your local copy.
 3. Create an API key inside that workspace. Copy it now, because the Console shows it once.
 
 Ingesting a lecture and generating more questions use `claude-opus-5-5`. Grading short
-answers and naming lectures use `claude-sonnet-5-5`, which costs half as much per token.
-On the older `claude-opus-5`, with 2 to 4 questions per concept, ingesting a 50-page deck
-cost about $0.80 and grading one short answer about $0.04. Ingesting now asks for 4 to 6
-questions per concept, so it writes more at a 20% lower price per token: expect about $0.85
-to $1.10 a deck. Grading should drop to about $0.02. Those figures are estimates from list
-prices, not measurements. Every account spends from this one key, so the spend limit covers
-all of them together.
+answers, and naming lectures uploaded before titles existed, use `claude-sonnet-5-5`, which
+costs half as much per token.
+
+The server logs the tokens each call was billed for. One upload was measured on 2026-11-21:
+a 56-page deck used 94,791 input and 17,144 output tokens for 7 concepts and 34 questions,
+which works out to $0.72. Grading one short answer used 786 input and 123 output tokens, or
+$0.003. The dollar figures are those token counts at list prices: $4 and $20 per million
+input and output tokens for `claude-opus-5-5`, $2 and $10 for `claude-sonnet-5-5`. They
+come from one deck and one answer, so read them as a guide. A deck's input grows with its
+page count, at about 1,700 tokens a page here. Its output grows with how many questions the
+slides support, and it includes the model's thinking, which varies from run to run. Every
+account spends from this one key, so the spend limit covers all of them together.
+
+To see what a call really cost, read the server log (the **Logs** tab on Render). Every
+Claude call writes one line with the tokens it was billed for:
+
+    claude usage call=extract model=claude-opus-5-5 input_tokens=... output_tokens=... cache_write_tokens=... cache_read_tokens=... stop_reason=end_turn
+
+`call` is `extract` for an upload, `generateMore`, `grade` or `nameLecture`. Multiply each
+count by that model's current price per million tokens, divide by a million, and add them
+up. A call that fails before its response is complete writes no line, so the log can come
+in under the bill.
 
 To change a model without a code change, set `APP_MODEL_GENERATION` or `APP_MODEL_GRADING`
 on the Render service.
