@@ -17,10 +17,14 @@ import com.anthropic.models.messages.TextBlockParam;
 import com.studyos.config.AppModelProps;
 import java.util.Base64;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 @Component
 public class AnthropicAiClient implements AiClient {
+
+    private static final Logger log = LoggerFactory.getLogger(AnthropicAiClient.class);
 
     // A lecture's questions come with their explanations, which roughly doubles the output and
     // shares the budget with thinking. The model's full output allowance is only safe streamed:
@@ -90,6 +94,7 @@ public class AnthropicAiClient implements AiClient {
             try (StreamResponse<RawMessageStreamEvent> stream = client.messages().createStreaming(params)) {
                 stream.stream().forEach(accumulator::accumulate);
             }
+            logUsage("extract", accumulator.message());
             requireFinished(accumulator.message());
             return accumulator.message(IngestPayload.class).content().stream()
                 .flatMap(cb -> cb.text().stream())
@@ -100,6 +105,18 @@ public class AnthropicAiClient implements AiClient {
             throw e;
         } catch (Exception e) {
             throw new AiException("extraction failed: " + e.getMessage(), e);
+        }
+    }
+
+    // Logged before the stop reason is checked, because a response that was cut off or declined
+    // is billed too. The call is already paid for by then, so failing to read its counts must
+    // not fail it. A call that throws before its response is complete, such as a stream that
+    // drops partway, logs no line, so the log can undercount a failed call.
+    private static void logUsage(String call, Message message) {
+        try {
+            log.info("{}", TokenUsageLine.of(call, message));
+        } catch (RuntimeException e) {
+            log.warn("claude usage call={} could not be read", call, e);
         }
     }
 
@@ -181,6 +198,7 @@ public class AnthropicAiClient implements AiClient {
             try (StreamResponse<RawMessageStreamEvent> stream = client.messages().createStreaming(params)) {
                 stream.stream().forEach(accumulator::accumulate);
             }
+            logUsage("generateMore", accumulator.message());
             requireFinished(accumulator.message());
             return accumulator.message(GeneratePayload.class).content().stream()
                 .flatMap(cb -> cb.text().stream())
@@ -215,6 +233,7 @@ public class AnthropicAiClient implements AiClient {
             // A decline can arrive after a complete-looking JSON object, which would otherwise be
             // stored as a real verdict. GradingService turns this exception into PENDING.
             StructuredMessage<GradePayload> response = client.messages().create(params);
+            logUsage("grade", response.rawMessage());
             requireFinished(response.rawMessage(),
                 "grading ran past the output limit",
                 "Claude declined to grade this answer");
@@ -254,6 +273,7 @@ public class AnthropicAiClient implements AiClient {
                 .addUserMessage(prompt)
                 .build();
             StructuredMessage<TitlePayload> response = client.messages().create(params);
+            logUsage("nameLecture", response.rawMessage());
             requireFinished(response.rawMessage(),
                 "the lecture title ran past the output limit",
                 "Claude declined to name this lecture");
